@@ -18,7 +18,8 @@ jobs:
         with: {fetch-depth: 0} # semantic-release needs full history
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22', cache: 'pnpm'}
+        # Node 24's npm 11: the plugin runs whatever `npm` is on PATH, and npm 10 can't publish via OIDC.
+        with: {node-version: '24', cache: 'pnpm'}
       - run: pnpm install --frozen-lockfile
       # A red build or suite publishes nothing.
       - run: pnpm build
