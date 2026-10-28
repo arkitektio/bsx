@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import {act, createRoot, extend} from '@react-three/fiber';
 import {afterEach, describe, expect, it} from 'vitest';
 import {BlokRuntimeProvider, createBlokRuntimeStore} from '../../runtime';
-import {AnimateBlok} from './bindings';
+import {AnimateRender} from './bindings';
 import {createSceneStore, ModelProvider, SceneStoreProvider, type ModelContextValue} from './context';
 
 extend(THREE as unknown as Parameters<typeof extend>[0]);
@@ -39,7 +39,7 @@ describe('Animate', () => {
     await root.configure({gl: renderer, frameloop: 'never', size: {width: 100, height: 100, top: 0, left: 0}});
     unmount = () => root.unmount();
     const runtime = createBlokRuntimeStore();
-    const Animate = AnimateBlok.render as React.ComponentType<{component: unknown}>;
+    const Animate = AnimateRender as React.ComponentType<{component: unknown}>;
     const at = (progress: number) => ({
       id: 'animate',
       component: 'Animate',

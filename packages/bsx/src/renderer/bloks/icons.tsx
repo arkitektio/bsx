@@ -122,19 +122,21 @@ import {
   ZoomOut,
   type LucideIcon,
 } from 'lucide-react';
-import * as z from 'zod';
-import {createBlokComponent, useBlok, useValue} from '../runtime';
-import {classNameSchema, numberSchema} from './shared';
+import type {BlokIconName, iconContracts} from '../../catalogs/parts/icons';
+import {useBlok, useValue, type BlokRender} from '../runtime';
+
+type Contracts = typeof iconContracts;
 
 /**
  * The icons a blok payload may name.
  *
  * Deliberately an explicit allowlist rather than a dynamic lookup over
  * `lucide-react`: the named imports are what makes the bundle carry only these
- * ~120 glyphs instead of the whole icon set, and the enum derived from the keys
- * is what tells an author (via the registered catalog) which names exist.
+ * ~120 glyphs instead of the whole icon set. The names are the contract's
+ * (`ICON_NAMES` in `catalogs/parts/icons.ts`, which tells an author which
+ * names exist); the map is typed against them, so the two cannot drift.
  *
- * Adding an icon means adding the import and the entry — both in this file.
+ * Adding an icon means adding the name there and the import and entry here.
  */
 export const BLOK_ICONS = {
   activity: Activity,
@@ -258,16 +260,7 @@ export const BLOK_ICONS = {
   zap: Zap,
   'zoom-in': ZoomIn,
   'zoom-out': ZoomOut,
-} as const satisfies Record<string, LucideIcon>;
-
-export type BlokIconName = keyof typeof BLOK_ICONS;
-
-const ICON_NAMES = Object.keys(BLOK_ICONS) as [BlokIconName, ...BlokIconName[]];
-
-export const iconNameSchema = z
-  .enum(ICON_NAMES)
-  .optional()
-  .describe(`Icon name. One of: ${ICON_NAMES.join(', ')}.`);
+} as const satisfies Record<BlokIconName, LucideIcon>;
 
 /** Renders an icon prop inline, or nothing when the name is absent/unknown. */
 export const renderIcon = (name: unknown, className?: string) => {
@@ -279,18 +272,7 @@ export const renderIcon = (name: unknown, className?: string) => {
   return <IconComponent className={className ?? 'size-4'} />;
 };
 
-export const Icon = createBlokComponent(
-  {
-    name: 'Icon',
-    schema: z
-      .object({
-        name: iconNameSchema,
-        size: numberSchema.describe('Pixel size. Defaults to the surrounding text size.'),
-        className: classNameSchema,
-      })
-      .describe('A lucide icon.'),
-  },
-  ({component, schema}) => {
+const IconRender: BlokRender<Contracts['Icon']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const name = useValue(blok.name);
     const size = useValue(blok.size);
@@ -302,7 +284,8 @@ export const Icon = createBlokComponent(
 
     const IconComponent = BLOK_ICONS[name];
     return <IconComponent size={size} className={className ?? (size ? undefined : 'size-4')} />;
-  },
-);
+};
 
-export const iconBlokComponents = [Icon];
+export const iconRenders = {
+  Icon: IconRender,
+};

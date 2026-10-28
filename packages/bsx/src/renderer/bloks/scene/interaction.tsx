@@ -1,56 +1,28 @@
 import * as React from 'react';
 import type * as THREE from 'three';
-import * as z from 'zod';
+import {onClickSchema, popoutSchema, type sceneContracts} from '../../../catalogs/parts/scene';
 import {
   BlokRuntimeProvider,
   BlokScopeProvider,
   BlokTreeProvider,
-  createBlokComponent,
   useBlok,
   useBlokRuntimeStoreApi,
   useBlokScope,
   useBlokTree,
   useEventAction,
   useValue,
+  type BlokRender,
 } from '../../runtime';
-import {actionProp, describedString} from '../shared/schemas';
 import {useModel, useSceneNotice, useSceneOverlay, useSceneStoreApi} from './context';
 import {useBlokSceneHost} from './host';
 import {useBlokTray} from '../run/host';
 
-const nodeProp = describedString('The name of the node in the enclosing model; the whole model when unset.');
-
-/** Under a model, or under an action overlay's `At` (the anchored device's model). */
-const IN_MODEL_OR_AT = {context: 'scene', downstreamOf: ['Model', 'Robot', 'Anchor']} as const;
-const titleProp = describedString('The heading of the card; it shows the node name when unset.');
-const descriptionProp = describedString('A line under the heading of the card.');
+type Contracts = typeof sceneContracts;
 
 /** The clicked spot, kept in the node's own coordinates so the card points at it while the node moves. */
 const localPoint = (node: THREE.Object3D, world: THREE.Vector3): THREE.Vector3 => node.worldToLocal(world.clone());
 
-const onClickSchema = z
-  .object({
-    node: nodeProp,
-    onClick: actionProp(
-      'Called when the node is clicked (not when a drag of the view ends on it). Arguments may read event.node and event.point ([x, y, z] in meters, where it was hit).',
-    ),
-    open: describedString('The name of an html blok to show when the node is clicked.'),
-    title: titleProp,
-    description: descriptionProp,
-    mode: z
-      .enum(['popout', 'panel'])
-      .optional()
-      .describe(
-        'Where the opened blok shows: "popout" as a card on the clicked spot (the viewer can drag it aside), "panel" beside the scene. Defaults to popout.',
-      ),
-  })
-  .describe(
-    'Makes a node and everything beneath it clickable, with a highlight on hover. A click runs an action, opens a blok, or both; a second click closes it, and opening one card closes the others that are not pinned.',
-  );
-
-export const OnClickBlok = createBlokComponent(
-  {name: 'OnClick', placement: IN_MODEL_OR_AT, schema: onClickSchema},
-  ({component}) => {
+export const OnClickRender: BlokRender<Contracts['OnClick']> = ({component}) => {
     const blok = useBlok(component, onClickSchema);
     const model = useModel();
     const host = useBlokSceneHost();
@@ -102,32 +74,9 @@ export const OnClickBlok = createBlokComponent(
       onDismiss: close,
     });
     return null;
-  },
-);
+};
 
-const popoutSchema = z
-  .object({
-    node: nodeProp,
-    trigger: z
-      .enum(['click', 'hover', 'always'])
-      .optional()
-      .describe('What shows the card: a click on the node, the pointer over it, or always. Defaults to click.'),
-    open: z.boolean().optional().describe('Whether the card shows. When bound it decides alone and trigger is ignored.'),
-    title: titleProp,
-    description: descriptionProp,
-  })
-  .describe(
-    'An HTML card anchored to a node that follows it as it moves; the viewer can drag it aside, and a line keeps pointing at the node. Its children are ordinary html components.',
-  );
-
-export const PopoutBlok = createBlokComponent(
-  {
-    name: 'Popout',
-    acceptsChildren: true,
-    placement: {...IN_MODEL_OR_AT, childrenContext: 'html'},
-    schema: popoutSchema,
-  },
-  ({component, buildChild}) => {
+export const PopoutRender: BlokRender<Contracts['Popout']> = ({component, buildChild}) => {
     const blok = useBlok(component, popoutSchema);
     const model = useModel();
     const name = useValue(blok.node);
@@ -208,5 +157,4 @@ export const PopoutBlok = createBlokComponent(
       onDismiss: close,
     });
     return null;
-  },
-);
+};

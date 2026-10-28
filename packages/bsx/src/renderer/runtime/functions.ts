@@ -42,28 +42,3 @@ export const extendBlokCatalog = (
   }
   return {...createBlokCatalog(id, [...base.components.values(), ...components]), base};
 };
-
-export const mergeBlokCatalogs = (id: string, catalogs: ReadonlyArray<BlokCatalog>): BlokCatalog =>
-  createBlokCatalog(
-    id,
-    catalogs.flatMap(catalog => [...catalog.components.values()]),
-  );
-
-export type BlokCatalogManifest = {
-  id: string;
-  components: Array<{name: string; props: string[]}>;
-};
-
-/**
- * Serializable description of what a catalog offers: its components and their
- * props, what an authoring UI needs to complete component names.
- */
-export const describeBlokCatalog = (catalog: BlokCatalog): BlokCatalogManifest => ({
-  id: catalog.id,
-  components: [...catalog.components.values()]
-    .map(component => ({
-      name: component.name,
-      props: Object.keys(component.schema.shape).sort(),
-    }))
-    .sort((left, right) => left.name.localeCompare(right.name)),
-});

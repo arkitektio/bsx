@@ -43,6 +43,9 @@ export type BlokComponentPlacement = {
 /** Props the server holds to more than their shape: an `ASSET` prop names a file its app registered. */
 export type BlokPropKind = 'ASSET';
 
+/** A field of what a callback is called with (`event.value`), as the spec publishes it. */
+export type BlokEventField = {key: string; kind: string; description: string};
+
 type BlokComponentApi = {
   /** Set when the component renders declared children its schema has no `children` prop for. */
   acceptsChildren?: boolean;
@@ -54,12 +57,33 @@ type BlokComponentApi = {
    * node binds the same path, since only one may write it.
    */
   writesRecordTo?: string;
+  /** The prop text children fill (`<Button>Grip</Button>` sets `label`). */
+  textProp?: string;
+  /** Per callback prop, the fields of the event it is called with (`[]`: none). */
+  events?: Readonly<Record<string, readonly BlokEventField[]>>;
+  /**
+   * Per `bind` prop, the kind of value the control writes to the path it names
+   * (`Slider.bind` writes a FLOAT): what the spec publishes as the prop's kind,
+   * where the schema itself only says "a path".
+   */
+  bindKinds?: Readonly<Record<string, string>>;
+};
+
+/**
+ * One component of a catalog contract: what it takes (`schema`, whose
+ * `.describe()` strings are the published documentation) and where it may sit.
+ * Nothing about how it is drawn: that is an implementation's.
+ */
+export type BlokComponentContract<TSchema extends BlokObjectSchema = BlokObjectSchema> = BlokComponentApi & {
+  schema: TSchema;
 };
 
 export type BlokComponentDefinition = BlokComponentApi & {
   name: string;
   schema: BlokObjectSchema;
   render: React.ComponentType<BlokRenderArgs>;
+  /** The catalog contract it implements (`ui@1`, `newswitch`); unset for one built on its own. */
+  origin?: string;
 };
 
 export const createBlokComponent = <TSchema extends BlokObjectSchema>(
@@ -72,6 +96,9 @@ export const createBlokComponent = <TSchema extends BlokObjectSchema>(
   placement: api.placement,
   propKinds: api.propKinds,
   writesRecordTo: api.writesRecordTo,
+  textProp: api.textProp,
+  events: api.events,
+  bindKinds: api.bindKinds,
   render: render as React.ComponentType<BlokRenderArgs>,
 });
 

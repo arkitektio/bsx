@@ -20,6 +20,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./catalogs": {
+      "types": "./dist/catalogs.d.ts",
+      "default": "./dist/catalogs.js"
+    },
     "./runtime": {
       "types": "./dist/runtime.d.ts",
       "default": "./dist/runtime.js"
@@ -27,6 +31,10 @@
     "./web": {
       "types": "./dist/web.d.ts",
       "default": "./dist/web.js"
+    },
+    "./shadcn": {
+      "types": "./dist/shadcn.d.ts",
+      "default": "./dist/shadcn.js"
     },
     "./scene": {
       "types": "./dist/scene.d.ts",
@@ -51,7 +59,8 @@
     "theme": "node scripts/embed-theme.mjs",
     "build": "node scripts/embed-theme.mjs && tsc -p tsconfig.build.json && node scripts/finish-build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "spec:export": "node scripts/export-spec.mjs"
   },
   "peerDependencies": {
     "@monaco-editor/react": "^4.7.0",

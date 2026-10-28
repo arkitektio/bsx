@@ -32,7 +32,7 @@ describe('the synced vocabulary', () => {
     expect(vocabulary.callKinds).not.toContain('query_refetch');
     expect(vocabulary.records.query.fields.map(field => field.key)).toContain('fetching_more');
     expect(Object.keys(vocabulary.theme.dataAttributes).sort()).toEqual(['busy', 'stale']);
-    expect(vocabulary.catalogs).toEqual({ui: 1, scene: 1, logo: 1, structure: 1, html: 1});
+    expect(vocabulary.catalogs).toEqual({ui: 1, scene: 1, logo: 1, structure: 1, html: 1, shadcn: 1});
     expect(vocabulary.baseVersion).toBe(2);
   });
 

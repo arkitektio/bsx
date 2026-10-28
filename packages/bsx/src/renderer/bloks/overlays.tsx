@@ -71,31 +71,17 @@ import {
   TooltipContent as ShadTooltipContent,
   TooltipTrigger as ShadTooltipTrigger,
 } from '../../vendor/core/ui/tooltip';
-import * as z from 'zod';
+import type {overlayContracts} from '../../catalogs/parts/overlays';
+import {useAction, useBlok, useEventAction, useValue, type BlokRender} from '../runtime';
+import {renderIcon} from './icons';
 import {
-  BlokPropSchemas,
-  createBlokComponent,
-  useAction,
-  useBlok,
-  useEventAction,
-  useValue,
-} from '../runtime';
-import {iconNameSchema, renderIcon} from './icons';
-import {
-  actionProp,
-  alignmentSchema,
   asBoolean,
-  bindSchema,
-  boolSchema,
-  childListSchema,
-  classNameSchema,
-  contentSchema,
-  disabledSchema,
   renderChildList,
   renderContent,
-  sideSchema,
   useControlledValue,
 } from './shared';
+
+type Contracts = typeof overlayContracts;
 
 /**
  * Overlay surfaces: dialogs, sheets, popovers, tooltips and menus.
@@ -120,20 +106,9 @@ type OverlayRootComponent = React.ComponentType<{
  * Open/closed state follows the same rules as a form control's value: `open`
  * wins, then a `bind` path, and with neither the surface keeps its own state.
  */
-const createOverlayRoot = (name: string, Root: OverlayRootComponent, description: string) =>
-  createBlokComponent(
-    {
-      name,
-      schema: z
-        .object({
-          children: childListSchema.describe('The trigger and content parts of this overlay.'),
-          open: BlokPropSchemas.DynamicBoolean.optional().describe('Controlled open state.'),
-          defaultOpen: boolSchema.describe('Open on mount when uncontrolled.'),
-          onOpenChange: actionProp('Runs when the surface opens or closes. May read event.value.'),
-        })
-        .describe(description),
-    },
-    ({buildChild, component, schema}) => {
+const overlayRootRender =
+  (Root: OverlayRootComponent): BlokRender<Contracts['Dialog']> =>
+  ({buildChild, component, schema}) => {
       const blok = useBlok(component, schema);
       const children = useValue(blok.children);
       // Interaction state is the component's own (v2: no `bind` on a stateful component).
@@ -161,8 +136,7 @@ const createOverlayRoot = (name: string, Root: OverlayRootComponent, description
           {renderChildList(children, buildChild)}
         </Root>
       );
-    },
-  );
+  };
 
 type TriggerComponent = React.ComponentType<{
   className?: string;
@@ -170,21 +144,9 @@ type TriggerComponent = React.ComponentType<{
   children?: React.ReactNode;
 }>;
 
-const createTriggerBlok = (name: string, Trigger: TriggerComponent, description: string) =>
-  createBlokComponent(
-    {
-      name,
-      schema: z
-        .object({
-          label: BlokPropSchemas.DynamicString.optional().describe('Trigger text.'),
-          icon: iconNameSchema.describe('Icon rendered before the label.'),
-          children: contentSchema,
-          disabled: disabledSchema,
-          className: classNameSchema,
-        })
-        .describe(description),
-    },
-    ({buildChild, component, schema}) => {
+const triggerRender =
+  (Trigger: TriggerComponent): BlokRender<Contracts['DialogTrigger']> =>
+  ({buildChild, component, schema}) => {
       const blok = useBlok(component, schema);
       const label = useValue(blok.label);
       const icon = useValue(blok.icon);
@@ -198,8 +160,7 @@ const createTriggerBlok = (name: string, Trigger: TriggerComponent, description:
           {renderContent(children ?? label, buildChild)}
         </Trigger>
       );
-    },
-  );
+  };
 
 type PanelComponent = React.ComponentType<{
   className?: string;
@@ -207,25 +168,15 @@ type PanelComponent = React.ComponentType<{
 }>;
 
 /** A part that is just "a styled box of children" — headers, footers, bodies. */
-const createPanelBlok = (name: string, Panel: PanelComponent, description: string) =>
-  createBlokComponent(
-    {
-      name,
-      schema: z
-        .object({
-          children: childListSchema,
-          className: classNameSchema,
-        })
-        .describe(description),
-    },
-    ({buildChild, component, schema}) => {
+const panelRender =
+  (Panel: PanelComponent): BlokRender<Contracts['DialogHeader']> =>
+  ({buildChild, component, schema}) => {
       const blok = useBlok(component, schema);
       const children = useValue(blok.children);
       const className = useValue(blok.className);
 
       return <Panel className={className}>{renderChildList(children, buildChild)}</Panel>;
-    },
-  );
+  };
 
 type TextPartComponent = React.ComponentType<{
   className?: string;
@@ -233,50 +184,22 @@ type TextPartComponent = React.ComponentType<{
 }>;
 
 /** A part that carries a single line of text — titles and descriptions. */
-const createTextPartBlok = (name: string, Part: TextPartComponent, description: string) =>
-  createBlokComponent(
-    {
-      name,
-      schema: z
-        .object({
-          text: BlokPropSchemas.DynamicString.optional().describe('The text to render.'),
-          children: contentSchema,
-          className: classNameSchema,
-        })
-        .describe(description),
-    },
-    ({buildChild, component, schema}) => {
+const textPartRender =
+  (Part: TextPartComponent): BlokRender<Contracts['DialogTitle']> =>
+  ({buildChild, component, schema}) => {
       const blok = useBlok(component, schema);
       const text = useValue(blok.text);
       const children = useValue(blok.children);
       const className = useValue(blok.className);
 
       return <Part className={className}>{renderContent(children ?? text, buildChild)}</Part>;
-    },
-  );
+  };
 
 /* -------------------------------------------------------------------------- */
 /* Dialog                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export const Dialog = createOverlayRoot('Dialog', ShadDialog, 'A modal dialog.');
-export const DialogTrigger = createTriggerBlok(
-  'DialogTrigger',
-  ShadDialogTrigger,
-  'The control that opens a Dialog.',
-);
-export const DialogContent = createBlokComponent(
-  {
-    name: 'DialogContent',
-    schema: z
-      .object({
-        children: childListSchema,
-        showCloseButton: boolSchema.describe('Show the corner close button. Defaults to true.'),
-        className: classNameSchema,
-      })
-      .describe('The modal panel of a Dialog.'),
-  },
-  ({buildChild, component, schema}) => {
+const DialogContentRender: BlokRender<Contracts['DialogContent']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const showCloseButton = useValue(blok.showCloseButton);
@@ -287,85 +210,13 @@ export const DialogContent = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadDialogContent>
     );
-  },
-);
-export const DialogHeader = createPanelBlok(
-  'DialogHeader',
-  ShadDialogHeader,
-  'The header region of a DialogContent.',
-);
-export const DialogFooter = createPanelBlok(
-  'DialogFooter',
-  ShadDialogFooter,
-  'The footer region of a DialogContent.',
-);
-export const DialogTitle = createTextPartBlok(
-  'DialogTitle',
-  ShadDialogTitle,
-  'The accessible title of a Dialog.',
-);
-export const DialogDescription = createTextPartBlok(
-  'DialogDescription',
-  ShadDialogDescription,
-  'Supporting text under a DialogTitle.',
-);
-export const DialogClose = createTriggerBlok(
-  'DialogClose',
-  ShadDialogClose,
-  'A control that closes the surrounding Dialog.',
-);
+};
 
 /* -------------------------------------------------------------------------- */
 /* AlertDialog                                                                */
 /* -------------------------------------------------------------------------- */
 
-export const AlertDialog = createOverlayRoot(
-  'AlertDialog',
-  ShadAlertDialog,
-  'A modal dialog that interrupts to confirm a decision.',
-);
-export const AlertDialogTrigger = createTriggerBlok(
-  'AlertDialogTrigger',
-  ShadAlertDialogTrigger,
-  'The control that opens an AlertDialog.',
-);
-export const AlertDialogContent = createPanelBlok(
-  'AlertDialogContent',
-  ShadAlertDialogContent,
-  'The modal panel of an AlertDialog.',
-);
-export const AlertDialogHeader = createPanelBlok(
-  'AlertDialogHeader',
-  ShadAlertDialogHeader,
-  'The header region of an AlertDialogContent.',
-);
-export const AlertDialogFooter = createPanelBlok(
-  'AlertDialogFooter',
-  ShadAlertDialogFooter,
-  'The footer region of an AlertDialogContent.',
-);
-export const AlertDialogTitle = createTextPartBlok(
-  'AlertDialogTitle',
-  ShadAlertDialogTitle,
-  'The accessible title of an AlertDialog.',
-);
-export const AlertDialogDescription = createTextPartBlok(
-  'AlertDialogDescription',
-  ShadAlertDialogDescription,
-  'Supporting text under an AlertDialogTitle.',
-);
-export const AlertDialogAction = createBlokComponent(
-  {
-    name: 'AlertDialogAction',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Button text.'),
-        onClick: actionProp('Runs when the action is confirmed.'),
-        className: classNameSchema,
-      })
-      .describe('The confirming button of an AlertDialog; closes it when clicked.'),
-  },
-  ({component, schema}) => {
+const AlertDialogActionRender: BlokRender<Contracts['AlertDialogAction']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const onClick = useAction(blok.onClick);
@@ -376,50 +227,20 @@ export const AlertDialogAction = createBlokComponent(
         {label ?? 'Continue'}
       </ShadAlertDialogAction>
     );
-  },
-);
-export const AlertDialogCancel = createBlokComponent(
-  {
-    name: 'AlertDialogCancel',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Button text.'),
-        className: classNameSchema,
-      })
-      .describe('The dismissing button of an AlertDialog.'),
-  },
-  ({component, schema}) => {
+};
+const AlertDialogCancelRender: BlokRender<Contracts['AlertDialogCancel']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const className = useValue(blok.className);
 
     return <ShadAlertDialogCancel className={className}>{label ?? 'Cancel'}</ShadAlertDialogCancel>;
-  },
-);
+};
 
 /* -------------------------------------------------------------------------- */
 /* Sheet and Drawer                                                           */
 /* -------------------------------------------------------------------------- */
 
-export const Sheet = createOverlayRoot('Sheet', ShadSheet, 'A panel that slides in from an edge.');
-export const SheetTrigger = createTriggerBlok(
-  'SheetTrigger',
-  ShadSheetTrigger,
-  'The control that opens a Sheet.',
-);
-export const SheetContent = createBlokComponent(
-  {
-    name: 'SheetContent',
-    schema: z
-      .object({
-        children: childListSchema,
-        side: sideSchema,
-        showCloseButton: boolSchema.describe('Show the corner close button. Defaults to true.'),
-        className: classNameSchema,
-      })
-      .describe('The sliding panel of a Sheet.'),
-  },
-  ({buildChild, component, schema}) => {
+const SheetContentRender: BlokRender<Contracts['SheetContent']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const side = useValue(blok.side);
@@ -435,64 +256,7 @@ export const SheetContent = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadSheetContent>
     );
-  },
-);
-export const SheetHeader = createPanelBlok(
-  'SheetHeader',
-  ShadSheetHeader,
-  'The header region of a SheetContent.',
-);
-export const SheetFooter = createPanelBlok(
-  'SheetFooter',
-  ShadSheetFooter,
-  'The footer region of a SheetContent.',
-);
-export const SheetTitle = createTextPartBlok(
-  'SheetTitle',
-  ShadSheetTitle,
-  'The accessible title of a Sheet.',
-);
-export const SheetDescription = createTextPartBlok(
-  'SheetDescription',
-  ShadSheetDescription,
-  'Supporting text under a SheetTitle.',
-);
-
-export const Drawer = createOverlayRoot(
-  'Drawer',
-  ShadDrawer,
-  'A panel that slides up from the bottom edge.',
-);
-export const DrawerTrigger = createTriggerBlok(
-  'DrawerTrigger',
-  ShadDrawerTrigger,
-  'The control that opens a Drawer.',
-);
-export const DrawerContent = createPanelBlok(
-  'DrawerContent',
-  ShadDrawerContent,
-  'The sliding panel of a Drawer.',
-);
-export const DrawerHeader = createPanelBlok(
-  'DrawerHeader',
-  ShadDrawerHeader,
-  'The header region of a DrawerContent.',
-);
-export const DrawerFooter = createPanelBlok(
-  'DrawerFooter',
-  ShadDrawerFooter,
-  'The footer region of a DrawerContent.',
-);
-export const DrawerTitle = createTextPartBlok(
-  'DrawerTitle',
-  ShadDrawerTitle,
-  'The accessible title of a Drawer.',
-);
-export const DrawerDescription = createTextPartBlok(
-  'DrawerDescription',
-  ShadDrawerDescription,
-  'Supporting text under a DrawerTitle.',
-);
+};
 
 /* -------------------------------------------------------------------------- */
 /* Popover, Tooltip, HoverCard                                                */
@@ -507,25 +271,9 @@ type AnchoredContentComponent = React.ComponentType<{
   children?: React.ReactNode;
 }>;
 
-const createAnchoredContentBlok = (
-  name: string,
-  Content: AnchoredContentComponent,
-  description: string,
-) =>
-  createBlokComponent(
-    {
-      name,
-      schema: z
-        .object({
-          children: contentSchema,
-          side: sideSchema,
-          align: alignmentSchema,
-          sideOffset: z.number().optional().describe('Distance from the trigger, in pixels.'),
-          className: classNameSchema,
-        })
-        .describe(description),
-    },
-    ({buildChild, component, schema}) => {
+const anchoredContentRender =
+  (Content: AnchoredContentComponent): BlokRender<Contracts['PopoverContent']> =>
+  ({buildChild, component, schema}) => {
       const blok = useBlok(component, schema);
       const children = useValue(blok.children);
       const side = useValue(blok.side);
@@ -538,56 +286,7 @@ const createAnchoredContentBlok = (
           {renderContent(children, buildChild)}
         </Content>
       );
-    },
-  );
-
-export const Popover = createOverlayRoot(
-  'Popover',
-  ShadPopover,
-  'A surface anchored to a trigger, opened on click.',
-);
-export const PopoverTrigger = createTriggerBlok(
-  'PopoverTrigger',
-  ShadPopoverTrigger,
-  'The control that opens a Popover.',
-);
-export const PopoverContent = createAnchoredContentBlok(
-  'PopoverContent',
-  ShadPopoverContent,
-  'The floating panel of a Popover.',
-);
-
-export const Tooltip = createOverlayRoot(
-  'Tooltip',
-  ShadTooltip,
-  'A short hint shown on hover or focus.',
-);
-export const TooltipTrigger = createTriggerBlok(
-  'TooltipTrigger',
-  ShadTooltipTrigger,
-  'The element a Tooltip describes.',
-);
-export const TooltipContent = createAnchoredContentBlok(
-  'TooltipContent',
-  ShadTooltipContent,
-  'The hint shown by a Tooltip.',
-);
-
-export const HoverCard = createOverlayRoot(
-  'HoverCard',
-  ShadHoverCard,
-  'A rich preview surface shown on hover.',
-);
-export const HoverCardTrigger = createTriggerBlok(
-  'HoverCardTrigger',
-  ShadHoverCardTrigger,
-  'The element a HoverCard previews.',
-);
-export const HoverCardContent = createAnchoredContentBlok(
-  'HoverCardContent',
-  ShadHoverCardContent,
-  'The floating panel of a HoverCard.',
-);
+  };
 
 /* -------------------------------------------------------------------------- */
 /* Menus                                                                      */
@@ -601,26 +300,9 @@ type MenuItemComponent = React.ComponentType<{
   children?: React.ReactNode;
 }>;
 
-const createMenuItemBlok = (name: string, Item: MenuItemComponent, description: string) =>
-  createBlokComponent(
-    {
-      name,
-      schema: z
-        .object({
-          label: BlokPropSchemas.DynamicString.optional().describe('Item text.'),
-          icon: iconNameSchema.describe('Icon rendered before the label.'),
-          children: contentSchema,
-          onSelect: actionProp('Runs when the item is chosen.'),
-          variant: z
-            .enum(['default', 'destructive'])
-            .optional()
-            .describe('Item appearance.'),
-          disabled: disabledSchema,
-          className: classNameSchema,
-        })
-        .describe(description),
-    },
-    ({buildChild, component, schema}) => {
+const menuItemRender =
+  (Item: MenuItemComponent): BlokRender<Contracts['DropdownMenuItem']> =>
+  ({buildChild, component, schema}) => {
       const blok = useBlok(component, schema);
       const label = useValue(blok.label);
       const icon = useValue(blok.icon);
@@ -641,8 +323,7 @@ const createMenuItemBlok = (name: string, Item: MenuItemComponent, description: 
           {renderContent(children ?? label, buildChild)}
         </Item>
       );
-    },
-  );
+  };
 
 type MenuCheckboxItemComponent = React.ComponentType<{
   checked?: boolean;
@@ -652,26 +333,9 @@ type MenuCheckboxItemComponent = React.ComponentType<{
   children?: React.ReactNode;
 }>;
 
-const createMenuCheckboxItemBlok = (
-  name: string,
-  Item: MenuCheckboxItemComponent,
-  description: string,
-) =>
-  createBlokComponent(
-    {
-      name,
-      schema: z
-        .object({
-          label: BlokPropSchemas.DynamicString.optional().describe('Item text.'),
-          bind: bindSchema,
-          checked: BlokPropSchemas.DynamicBoolean.optional().describe('Controlled checked state.'),
-          disabled: disabledSchema,
-          className: classNameSchema,
-          onChange: actionProp('Runs on toggle. Arguments may read event.value.'),
-        })
-        .describe(description),
-    },
-    ({component, schema}) => {
+const menuCheckboxItemRender =
+  (Item: MenuCheckboxItemComponent): BlokRender<Contracts['DropdownMenuCheckboxItem']> =>
+  ({component, schema}) => {
       const blok = useBlok(component, schema);
       const label = useValue(blok.label);
       const bind = useValue(blok.bind);
@@ -701,69 +365,16 @@ const createMenuCheckboxItemBlok = (
           {label}
         </Item>
       );
-    },
-  );
+  };
 
-export const DropdownMenu = createOverlayRoot(
-  'DropdownMenu',
-  ShadDropdownMenu,
-  'A menu opened from a button.',
-);
-export const DropdownMenuTrigger = createTriggerBlok(
-  'DropdownMenuTrigger',
-  ShadDropdownMenuTrigger,
-  'The control that opens a DropdownMenu.',
-);
-export const DropdownMenuContent = createPanelBlok(
-  'DropdownMenuContent',
-  ShadDropdownMenuContent,
-  'The menu panel of a DropdownMenu.',
-);
-export const DropdownMenuLabel = createTextPartBlok(
-  'DropdownMenuLabel',
-  ShadDropdownMenuLabel,
-  'A non-interactive heading inside a menu.',
-);
-export const DropdownMenuItem = createMenuItemBlok(
-  'DropdownMenuItem',
-  ShadDropdownMenuItem,
-  'One selectable item in a DropdownMenu.',
-);
-export const DropdownMenuCheckboxItem = createMenuCheckboxItemBlok(
-  'DropdownMenuCheckboxItem',
-  ShadDropdownMenuCheckboxItem,
-  'A menu item bound to a boolean value.',
-);
-export const DropdownMenuSeparator = createBlokComponent(
-  {
-    name: 'DropdownMenuSeparator',
-    schema: z.object({className: classNameSchema}).describe('A divider between menu groups.'),
-  },
-  ({component, schema}) => {
+const DropdownMenuSeparatorRender: BlokRender<Contracts['DropdownMenuSeparator']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const className = useValue(blok.className);
 
     return <ShadDropdownMenuSeparator className={className} />;
-  },
-);
+};
 
-export const ContextMenu = createOverlayRoot(
-  'ContextMenu',
-  ShadContextMenu,
-  'A menu opened by right-clicking its trigger.',
-);
-export const ContextMenuTrigger = createBlokComponent(
-  {
-    name: 'ContextMenuTrigger',
-    schema: z
-      .object({
-        children: contentSchema,
-        disabled: disabledSchema,
-        className: classNameSchema,
-      })
-      .describe('The region that opens a ContextMenu on right-click.'),
-  },
-  ({buildChild, component, schema}) => {
+const ContextMenuTriggerRender: BlokRender<Contracts['ContextMenuTrigger']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const disabled = useValue(blok.disabled);
@@ -774,96 +385,67 @@ export const ContextMenuTrigger = createBlokComponent(
         {renderContent(children, buildChild)}
       </ShadContextMenuTrigger>
     );
-  },
-);
-export const ContextMenuContent = createPanelBlok(
-  'ContextMenuContent',
-  ShadContextMenuContent,
-  'The menu panel of a ContextMenu.',
-);
-export const ContextMenuLabel = createTextPartBlok(
-  'ContextMenuLabel',
-  ShadContextMenuLabel,
-  'A non-interactive heading inside a context menu.',
-);
-export const ContextMenuItem = createMenuItemBlok(
-  'ContextMenuItem',
-  ShadContextMenuItem,
-  'One selectable item in a ContextMenu.',
-);
-export const ContextMenuCheckboxItem = createMenuCheckboxItemBlok(
-  'ContextMenuCheckboxItem',
-  ShadContextMenuCheckboxItem,
-  'A context-menu item bound to a boolean value.',
-);
-export const ContextMenuSeparator = createBlokComponent(
-  {
-    name: 'ContextMenuSeparator',
-    schema: z
-      .object({className: classNameSchema})
-      .describe('A divider between context-menu groups.'),
-  },
-  ({component, schema}) => {
+};
+const ContextMenuSeparatorRender: BlokRender<Contracts['ContextMenuSeparator']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const className = useValue(blok.className);
 
     return <ShadContextMenuSeparator className={className} />;
-  },
-);
+};
 
-export const overlayBlokComponents = [
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogAction,
-  AlertDialogCancel,
-  Sheet,
-  SheetTrigger,
-  SheetContent,
-  SheetHeader,
-  SheetFooter,
-  SheetTitle,
-  SheetDescription,
-  Drawer,
-  DrawerTrigger,
-  DrawerContent,
-  DrawerHeader,
-  DrawerFooter,
-  DrawerTitle,
-  DrawerDescription,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  HoverCard,
-  HoverCardTrigger,
-  HoverCardContent,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuItem,
-  DropdownMenuCheckboxItem,
-  DropdownMenuSeparator,
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuLabel,
-  ContextMenuItem,
-  ContextMenuCheckboxItem,
-  ContextMenuSeparator,
-];
+export const overlayRenders = {
+  Dialog: overlayRootRender(ShadDialog),
+  DialogTrigger: triggerRender(ShadDialogTrigger),
+  DialogContent: DialogContentRender,
+  DialogHeader: panelRender(ShadDialogHeader),
+  DialogFooter: panelRender(ShadDialogFooter),
+  DialogTitle: textPartRender(ShadDialogTitle),
+  DialogDescription: textPartRender(ShadDialogDescription),
+  DialogClose: triggerRender(ShadDialogClose),
+  AlertDialog: overlayRootRender(ShadAlertDialog),
+  AlertDialogTrigger: triggerRender(ShadAlertDialogTrigger),
+  AlertDialogContent: panelRender(ShadAlertDialogContent),
+  AlertDialogHeader: panelRender(ShadAlertDialogHeader),
+  AlertDialogFooter: panelRender(ShadAlertDialogFooter),
+  AlertDialogTitle: textPartRender(ShadAlertDialogTitle),
+  AlertDialogDescription: textPartRender(ShadAlertDialogDescription),
+  AlertDialogAction: AlertDialogActionRender,
+  AlertDialogCancel: AlertDialogCancelRender,
+  Sheet: overlayRootRender(ShadSheet),
+  SheetTrigger: triggerRender(ShadSheetTrigger),
+  SheetContent: SheetContentRender,
+  SheetHeader: panelRender(ShadSheetHeader),
+  SheetFooter: panelRender(ShadSheetFooter),
+  SheetTitle: textPartRender(ShadSheetTitle),
+  SheetDescription: textPartRender(ShadSheetDescription),
+  Drawer: overlayRootRender(ShadDrawer),
+  DrawerTrigger: triggerRender(ShadDrawerTrigger),
+  DrawerContent: panelRender(ShadDrawerContent),
+  DrawerHeader: panelRender(ShadDrawerHeader),
+  DrawerFooter: panelRender(ShadDrawerFooter),
+  DrawerTitle: textPartRender(ShadDrawerTitle),
+  DrawerDescription: textPartRender(ShadDrawerDescription),
+  Popover: overlayRootRender(ShadPopover),
+  PopoverTrigger: triggerRender(ShadPopoverTrigger),
+  PopoverContent: anchoredContentRender(ShadPopoverContent),
+  Tooltip: overlayRootRender(ShadTooltip),
+  TooltipTrigger: triggerRender(ShadTooltipTrigger),
+  TooltipContent: anchoredContentRender(ShadTooltipContent),
+  HoverCard: overlayRootRender(ShadHoverCard),
+  HoverCardTrigger: triggerRender(ShadHoverCardTrigger),
+  HoverCardContent: anchoredContentRender(ShadHoverCardContent),
+  DropdownMenu: overlayRootRender(ShadDropdownMenu),
+  DropdownMenuTrigger: triggerRender(ShadDropdownMenuTrigger),
+  DropdownMenuContent: panelRender(ShadDropdownMenuContent),
+  DropdownMenuLabel: textPartRender(ShadDropdownMenuLabel),
+  DropdownMenuItem: menuItemRender(ShadDropdownMenuItem),
+  DropdownMenuCheckboxItem: menuCheckboxItemRender(ShadDropdownMenuCheckboxItem),
+  DropdownMenuSeparator: DropdownMenuSeparatorRender,
+  ContextMenu: overlayRootRender(ShadContextMenu),
+  ContextMenuTrigger: ContextMenuTriggerRender,
+  ContextMenuContent: panelRender(ShadContextMenuContent),
+  ContextMenuLabel: textPartRender(ShadContextMenuLabel),
+  ContextMenuItem: menuItemRender(ShadContextMenuItem),
+  ContextMenuCheckboxItem: menuCheckboxItemRender(ShadContextMenuCheckboxItem),
+  ContextMenuSeparator: ContextMenuSeparatorRender,
+};

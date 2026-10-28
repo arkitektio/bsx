@@ -14,7 +14,7 @@ import {
   textSizeSchema,
   textToneSchema,
   textWeightSchema,
-} from './schemas';
+} from '../../../catalogs/props';
 import {BlokPropSchemas} from '../../runtime';
 
 export type BaseLayoutProps = {

@@ -1,42 +1,32 @@
-import {dataBlokComponents} from './data';
-import {feedbackBlokComponents} from './feedback';
-import {formBlokComponents} from './forms';
-import {htmlBlokComponents} from './html';
-import {iconBlokComponents} from './icons';
-import {layoutBlokComponents} from './layout';
-import {navigationBlokComponents} from './navigation';
-import {overlayBlokComponents} from './overlays';
-import {toastBlokComponents} from './toast';
-import {typographyBlokComponents} from './typography';
+import {dataRenders} from './data';
+import {feedbackRenders} from './feedback';
+import {formRenders} from './forms';
+import {htmlRenders} from './html';
+import {iconRenders} from './icons';
+import {inspectorRenders} from './inspector/Inspector';
+import {layoutRenders} from './layout';
+import {logoRenders} from './logo';
+import {navigationRenders} from './navigation';
+import {overlayRenders} from './overlays';
+import {toastRenders} from './toast';
+import {typographyRenders} from './typography';
 
 /**
- * The shadcn/HTML half of the catalog.
- *
- * These used to live in one 1090-line `Primitives.tsx`; they are now grouped
- * by family, and this array is what `catalog.tsx` registers.
+ * The shadcn/HTML/SVG renders, by component name: what `@arkitektio/bsx/shadcn`
+ * implements ui@1, html@1, logo@1 and shadcn@1 with. Grouped by family as the
+ * contracts are (`catalogs/parts`).
  */
-export const shadcnComposableComponents = [
-  ...layoutBlokComponents,
-  ...typographyBlokComponents,
-  ...htmlBlokComponents,
-  ...formBlokComponents,
-  ...overlayBlokComponents,
-  ...navigationBlokComponents,
-  ...feedbackBlokComponents,
-  ...dataBlokComponents,
-  ...iconBlokComponents,
-  ...toastBlokComponents,
-];
-
-export {
-  dataBlokComponents,
-  feedbackBlokComponents,
-  formBlokComponents,
-  htmlBlokComponents,
-  iconBlokComponents,
-  layoutBlokComponents,
-  navigationBlokComponents,
-  overlayBlokComponents,
-  toastBlokComponents,
-  typographyBlokComponents,
+export const domRenders = {
+  ...layoutRenders,
+  ...typographyRenders,
+  ...htmlRenders,
+  ...formRenders,
+  ...overlayRenders,
+  ...navigationRenders,
+  ...feedbackRenders,
+  ...dataRenders,
+  ...iconRenders,
+  ...toastRenders,
+  ...inspectorRenders,
+  ...logoRenders,
 };

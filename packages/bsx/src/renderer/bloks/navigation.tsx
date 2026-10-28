@@ -40,30 +40,19 @@ import {
   TabsList as ShadTabsList,
   TabsTrigger as ShadTabsTrigger,
 } from '../../vendor/core/ui/tabs';
-import * as z from 'zod';
+import type {navigationContracts} from '../../catalogs/parts/navigation';
+import {useAction, useBlok, useEventAction, useValue, type BlokRender} from '../runtime';
+import {renderIcon} from './icons';
 import {
-  BlokPropSchemas,
-  createBlokComponent,
-  useAction,
-  useBlok,
-  useEventAction,
-  useValue,
-} from '../runtime';
-import {iconNameSchema, renderIcon} from './icons';
-import {
-  actionProp,
   asBoolean,
   asString,
   asStringList,
-  boolSchema,
-  childListSchema,
-  classNameSchema,
-  contentSchema,
-  disabledSchema,
   renderChildList,
   renderContent,
   useControlledValue,
 } from './shared';
+
+type Contracts = typeof navigationContracts;
 
 /**
  * Navigation and disclosure bloks.
@@ -73,20 +62,7 @@ import {
  * that works across `buildChild`, and why triggers are never `asChild`.
  */
 
-export const Tabs = createBlokComponent(
-  {
-    name: 'Tabs',
-    schema: z
-      .object({
-        children: childListSchema.describe('A TabsList plus one TabsContent per tab.'),
-        value: BlokPropSchemas.DynamicString.optional().describe('Controlled active tab.'),
-        defaultValue: BlokPropSchemas.DynamicString.optional().describe('Initially active tab.'),
-        className: classNameSchema,
-        onChange: actionProp('Runs when the active tab changes. May read event.value.'),
-      })
-      .describe('A tabbed surface.'),
-  },
-  ({buildChild, component, schema}) => {
+const TabsRender: BlokRender<Contracts['Tabs']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     // Interaction state is the component's own (v2: no `bind` on a stateful component).
@@ -116,20 +92,9 @@ export const Tabs = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadTabs>
     );
-  },
-);
+};
 
-export const TabsList = createBlokComponent(
-  {
-    name: 'TabsList',
-    schema: z
-      .object({
-        children: childListSchema.describe('TabsTrigger children.'),
-        className: classNameSchema,
-      })
-      .describe('The row of tab triggers.'),
-  },
-  ({buildChild, component, schema}) => {
+const TabsListRender: BlokRender<Contracts['TabsList']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const className = useValue(blok.className);
@@ -137,23 +102,9 @@ export const TabsList = createBlokComponent(
     return (
       <ShadTabsList className={className}>{renderChildList(children, buildChild)}</ShadTabsList>
     );
-  },
-);
+};
 
-export const TabsTrigger = createBlokComponent(
-  {
-    name: 'TabsTrigger',
-    schema: z
-      .object({
-        value: z.string().describe('The tab this trigger activates.'),
-        label: BlokPropSchemas.DynamicString.optional().describe('Trigger text.'),
-        icon: iconNameSchema.describe('Icon rendered before the label.'),
-        disabled: disabledSchema,
-        className: classNameSchema,
-      })
-      .describe('One tab in a TabsList.'),
-  },
-  ({component, schema}) => {
+const TabsTriggerRender: BlokRender<Contracts['TabsTrigger']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const value = useValue(blok.value);
     const label = useValue(blok.label);
@@ -167,21 +118,9 @@ export const TabsTrigger = createBlokComponent(
         {label ?? value}
       </ShadTabsTrigger>
     );
-  },
-);
+};
 
-export const TabsContent = createBlokComponent(
-  {
-    name: 'TabsContent',
-    schema: z
-      .object({
-        value: z.string().describe('The tab this panel belongs to.'),
-        children: childListSchema,
-        className: classNameSchema,
-      })
-      .describe('The panel shown for one tab.'),
-  },
-  ({buildChild, component, schema}) => {
+const TabsContentRender: BlokRender<Contracts['TabsContent']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const value = useValue(blok.value);
     const children = useValue(blok.children);
@@ -192,26 +131,9 @@ export const TabsContent = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadTabsContent>
     );
-  },
-);
+};
 
-export const Accordion = createBlokComponent(
-  {
-    name: 'Accordion',
-    schema: z
-      .object({
-        children: childListSchema.describe('AccordionItem children.'),
-        multiple: boolSchema.describe('Allow more than one section open at a time.'),
-        defaultValue: BlokPropSchemas.DynamicString.optional().describe('Initially open item.'),
-        collapsible: boolSchema.describe(
-          'Allow closing the open section in single mode. Defaults to true.',
-        ),
-        className: classNameSchema,
-        onChange: actionProp('Runs when the open sections change. May read event.value.'),
-      })
-      .describe('A stack of collapsible sections.'),
-  },
-  ({buildChild, component, schema}) => {
+const AccordionRender: BlokRender<Contracts['Accordion']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     // Interaction state is the component's own (v2: no `bind` on a stateful component).
@@ -267,22 +189,9 @@ export const Accordion = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadAccordion>
     );
-  },
-);
+};
 
-export const AccordionItem = createBlokComponent(
-  {
-    name: 'AccordionItem',
-    schema: z
-      .object({
-        value: z.string().describe('Identifies this section.'),
-        children: childListSchema.describe('An AccordionTrigger and an AccordionContent.'),
-        disabled: disabledSchema,
-        className: classNameSchema,
-      })
-      .describe('One section of an Accordion.'),
-  },
-  ({buildChild, component, schema}) => {
+const AccordionItemRender: BlokRender<Contracts['AccordionItem']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const value = useValue(blok.value);
     const children = useValue(blok.children);
@@ -294,22 +203,9 @@ export const AccordionItem = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadAccordionItem>
     );
-  },
-);
+};
 
-export const AccordionTrigger = createBlokComponent(
-  {
-    name: 'AccordionTrigger',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Section heading.'),
-        icon: iconNameSchema.describe('Icon rendered before the label.'),
-        children: contentSchema,
-        className: classNameSchema,
-      })
-      .describe('The clickable heading of an AccordionItem.'),
-  },
-  ({buildChild, component, schema}) => {
+const AccordionTriggerRender: BlokRender<Contracts['AccordionTrigger']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const icon = useValue(blok.icon);
@@ -322,20 +218,9 @@ export const AccordionTrigger = createBlokComponent(
         {renderContent(children ?? label, buildChild)}
       </ShadAccordionTrigger>
     );
-  },
-);
+};
 
-export const AccordionContent = createBlokComponent(
-  {
-    name: 'AccordionContent',
-    schema: z
-      .object({
-        children: childListSchema,
-        className: classNameSchema,
-      })
-      .describe('The body of an AccordionItem.'),
-  },
-  ({buildChild, component, schema}) => {
+const AccordionContentRender: BlokRender<Contracts['AccordionContent']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const className = useValue(blok.className);
@@ -345,23 +230,9 @@ export const AccordionContent = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadAccordionContent>
     );
-  },
-);
+};
 
-export const Collapsible = createBlokComponent(
-  {
-    name: 'Collapsible',
-    schema: z
-      .object({
-        children: childListSchema.describe('A CollapsibleTrigger and a CollapsibleContent.'),
-        open: BlokPropSchemas.DynamicBoolean.optional().describe('Controlled open state.'),
-        defaultOpen: boolSchema.describe('Open on mount when uncontrolled.'),
-        className: classNameSchema,
-        onChange: actionProp('Runs when it opens or closes. May read event.value.'),
-      })
-      .describe('A single region that can be shown or hidden.'),
-  },
-  ({buildChild, component, schema}) => {
+const CollapsibleRender: BlokRender<Contracts['Collapsible']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     // Interaction state is the component's own (v2: no `bind` on a stateful component).
@@ -391,22 +262,9 @@ export const Collapsible = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadCollapsible>
     );
-  },
-);
+};
 
-export const CollapsibleTrigger = createBlokComponent(
-  {
-    name: 'CollapsibleTrigger',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Trigger text.'),
-        icon: iconNameSchema.describe('Icon rendered before the label.'),
-        children: contentSchema,
-        className: classNameSchema,
-      })
-      .describe('The control that shows or hides a Collapsible.'),
-  },
-  ({buildChild, component, schema}) => {
+const CollapsibleTriggerRender: BlokRender<Contracts['CollapsibleTrigger']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const icon = useValue(blok.icon);
@@ -419,20 +277,9 @@ export const CollapsibleTrigger = createBlokComponent(
         {renderContent(children ?? label, buildChild)}
       </ShadCollapsibleTrigger>
     );
-  },
-);
+};
 
-export const CollapsibleContent = createBlokComponent(
-  {
-    name: 'CollapsibleContent',
-    schema: z
-      .object({
-        children: childListSchema,
-        className: classNameSchema,
-      })
-      .describe('The region a Collapsible shows or hides.'),
-  },
-  ({buildChild, component, schema}) => {
+const CollapsibleContentRender: BlokRender<Contracts['CollapsibleContent']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const className = useValue(blok.className);
@@ -442,20 +289,9 @@ export const CollapsibleContent = createBlokComponent(
         {renderChildList(children, buildChild)}
       </ShadCollapsibleContent>
     );
-  },
-);
+};
 
-export const Breadcrumb = createBlokComponent(
-  {
-    name: 'Breadcrumb',
-    schema: z
-      .object({
-        children: childListSchema.describe('BreadcrumbItem and BreadcrumbSeparator children.'),
-        className: classNameSchema,
-      })
-      .describe('A trail of links back up the hierarchy.'),
-  },
-  ({buildChild, component, schema}) => {
+const BreadcrumbRender: BlokRender<Contracts['Breadcrumb']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const className = useValue(blok.className);
@@ -465,23 +301,9 @@ export const Breadcrumb = createBlokComponent(
         <ShadBreadcrumbList>{renderChildList(children, buildChild)}</ShadBreadcrumbList>
       </ShadBreadcrumb>
     );
-  },
-);
+};
 
-export const BreadcrumbItem = createBlokComponent(
-  {
-    name: 'BreadcrumbItem',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Crumb text.'),
-        href: BlokPropSchemas.DynamicString.optional().describe('Link target.'),
-        current: boolSchema.describe('Render as the current page rather than a link.'),
-        onClick: actionProp('Runs when the crumb is clicked.'),
-        className: classNameSchema,
-      })
-      .describe('One crumb in a Breadcrumb.'),
-  },
-  ({component, schema}) => {
+const BreadcrumbItemRender: BlokRender<Contracts['BreadcrumbItem']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const href = useValue(blok.href);
@@ -500,33 +322,16 @@ export const BreadcrumbItem = createBlokComponent(
         )}
       </ShadBreadcrumbItem>
     );
-  },
-);
+};
 
-export const BreadcrumbSeparator = createBlokComponent(
-  {
-    name: 'BreadcrumbSeparator',
-    schema: z.object({className: classNameSchema}).describe('The divider between two crumbs.'),
-  },
-  ({component, schema}) => {
+const BreadcrumbSeparatorRender: BlokRender<Contracts['BreadcrumbSeparator']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const className = useValue(blok.className);
 
     return <ShadBreadcrumbSeparator className={className} />;
-  },
-);
+};
 
-export const Pagination = createBlokComponent(
-  {
-    name: 'Pagination',
-    schema: z
-      .object({
-        children: childListSchema.describe('PaginationItem children.'),
-        className: classNameSchema,
-      })
-      .describe('Page navigation controls.'),
-  },
-  ({buildChild, component, schema}) => {
+const PaginationRender: BlokRender<Contracts['Pagination']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const className = useValue(blok.className);
@@ -536,26 +341,9 @@ export const Pagination = createBlokComponent(
         <ShadPaginationContent>{renderChildList(children, buildChild)}</ShadPaginationContent>
       </ShadPagination>
     );
-  },
-);
+};
 
-export const PaginationItem = createBlokComponent(
-  {
-    name: 'PaginationItem',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Page label.'),
-        kind: z
-          .enum(['page', 'previous', 'next', 'ellipsis'])
-          .optional()
-          .describe('Which control this item is. Defaults to "page".'),
-        active: boolSchema.describe('Mark as the current page.'),
-        onClick: actionProp('Runs when the control is clicked.'),
-        className: classNameSchema,
-      })
-      .describe('One control inside a Pagination.'),
-  },
-  ({component, schema}) => {
+const PaginationItemRender: BlokRender<Contracts['PaginationItem']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const kind = useValue(blok.kind);
@@ -578,20 +366,9 @@ export const PaginationItem = createBlokComponent(
         )}
       </ShadPaginationItem>
     );
-  },
-);
+};
 
-export const Menubar = createBlokComponent(
-  {
-    name: 'Menubar',
-    schema: z
-      .object({
-        children: childListSchema.describe('MenubarMenu children.'),
-        className: classNameSchema,
-      })
-      .describe('A horizontal bar of menus.'),
-  },
-  ({buildChild, component, schema}) => {
+const MenubarRender: BlokRender<Contracts['Menubar']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const children = useValue(blok.children);
     const className = useValue(blok.className);
@@ -599,21 +376,9 @@ export const Menubar = createBlokComponent(
     return (
       <ShadMenubar className={className}>{renderChildList(children, buildChild)}</ShadMenubar>
     );
-  },
-);
+};
 
-export const MenubarMenu = createBlokComponent(
-  {
-    name: 'MenubarMenu',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Menu title in the bar.'),
-        children: childListSchema.describe('MenubarItem children.'),
-        className: classNameSchema,
-      })
-      .describe('One menu in a Menubar, with its trigger and items.'),
-  },
-  ({buildChild, component, schema}) => {
+const MenubarMenuRender: BlokRender<Contracts['MenubarMenu']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const children = useValue(blok.children);
@@ -625,23 +390,9 @@ export const MenubarMenu = createBlokComponent(
         <ShadMenubarContent>{renderChildList(children, buildChild)}</ShadMenubarContent>
       </ShadMenubarMenu>
     );
-  },
-);
+};
 
-export const MenubarItem = createBlokComponent(
-  {
-    name: 'MenubarItem',
-    schema: z
-      .object({
-        label: BlokPropSchemas.DynamicString.optional().describe('Item text.'),
-        icon: iconNameSchema.describe('Icon rendered before the label.'),
-        onSelect: actionProp('Runs when the item is chosen.'),
-        disabled: disabledSchema,
-        className: classNameSchema,
-      })
-      .describe('One item inside a MenubarMenu.'),
-  },
-  ({component, schema}) => {
+const MenubarItemRender: BlokRender<Contracts['MenubarItem']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const label = useValue(blok.label);
     const icon = useValue(blok.icon);
@@ -659,41 +410,34 @@ export const MenubarItem = createBlokComponent(
         {label}
       </ShadMenubarItem>
     );
-  },
-);
+};
 
-export const MenubarSeparator = createBlokComponent(
-  {
-    name: 'MenubarSeparator',
-    schema: z.object({className: classNameSchema}).describe('A divider between menu groups.'),
-  },
-  ({component, schema}) => {
+const MenubarSeparatorRender: BlokRender<Contracts['MenubarSeparator']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const className = useValue(blok.className);
 
     return <ShadMenubarSeparator className={className} />;
-  },
-);
+};
 
-export const navigationBlokComponents = [
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbSeparator,
-  Pagination,
-  PaginationItem,
-  Menubar,
-  MenubarMenu,
-  MenubarItem,
-  MenubarSeparator,
-];
+export const navigationRenders = {
+  Tabs: TabsRender,
+  TabsList: TabsListRender,
+  TabsTrigger: TabsTriggerRender,
+  TabsContent: TabsContentRender,
+  Accordion: AccordionRender,
+  AccordionItem: AccordionItemRender,
+  AccordionTrigger: AccordionTriggerRender,
+  AccordionContent: AccordionContentRender,
+  Collapsible: CollapsibleRender,
+  CollapsibleTrigger: CollapsibleTriggerRender,
+  CollapsibleContent: CollapsibleContentRender,
+  Breadcrumb: BreadcrumbRender,
+  BreadcrumbItem: BreadcrumbItemRender,
+  BreadcrumbSeparator: BreadcrumbSeparatorRender,
+  Pagination: PaginationRender,
+  PaginationItem: PaginationItemRender,
+  Menubar: MenubarRender,
+  MenubarMenu: MenubarMenuRender,
+  MenubarItem: MenubarItemRender,
+  MenubarSeparator: MenubarSeparatorRender,
+};

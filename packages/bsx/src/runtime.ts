@@ -5,5 +5,6 @@ export * from './renderer/declarations';
 export * from './renderer/persist';
 export * from './renderer/modules';
 export * from './renderer/baseCatalog';
+export * from './renderer/declare';
 export * from './cache/keyedStore';
 export * from './platform';

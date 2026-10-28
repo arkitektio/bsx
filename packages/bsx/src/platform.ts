@@ -20,8 +20,9 @@ import type {BlokCatalog} from './renderer/runtime/functions';
  *   reaches (an offscreen root drawing a logo); the package's standard one by default.
  * - `copyText`: puts text on the clipboard (`ui.copy`, `clipboard.copy`); the browser's by default.
  * - `keyedStore`: where kept locals and component state live; IndexedDB by default.
- * - `primitives`: how the runtime itself draws a node's error, a pending node and a
- *   locked one: DOM elements by default, a native app's own views elsewhere.
+ * - `primitives`: how the runtime itself draws a node's error, a pending node, a
+ *   locked one and a `suspense` body held hidden: DOM elements by default, a
+ *   native app's own views elsewhere.
  *
  * A function an effect calls (`ui.toast`) runs outside React, so this is a
  * module, not a context: one app, one platform.
@@ -44,6 +45,11 @@ export type BlokPrimitives = {
   Skeleton: React.ComponentType<{componentId: string}>;
   /** Wraps a node a held lock keeps from acting; `reason` says why. */
   Locked: React.ComponentType<{reason: string; children?: React.ReactNode}>;
+  /**
+   * Keeps `children` mounted but out of sight while `hidden` (a `suspense`
+   * body waiting on its reads), with no box of its own when shown.
+   */
+  Hidden: React.ComponentType<{hidden: boolean; children?: React.ReactNode}>;
 };
 
 export type BlokPlatform = {

@@ -1,6 +1,5 @@
-import {markBindSchema} from '../../runtime/schemas';
+import {BlokPropSchemas, markBindSchema} from '../renderer/runtime/schemas';
 import * as z from 'zod';
-import {BlokPropSchemas} from '../../runtime';
 
 /**
  * The prop-schema vocabulary every blok in the catalog is built from.
@@ -160,7 +159,7 @@ export const childSchema = BlokPropSchemas.ComponentId.optional().describe(
  * The prop resolves to the *path*, not the value: `useBinding(path)` reads and writes it.
  */
 export const bindSchema = markBindSchema(
-  z.string().optional().describe('The local this control reads from and writes back to: `bind={name}` or `bind={name.field}`.'),
+  z.string().optional().describe('The local (or a path below one) this control reads and writes: bind={name}.'),
 );
 
 /**

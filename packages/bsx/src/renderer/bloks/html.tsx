@@ -1,26 +1,11 @@
 import {Image as ShadImage} from '../../vendor/core/ui/image';
 import {cn} from '../../vendor/core/util/utils';
-import * as z from 'zod';
-import {
-  BlokPropSchemas,
-  createBlokComponent,
-  useBlok,
-  useBlokDataAttributes,
-  usePendingAction,
-  useValue,
-} from '../runtime';
+import type {htmlContracts} from '../../catalogs/parts/html';
+import {useBlok, useBlokDataAttributes, usePendingAction, useValue, type BlokRender} from '../runtime';
 import {AssetSourceNotice, useAssetImageUrl} from '../assets';
-import {
-  actionProp,
-  boolSchema,
-  classNameSchema,
-  contentSchema,
-  layoutFields,
-  renderContent,
-  textFields,
-  textPresentationClasses,
-  useTextPresentationProps,
-} from './shared';
+import {renderContent, textPresentationClasses, useTextPresentationProps} from './shared';
+
+type Contracts = typeof htmlContracts;
 
 /**
  * ui@1's links and media: `Link`, `Image` and `Code`. Raw HTML tags are not
@@ -28,22 +13,7 @@ import {
  * containers that translate directly to React Native (View, Text).
  */
 
-export const Link = createBlokComponent(
-  {
-    name: 'Link',
-    schema: z
-      .object({
-        href: BlokPropSchemas.DynamicString.optional().describe('Link target URL.'),
-        text: BlokPropSchemas.DynamicString.optional().describe('Link text.'),
-        children: contentSchema,
-        newTab: boolSchema.describe('Open in a new tab.'),
-        onClick: actionProp('Runs when the link is clicked.'),
-        className: classNameSchema,
-        ...textFields,
-      })
-      .describe('A hyperlink.'),
-  },
-  ({buildChild, component, schema}) => {
+const LinkRender: BlokRender<Contracts['Link']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const href = useValue(blok.href);
     const text = useValue(blok.text);
@@ -72,31 +42,9 @@ export const Link = createBlokComponent(
         {renderContent(children ?? text, buildChild)}
       </a>
     );
-  },
-);
+};
 
-export const Image = createBlokComponent(
-  {
-    name: 'Image',
-    schema: z
-      .object({
-        src: BlokPropSchemas.DynamicString.optional().describe(
-          'Image URL, or an image its app registered as an asset: `{self.assets.logo}`.',
-        ),
-        alt: BlokPropSchemas.DynamicString.optional().describe('Alternative text.'),
-        blurhash: BlokPropSchemas.DynamicString.optional().describe(
-          'Blurhash shown while the image loads.',
-        ),
-        className: classNameSchema,
-        width: layoutFields.width,
-        height: layoutFields.height,
-        maxWidth: layoutFields.maxWidth,
-        maxHeight: layoutFields.maxHeight,
-        radius: layoutFields.radius,
-      })
-      .describe('An image.'),
-  },
-  ({component, schema}) => {
+const ImageRender: BlokRender<Contracts['Image']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const url = useValue(blok.src);
     const asset = useAssetImageUrl(component, 'src');
@@ -127,23 +75,10 @@ export const Image = createBlokComponent(
       />
       </span>
     );
-  },
-);
+};
 
 
-export const Code = createBlokComponent(
-  {
-    name: 'Code',
-    schema: z
-      .object({
-        text: BlokPropSchemas.DynamicString.optional().describe('The code to show.'),
-        block: boolSchema.describe('A block of its own (preformatted), rather than inline.'),
-        className: classNameSchema,
-        ...textFields,
-      })
-      .describe('Code, in a monospaced face: inline, or as a block.'),
-  },
-  ({component, schema}) => {
+const CodeRender: BlokRender<Contracts['Code']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const text = useValue(blok.text);
     const block = useValue(blok.block) === true;
@@ -165,7 +100,10 @@ export const Code = createBlokComponent(
         {text}
       </code>
     );
-  },
-);
+};
 
-export const htmlBlokComponents = [Link, Image, Code];
+export const htmlRenders = {
+  Link: LinkRender,
+  Image: ImageRender,
+  Code: CodeRender,
+};

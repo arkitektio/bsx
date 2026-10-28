@@ -1,27 +1,27 @@
 import * as React from 'react';
 import * as THREE from 'three';
-import * as z from 'zod';
 import {useFrame} from '@react-three/fiber';
 import {clipMotion, initialMotion, stepMotion, stillMotion, type MotionState} from '../../../vendor/core/model/motion';
 import {parseAxis, toBaseUnit, wavelengthToColor, type Dimension} from '../../../vendor/core/model/units';
 import {parseNodeAddress} from '../../../vendor/core/model/writers';
-import {createBlokComponent, useBlok, useValue, type BlokComponentPlacement} from '../../runtime';
-import {describedString} from '../shared/schemas';
+import {
+  animateSchema,
+  attachSchema,
+  beamSchema,
+  glowSchema,
+  moveSchema,
+  rotateSchema,
+  tintSchema,
+  visibleSchema,
+  type sceneContracts,
+} from '../../../catalogs/parts/scene';
+import {useBlok, useValue, type BlokRender} from '../../runtime';
 import {useModel, useSceneModelKey, useSceneNotice, useSceneState, type ModelContextValue} from './context';
 import {useBlokSceneStill} from './host';
 import {useThemeColour} from './colour';
 import {ownMaterials} from './loadModel';
 
-/** Every binding sits somewhere under the model whose nodes it names. */
-const IN_MODEL: BlokComponentPlacement = {context: 'scene', downstreamOf: ['Model', 'Robot']};
-
-/**
- * Bindings an action's overlay may also use under an `At`, on the model the
- * anchored device's scene blok loaded.
- */
-const IN_MODEL_OR_AT: BlokComponentPlacement = {context: 'scene', downstreamOf: ['Model', 'Robot', 'Anchor']};
-
-const nodeProp = z.string().describe('The name of the node in the enclosing model that this binds.');
+type Contracts = typeof sceneContracts;
 
 /** The node a binding names, and a notice beside the scene while the model has no such node. */
 const useNode = (name: string | undefined): THREE.Object3D | undefined => {
@@ -50,34 +50,6 @@ const useAddressedNode = (address: string | undefined): THREE.Object3D | undefin
   useSceneNotice(address && !node ? 'Unknown node' : null, `Nothing in the scene is addressed by '${address}'.`);
   return node;
 };
-
-const motionShape = (unit: string, rate: string) => ({
-  node: nodeProp,
-  axis: z
-    .string()
-    .describe('The axis in the node\'s own frame: "x", "y", "z" or a vector as "x y z".'),
-  value: z
-    .unknown()
-    .optional()
-    .describe(`Where the part is, in ${unit} from the pose the model was authored in. A quantity ({magnitude, unit}) is converted.`),
-  animateTo: z
-    .unknown()
-    .optional()
-    .describe('Where the part is going. With it, the view moves there at speed (or over duration) and value corrects it.'),
-  speed: z.number().optional().describe(`How fast it moves to animateTo, in ${rate}.`),
-  duration: z.number().optional().describe('How long a move to animateTo takes, in seconds. Ignored when speed is given.'),
-  scale: z.number().optional().describe('Multiplies the value before it is applied. Defaults to 1.'),
-  offset: z.number().optional().describe(`Added after scale, in ${unit}. Defaults to 0.`),
-  gain: z.number().optional().describe('Exaggerates the motion on screen only, for travel too small to see. Defaults to 1.'),
-  smooth: z.boolean().optional().describe('Whether to ease toward each new value over 300 ms. Defaults to true.'),
-});
-
-const moveSchema = z
-  .object(motionShape('meters', 'm/s'))
-  .describe('Translates a node along an axis by value x scale + offset meters from its authored pose.');
-const rotateSchema = z
-  .object(motionShape('radians', 'rad/s'))
-  .describe('Rotates a node about an axis by value x scale + offset radians from its authored pose.');
 
 const direction = new THREE.Vector3();
 const turn = new THREE.Quaternion();
@@ -161,8 +133,9 @@ const useMotionBinding = (
   );
 };
 
-const motionComponent = (name: 'Move' | 'Rotate', schema: typeof moveSchema, dimension: Dimension) =>
-  createBlokComponent({name, placement: IN_MODEL, schema}, ({component}) => {
+const motionRender =
+  (schema: typeof moveSchema, dimension: Dimension): BlokRender<Contracts['Move']> =>
+  ({component}) => {
     const blok = useBlok(component, schema);
     useMotionBinding(
       useModel(),
@@ -181,19 +154,12 @@ const motionComponent = (name: 'Move' | 'Rotate', schema: typeof moveSchema, dim
       dimension,
     );
     return null;
-  });
+  };
 
-export const MoveBlok = motionComponent('Move', moveSchema, 'length');
-export const RotateBlok = motionComponent('Rotate', rotateSchema, 'angle');
+export const MoveRender = motionRender(moveSchema, 'length');
+export const RotateRender = motionRender(rotateSchema, 'angle');
 
-const visibleSchema = z
-  .object({
-    node: nodeProp,
-    on: z.boolean().nullish().describe('Whether the node is visible. Hiding a node hides everything beneath it.'),
-  })
-  .describe('Shows or hides a node and its whole subtree.');
-
-export const VisibleBlok = createBlokComponent({name: 'Visible', placement: IN_MODEL, schema: visibleSchema}, ({component}) => {
+export const VisibleRender: BlokRender<Contracts['Visible']> = ({component}) => {
   const blok = useBlok(component, visibleSchema);
   const node = useNode(useValue(blok.node));
   const on = useValue(blok.on);
@@ -206,21 +172,12 @@ export const VisibleBlok = createBlokComponent({name: 'Visible', placement: IN_M
     };
   }, [node, on]);
   return null;
-});
+};
 
 type Emissive = THREE.Material & {emissive?: THREE.Color; emissiveIntensity?: number};
 type Colored = THREE.Material & {color?: THREE.Color};
 
-const glowSchema = z
-  .object({
-    node: describedString('The name of the node in the enclosing model that glows; the whole model when unset.'),
-    on: z.boolean().optional().describe('Whether the node glows.'),
-    intensity: z.number().optional().describe('How strongly. Defaults to 1 for materials, and to the authored intensity for a light.'),
-    color: describedString('The colour of the glow: a colour role of the theme (`brand`, `success`, `chart-1`). Defaults to the material\'s own emissive colour, or white.'),
-  })
-  .describe('Switches the emissive output of a node\'s materials, or the intensity of a punctual light attached to it.');
-
-export const GlowBlok = createBlokComponent({name: 'Glow', placement: IN_MODEL_OR_AT, schema: glowSchema}, ({component}) => {
+export const GlowRender: BlokRender<Contracts['Glow']> = ({component}) => {
   const blok = useBlok(component, glowSchema);
   const node = useNodeOrRoot(useValue(blok.node));
   const on = useValue(blok.on) ?? false;
@@ -260,16 +217,9 @@ export const GlowBlok = createBlokComponent({name: 'Glow', placement: IN_MODEL_O
     };
   }, [color, intensity, node, on]);
   return null;
-});
+};
 
-const tintSchema = z
-  .object({
-    node: nodeProp,
-    color: describedString('The base colour to give the node: a colour role of the theme (`brand`, `muted`, `chart-3`). Without it the authored colour shows.'),
-  })
-  .describe('Overrides the base color of a node. Its materials are copied first, so nodes sharing them are unaffected.');
-
-export const TintBlok = createBlokComponent({name: 'Tint', placement: IN_MODEL, schema: tintSchema}, ({component}) => {
+export const TintRender: BlokRender<Contracts['Tint']> = ({component}) => {
   const blok = useBlok(component, tintSchema);
   const node = useNode(useValue(blok.node));
   const color = useThemeColour(useValue(blok.color));
@@ -286,19 +236,9 @@ export const TintBlok = createBlokComponent({name: 'Tint', placement: IN_MODEL, 
     };
   }, [color, node]);
   return null;
-});
+};
 
-const attachSchema = z
-  .object({
-    node: nodeProp,
-    to: z
-      .string()
-      .describe('What to attach it to: a node of this model, or "<model id>:<node>" for a node of another model in the scene.'),
-    on: z.boolean().nullish().describe('Whether it is attached. When false the node returns to where it was authored.'),
-  })
-  .describe('While `on` holds, carries a node with another node, keeping its place in the world at the moment of attaching. For picked-up objects.');
-
-export const AttachBlok = createBlokComponent({name: 'Attach', placement: IN_MODEL, schema: attachSchema}, ({component}) => {
+export const AttachRender: BlokRender<Contracts['Attach']> = ({component}) => {
   const blok = useBlok(component, attachSchema);
   const model = useModel();
   const node = useNode(useValue(blok.node));
@@ -313,26 +253,14 @@ export const AttachBlok = createBlokComponent({name: 'Attach', placement: IN_MOD
     };
   }, [model, node, target, on]);
   return null;
-});
-
-const beamSchema = z
-  .object({
-    start: z.string().describe('The node the beam leaves from.'),
-    end: describedString('The node the beam ends at, in this model or as "<model id>:<node>". Use this or length.'),
-    length: z.number().optional().describe('How far the beam reaches along the start node\'s own Z axis, in meters. Use this or end.'),
-    on: z.boolean().optional().describe('Whether the beam is drawn. Defaults to true.'),
-    wavelength: z.number().optional().describe('The wavelength in nanometers, shown as its color.'),
-    color: describedString('The colour of the beam: a colour role of the theme (`info`, `chart-2`, `destructive`). Takes precedence over wavelength.'),
-    width: z.number().optional().describe('The diameter of the beam in meters. Defaults to 2 mm.'),
-  })
-  .describe('Draws a beam from one anchor to another, or for a length along an anchor\'s Z axis, following both as they move.');
+};
 
 const from = new THREE.Vector3();
 const to = new THREE.Vector3();
 const up = new THREE.Vector3(0, 1, 0);
 const orientation = new THREE.Quaternion();
 
-export const BeamBlok = createBlokComponent({name: 'Beam', placement: IN_MODEL, schema: beamSchema}, ({component}) => {
+export const BeamRender: BlokRender<Contracts['Beam']> = ({component}) => {
   const blok = useBlok(component, beamSchema);
   const start = useNode(useValue(blok.start));
   const end = useAddressedNode(useValue(blok.end));
@@ -370,19 +298,9 @@ export const BeamBlok = createBlokComponent({name: 'Beam', placement: IN_MODEL, 
       <meshBasicMaterial color={color} transparent opacity={0.75} toneMapped={false} depthWrite={false} />
     </mesh>
   );
-});
+};
 
-const animateSchema = z
-  .object({
-    clip: z.string().describe('The name of an animation clip in the enclosing model.'),
-    progress: z.number().optional().describe('Where in the clip to show, from 0 (start) to 1 (end). Use this or time.'),
-    time: z.number().optional().describe('Where in the clip to show, in seconds. Use this or progress.'),
-    animateTo: z.number().optional().describe('The position to play to, in the unit of whichever of progress or time is used.'),
-    duration: z.number().optional().describe('How long playing to animateTo takes, in seconds.'),
-  })
-  .describe('Scrubs a named animation clip of the model to a position, for mechanisms a single move or turn cannot describe. Never loops on its own.');
-
-export const AnimateBlok = createBlokComponent({name: 'Animate', placement: IN_MODEL, schema: animateSchema}, ({component}) => {
+export const AnimateRender: BlokRender<Contracts['Animate']> = ({component}) => {
   const blok = useBlok(component, animateSchema);
   const model = useModel();
   const clipName = useValue(blok.clip);
@@ -429,4 +347,4 @@ export const AnimateBlok = createBlokComponent({name: 'Animate', placement: IN_M
     playing.mixer.update(0);
   });
   return null;
-});
+};

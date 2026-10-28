@@ -5,10 +5,12 @@ import * as z from "zod";
 import { cleanup, screen } from "@testing-library/react";
 import { renderBsx, testCatalog} from "./bloks/testing";
 import { addBlokComponents } from "./catalog";
-import { specOwnedComponents } from "./modules";
+import { moduleShadowsOf } from "./modules";
 import { createBlokCatalog, createBlokComponent } from "./runtime";
 
 const part = (name: string) => createBlokComponent({ name, schema: z.object({}) }, () => null);
+/** A component of a global catalog, as `implementBlokCatalog` tags it. */
+const global = (name: string) => ({ ...part(name), origin: "ui@1" });
 
 describe("addBlokComponents", () => {
   it("adds a module's components and takes them back out", () => {
@@ -28,7 +30,7 @@ describe("addBlokComponents", () => {
   });
 
   it("lets a module draw over a standard component, once, and puts it back", () => {
-    const standard = part("Slider");
+    const standard = global("Slider");
     const mine = part("Slider");
     const catalog = createBlokCatalog("test", [standard]);
     const undo = addBlokComponents([mine], catalog);
@@ -51,12 +53,12 @@ describe("addBlokComponents", () => {
     }
   });
 
-  it("registers a drawn-over standard component as the module's own", () => {
-    const catalog = createBlokCatalog("test", [part("Slider")]);
-    expect(specOwnedComponents(catalog).has("Slider")).toBe(true);
+  it("records a drawn-over global component as the module's own until undone", () => {
+    const catalog = createBlokCatalog("test", [global("Slider")]);
+    expect(moduleShadowsOf(catalog).has("Slider")).toBe(false);
     const undo = addBlokComponents([part("Slider")], catalog);
-    expect(specOwnedComponents(catalog).has("Slider")).toBe(false);
+    expect(moduleShadowsOf(catalog).has("Slider")).toBe(true);
     undo();
-    expect(specOwnedComponents(catalog).has("Slider")).toBe(true);
+    expect(moduleShadowsOf(catalog).has("Slider")).toBe(false);
   });
 });

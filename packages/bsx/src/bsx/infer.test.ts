@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {blokView, defaultBlokView, orkestratorModule, parseSpecCatalog} from '../spec/catalogs';
+import {blokView, defaultBlokView, parseSpecCatalog} from '../spec/catalogs';
 import {defaultType, portIsValid, resolveBlokScope, resolveLocal} from './infer';
 import {parseBsx} from './parse';
 import {printBsx} from './print';
@@ -120,7 +120,7 @@ describe('shadowing', () => {
       },
       'mine',
     );
-    const view = blokView([orkestratorModule(), module]);
+    const view = blokView([module]);
     expect(view.components.get('Slider')?.catalog).toBe('mine');
     expect(view.shadows.get('Slider')).toEqual({component: 'Slider', catalog: 'ui@1', module: 'mine', winner: 'mine'});
     expect(view.components.get('foreach')?.catalog).toMatch(/^base@/);

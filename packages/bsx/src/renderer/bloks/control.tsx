@@ -15,6 +15,7 @@ import {
   type BlokSuspenseReporter,
 } from '../runtime';
 import {useBlokRunHost} from './run/host';
+import {blokPlatform} from '../../platform';
 
 /**
  * The language of base@2 (`core/blok/spec/base_v2.json`): components that
@@ -308,10 +309,16 @@ const ERROR_COMPONENT = 'error';
 export const ERROR_ROOT = 'error';
 
 /** Children stay mounted while the boundary shows its fallback, so they keep reporting; html hides them. */
+const DomHidden = ({hidden, children}: {hidden: boolean; children?: React.ReactNode}) => (
+  <div style={{display: hidden ? 'none' : 'contents'}}>{children}</div>
+);
+
+/** Outside html (a scene, a logo) nothing can hold a box: hidden is not drawn. In html, the platform's (a native view), or a DOM `div`. */
 const Hidden = ({hidden, children}: {hidden: boolean; children: React.ReactNode}) => {
   const draw = useBlokDrawContext();
   if (draw !== 'html') return hidden ? null : <>{children}</>;
-  return <div style={{display: hidden ? 'none' : 'contents'}}>{children}</div>;
+  const Primitive = blokPlatform().primitives.Hidden ?? DomHidden;
+  return <Primitive hidden={hidden}>{children}</Primitive>;
 };
 
 export const Suspense = createBlokComponent(

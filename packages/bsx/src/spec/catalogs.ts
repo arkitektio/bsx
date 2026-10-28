@@ -3,23 +3,22 @@ import htmlCatalogJson from './catalogs/html@1.json';
 import logoCatalogJson from './catalogs/logo@1.json';
 import sceneCatalogJson from './catalogs/scene@1.json';
 import structureCatalogJson from './catalogs/structure@1.json';
+import shadcnCatalogJson from './catalogs/shadcn@1.json';
 import uiCatalogJson from './catalogs/ui@1.json';
-import orkestratorModuleJson from './modules/orkestrator.json';
 import {loadVocabulary, type BlokContextName, type VocabFunction} from './vocabulary';
 
 /**
- * What a v2 blok renders with, as the spec owns it. *Catalogs* are the
- * spec-owned, versioned sets: base@2 (the language) and the standard catalogs
- * (`ui@1`, `scene@1`, `logo@1`, `structure@1`, `html@1`), files under
- * `catalogs/`. A *module* is an app's own unversioned extras: the
- * `orkestrator` module (`modules/orkestrator.json`) is what only Orkestrator
- * draws, registered as its server `Module`. The port of arkitekt-spec's
- * `blok/catalogs` (`BlokView`, `default_view`).
+ * What a v2 blok is parsed and checked against, in the spec's terms. base@2
+ * (the language) is the spec's; the global catalogs (`ui@1`, `scene@1`,
+ * `logo@1`, `structure@1`, `html@1`, `shadcn@1`) are written from this
+ * package's contracts (`catalogs/`, `pnpm spec:export`). A *module* is a UI's
+ * own unversioned catalog, registered by that UI (the server's `Module`): an
+ * app adds its own to the default view with `registerBlokModules`. The port
+ * of arkitekt-spec's `blok/catalogs` (`BlokView`, `default_view`).
  */
 
 export const BASE_NAME = 'base';
-export const ORKESTRATOR_MODULE = 'orkestrator';
-export const STANDARD_CATALOGS = ['ui', 'scene', 'logo', 'structure', 'html'] as const;
+export const STANDARD_CATALOGS = ['ui', 'scene', 'logo', 'structure', 'html', 'shadcn'] as const;
 export type StandardCatalog = (typeof STANDARD_CATALOGS)[number];
 
 export type SpecEventField = {key: string; kind: string; description: string | null};
@@ -98,7 +97,7 @@ export const parseSpecCatalog = (raw: unknown, file: string): SpecCatalog => {
   return {name: raw.name, version, description: text(raw.description), components};
 };
 
-let parsed: {base: SpecCatalog; standard: Record<StandardCatalog, SpecCatalog>; orkestrator: SpecCatalog} | null = null;
+let parsed: {base: SpecCatalog; standard: Record<StandardCatalog, SpecCatalog>} | null = null;
 
 const catalogs = () => {
   if (!parsed) {
@@ -110,8 +109,8 @@ const catalogs = () => {
         logo: parseSpecCatalog(logoCatalogJson, 'catalogs/logo@1.json'),
         structure: parseSpecCatalog(structureCatalogJson, 'catalogs/structure@1.json'),
         html: parseSpecCatalog(htmlCatalogJson, 'catalogs/html@1.json'),
+        shadcn: parseSpecCatalog(shadcnCatalogJson, 'catalogs/shadcn@1.json'),
       },
-      orkestrator: parseSpecCatalog(orkestratorModuleJson, 'modules/orkestrator.json'),
     };
   }
   return parsed;
@@ -121,8 +120,6 @@ const catalogs = () => {
 export const baseCatalog = (): SpecCatalog => catalogs().base;
 /** A standard catalog at the version the vocabulary names. */
 export const standardCatalog = (name: StandardCatalog): SpecCatalog => catalogs().standard[name];
-/** What only the Orkestrator draws: the `orkestrator` module it registers. */
-export const orkestratorModule = (): SpecCatalog => catalogs().orkestrator;
 export const standardCatalogs = (): SpecCatalog[] => STANDARD_CATALOGS.map(name => standardCatalog(name));
 
 /**
@@ -192,10 +189,22 @@ export const blokView = (extra: readonly SpecCatalog[] = [], options: {standard?
 };
 
 let defaultView: BlokView | null = null;
+let defaultModules: readonly SpecCatalog[] = [];
 
-/** The Orkestrator's view: base, every standard catalog and its module. */
+/**
+ * The app's own catalogs, as its UI registers them (`describeBlokContract` of
+ * each unversioned contract it implements): part of the default view from now
+ * on, so the parser, the checks and the editor know its components. Call it
+ * once at start, beside `configureBlokPlatform`.
+ */
+export const registerBlokModules = (modules: readonly SpecCatalog[]): void => {
+  defaultModules = modules;
+  defaultView = null;
+};
+
+/** The app's view: base, every global catalog and its own (`registerBlokModules`). */
 export const defaultBlokView = (): BlokView => {
-  if (!defaultView) defaultView = blokView([orkestratorModule()]);
+  if (!defaultView) defaultView = blokView(defaultModules);
   return defaultView;
 };
 

@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 import * as React from 'react';
 import {cleanup, render, screen, waitFor} from '@testing-library/react';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterAll, afterEach, beforeAll, describe, expect, it} from 'vitest';
+import {configureBlokPlatform} from '../platform';
+import {testCatalog} from '../renderer/bloks/testing';
 import {CachedBlokPreview, type UseBlokTree} from './CachedBlokPreview';
 import {loadPreview, previewFailed} from './previewCache';
 import {useBlokReady} from './snapshotMode';
 
 afterEach(cleanup);
+// An offscreen root draws with the app's catalog, as the platform gives it.
+beforeAll(() => configureBlokPlatform({catalog: testCatalog()}));
+afterAll(() => configureBlokPlatform({catalog: null}));
 
 const text = (value: string) => [{id: 'p', component: 'Text', props: [{key: 'text', static_value: value}]}];
 const treeOf = (componentTree: unknown, hash: string): UseBlokTree => () => ({componentTree, resolvedLocals: [], demo: {}, hash});

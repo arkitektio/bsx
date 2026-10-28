@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import corpus from '../spec/bsx_v2.json';
-import {blokView, defaultBlokView, orkestratorModule, parseSpecCatalog, type BlokView} from '../spec/catalogs';
+import {blokView, defaultBlokView, parseSpecCatalog, type BlokView} from '../spec/catalogs';
 import {resolveBlokScope} from './infer';
 import {parseBsx} from './parse';
 import {checkBlokTree, dependencyHint, emptyBlokScope, type BlokCheckScope} from './references';
@@ -19,7 +19,7 @@ type CheckedCase = {
 const caseView = (scope: CorpusScope): BlokView | null => {
   if (scope.catalog === false) return null;
   if (scope.module == null) return defaultBlokView();
-  return blokView([orkestratorModule(), parseSpecCatalog(scope.module, 'module')]);
+  return blokView([parseSpecCatalog(scope.module, 'module')]);
 };
 
 const caseScope = (scope: CorpusScope): BlokCheckScope => {

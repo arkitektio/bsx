@@ -1,7 +1,7 @@
 import {render} from '@testing-library/react';
-import {composeBlokCatalog, webBlokComponents} from '../catalog';
-import {runBlokComponents} from './run';
-import {sceneBlokComponents} from './scene';
+import {declareBlokUi} from '../declare';
+import {threeScene} from '../../scene';
+import {shadcnExtras, shadcnHtml, shadcnLogo, shadcnUi} from '../../shadcn';
 import {parseBsx} from '../../bsx/parse';
 import {invokeBlokFunction} from '../functions/v2/handler';
 import {
@@ -17,9 +17,9 @@ import {
 
 let full: BlokCatalog | null = null;
 
-/** Every component this package draws (web, scene and run) over the base catalog: what the tests render against. */
+/** Every catalog this package draws (shadcn and three) over the base catalog: what the tests render against. */
 export const testCatalog = (): BlokCatalog =>
-  (full ??= composeBlokCatalog('https://arkitekt.live/catalogs/test.json', [...webBlokComponents, ...sceneBlokComponents, ...runBlokComponents]));
+  (full ??= declareBlokUi({name: 'test', implements: [shadcnUi, shadcnHtml, shadcnLogo, shadcnExtras, threeScene]}).catalog);
 
 export type RenderBlokOptions = {
   /** Source statuses by data-model path (`deps.robot.arm`: pending). */

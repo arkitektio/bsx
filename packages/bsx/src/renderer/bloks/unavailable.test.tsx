@@ -3,7 +3,9 @@ import {act, cleanup, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it} from 'vitest';
 import {createBlokCatalog} from '../runtime';
 import {actionDependenciesOf} from '../runtime/hooks';
-import {shadcnComposableComponents} from './index';
+import {shadcnExtras, shadcnHtml, shadcnUi} from '../../shadcn';
+
+const shadcnComposableComponents = [...shadcnUi.components, ...shadcnHtml.components, ...shadcnExtras.components];
 import {renderBlokDocument} from './testing';
 
 afterEach(cleanup);

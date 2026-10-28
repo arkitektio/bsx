@@ -1,20 +1,19 @@
 import * as React from 'react';
 import * as THREE from 'three';
-import * as z from 'zod';
 import {useFrame, type ThreeEvent} from '@react-three/fiber';
 import {resolveJoints} from '../../../vendor/core/model/joints';
 import {initialMotion, stepMotion, stillMotion, type MotionState} from '../../../vendor/core/model/motion';
 import {parseVector, toBaseUnit} from '../../../vendor/core/model/units';
 import {findWriterConflicts} from '../../../vendor/core/model/writers';
+import {modelSchema, robotSchema, type sceneContracts} from '../../../catalogs/parts/scene';
 import {
-  createBlokComponent,
   useBlok,
   useEventAction,
   useValue,
   type BlokComponentNode,
+  type BlokRender,
   type BlokRenderArgs,
 } from '../../runtime';
-import {actionProp, describedString} from '../shared/schemas';
 import {
   ModelProvider,
   useSceneModelKey,
@@ -31,47 +30,7 @@ import {instantiate, loadModel, type ModelInstance} from './loadModel';
 import {useBlokReady, type BlokReadiness} from '../../../preview/snapshotMode';
 import {isExplicitId} from '../../../spec/vocabulary';
 
-const modelShape = {
-  src: z
-    .string()
-    .describe('The 3D model to show: an asset its app registered, as in `{self.assets.scope}`.'),
-  origin: describedString('Where the model sits in the scene, as "x y z" in meters.'),
-  rotation: describedString('How the model is turned, as "x y z" Euler angles in radians.'),
-  scale: z.number().optional().describe('Uniform scale. Defaults to 1; a model is authored in meters.'),
-};
-
-const modelSchema = z
-  .object(modelShape)
-  .describe(
-    'Places one GLB model in the scene. Its children bind the model\'s named nodes to state. A model that is missing or refused renders a placeholder that says why.',
-  );
-
-const jointValues = z
-  .record(z.string(), z.unknown())
-  .optional();
-
-const robotSchema = z
-  .object({
-    ...modelShape,
-    joints: jointValues.describe(
-      'Where each joint is: a map of joint name to radians (revolute, continuous) or meters (prismatic). A joint left out keeps its last value.',
-    ),
-    animateTo: jointValues.describe('Where each joint is going. Joints named here move at speed, or over duration.'),
-    speed: z
-      .unknown()
-      .optional()
-      .describe('How fast joints move to animateTo, in rad/s or m/s: one number for all joints or a map by joint name.'),
-    duration: z
-      .unknown()
-      .optional()
-      .describe('How long a move to animateTo takes, in seconds: one number or a map by joint name. Ignored where speed is given.'),
-    onJointChange: actionProp(
-      'Called when the viewer sets a joint by hand. Arguments may read event.name and event.value.',
-    ),
-  })
-  .describe(
-    'A Model with a joint table (extras.arkitekt.joints): applies a joint state map to it, including mimic joints, and clamps to limits.',
-  );
+type Contracts = typeof sceneContracts;
 
 const PLACEHOLDER_SIZE = 0.12;
 
@@ -546,26 +505,10 @@ const ModelBody = ({component, buildChild, robot}: Pick<BlokRenderArgs, 'compone
   );
 };
 
-const MODEL_PROP_KINDS = {src: 'ASSET'} as const;
-
-export const ModelBlok = createBlokComponent(
-  {
-    name: 'Model',
-    acceptsChildren: true,
-    placement: {context: 'scene', downstreamOf: ['Scene']},
-    propKinds: MODEL_PROP_KINDS,
-    schema: modelSchema,
-  },
-  ({component, buildChild}) => <ModelBody component={component} buildChild={buildChild} robot={false} />,
+export const ModelRender: BlokRender<Contracts['Model']> = ({component, buildChild}) => (
+  <ModelBody component={component} buildChild={buildChild} robot={false} />
 );
 
-export const RobotBlok = createBlokComponent(
-  {
-    name: 'Robot',
-    acceptsChildren: true,
-    placement: {context: 'scene', downstreamOf: ['Scene']},
-    propKinds: MODEL_PROP_KINDS,
-    schema: robotSchema,
-  },
-  ({component, buildChild}) => <ModelBody component={component} buildChild={buildChild} robot />,
+export const RobotRender: BlokRender<Contracts['Robot']> = ({component, buildChild}) => (
+  <ModelBody component={component} buildChild={buildChild} robot />
 );

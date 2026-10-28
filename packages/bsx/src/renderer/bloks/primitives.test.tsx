@@ -16,7 +16,9 @@ import {
 } from "../runtime";
 import {invokeBlokFunction} from "../functions/v2/handler";
 import {controlBlokComponents} from "./control";
-import {shadcnComposableComponents} from "./index";
+import {shadcnExtras, shadcnHtml, shadcnUi} from "../../shadcn";
+
+const shadcnComposableComponents = [...shadcnUi.components, ...shadcnHtml.components, ...shadcnExtras.components];
 
 afterEach(cleanup);
 

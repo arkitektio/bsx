@@ -1,16 +1,18 @@
 import * as React from 'react';
 import * as z from 'zod';
 import {toast} from '../../platform';
+import type {toastContracts} from '../../catalogs/parts/toast';
 import {
-  BlokPropSchemas,
-  createBlokComponent,
   useBlok,
   useBlokRuntime,
   useResolvedProp,
   useValue,
   type BlokComponentNode,
+  type BlokRender,
 } from '../runtime';
 import {isSettledStatus, isTaskStatus, type BlokTaskStatus} from '../runtime/task';
+
+type Contracts = typeof toastContracts;
 
 /**
  * `<Toast task={move}>`: a notification when a task settles, once per task
@@ -64,15 +66,7 @@ const asText = (value: unknown): string => {
   return typeof value === 'string' ? value : typeof value === 'object' ? JSON.stringify(value) : String(value);
 };
 
-const toastSchema = z
-  .object({
-    task: z.unknown().describe('The task record to follow: an `into` name of this blok (`task={move}`), or `task`.'),
-  })
-  .describe('A notification when a task settles, once per task: its `done`, `failed` and `cancelled` slots hold the text.');
-
-export const Toast = createBlokComponent(
-  {name: 'Toast', acceptsChildren: true, schema: toastSchema},
-  ({component, schema}) => {
+const ToastRender: BlokRender<Contracts['Toast']> = ({component, schema}) => {
     const blok = useBlok(component, schema);
     const record = readRecord(useValue(blok.task));
     const travelling = useBlokRuntime(state => state.travelAt !== null);
@@ -110,23 +104,14 @@ export const Toast = createBlokComponent(
     });
 
     return null;
-  },
-);
+};
 
-const outcomeSlot = (name: BlokToastOutcome, description: string) =>
-  createBlokComponent(
-    {
-      name,
-      placement: {downstreamOf: ['Toast']},
-      schema: z
-        .object({text: BlokPropSchemas.DynamicString.optional().describe('What the toast says.')})
-        .describe(description),
-    },
-    () => null,
-  );
+/** The outcome slots draw nothing: `Toast` reads their text. */
+const OutcomeSlotRender: BlokRender<Contracts['done']> = () => null;
 
-export const ToastDone = outcomeSlot('done', 'What a `<Toast>` says when its task is done.');
-export const ToastFailed = outcomeSlot('failed', 'What a `<Toast>` says when its task failed (`move.error` says why).');
-export const ToastCancelled = outcomeSlot('cancelled', 'What a `<Toast>` says when its task was cancelled.');
-
-export const toastBlokComponents = [Toast, ToastDone, ToastFailed, ToastCancelled];
+export const toastRenders = {
+  Toast: ToastRender,
+  done: OutcomeSlotRender,
+  failed: OutcomeSlotRender,
+  cancelled: OutcomeSlotRender,
+};

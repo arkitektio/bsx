@@ -1,37 +1,15 @@
 import * as React from 'react';
 import * as THREE from 'three';
-import * as z from 'zod';
 import {TransformControls} from '@react-three/drei';
 import {fromMatrix4, toMatrix4} from '../../../vendor/core/model/affine';
-import {createBlokComponent, markBindSchema, useBinding, useBlok, useValue, type BlokRenderArgs} from '../../runtime';
-import {bindSchema} from '../shared/schemas';
+import {transformSchema, type sceneContracts} from '../../../catalogs/parts/scene';
+import {useBinding, useBlok, useValue, type BlokRender, type BlokRenderArgs} from '../../runtime';
 import {usePersistedComponentState} from '../../persist';
 import {useBlokSceneInert, useBlokSceneStill} from './host';
 
-const transformSchema = z
-  .object({
-    matrix: z
-      .unknown()
-      .optional()
-      .describe(
-        'Where the children stand: a 4x4 affine matrix as four rows, in meters with Y up (as a space placement keeps it). The identity when absent or malformed.',
-      ),
-    bind: markBindSchema(bindSchema.describe(
-      'The local holding the matrix (`bind={pose}`): read in place of `matrix`, and written by the gizmo.',
-    )),
-    persist: z
-      .boolean()
-      .optional()
-      .describe('Keep where the gizmo left the children on this device, by the explicit id (unbound: the pose is the component\'s own).'),
-    gizmo: z.boolean().optional().describe('Whether a gizmo moves the children. Defaults to true when bound or persisted; never shown while viewing the past.'),
-    mode: z.enum(['translate', 'rotate', 'scale']).optional().describe('What the gizmo does: "translate" (the default), "rotate" or "scale".'),
-    size: z.number().optional().describe('The size of the gizmo on screen. Defaults to 0.7.'),
-  })
-  .describe(
-    'Places its children by an affine matrix. Bound (`bind={pose}`) or persisted (`id="arm-pose" persist`), a gizmo moves them and keeps the matrix.',
-  );
+type Contracts = typeof sceneContracts;
 
-type TransformRenderArgs = BlokRenderArgs<typeof transformSchema>;
+type TransformRenderArgs = BlokRenderArgs<Contracts['Transform']['schema']>;
 
 const sameMatrix = (a: THREE.Matrix4, b: THREE.Matrix4): boolean => a.equals(b);
 
@@ -105,12 +83,6 @@ const TransformBody = ({component, buildChild}: Pick<TransformRenderArgs, 'compo
   );
 };
 
-export const TransformBlok = createBlokComponent(
-  {
-    name: 'Transform',
-    acceptsChildren: true,
-    placement: {context: 'scene', downstreamOf: ['Overlay', 'Scene']},
-    schema: transformSchema,
-  },
-  ({component, buildChild}) => <TransformBody component={component} buildChild={buildChild} />,
+export const TransformRender: BlokRender<Contracts['Transform']> = ({component, buildChild}) => (
+  <TransformBody component={component} buildChild={buildChild} />
 );

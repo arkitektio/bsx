@@ -1,6 +1,5 @@
 import * as React from 'react';
 import * as THREE from 'three';
-import * as z from 'zod';
 import {Canvas, useFrame, useThree} from '@react-three/fiber';
 import {Grid, OrbitControls} from '@react-three/drei';
 import {Anchor, GripVertical, Grid3x3, Pin, RotateCw, Scan, Settings2, X} from 'lucide-react';
@@ -19,13 +18,13 @@ import {cn} from '../../../vendor/core/util/utils';
 import {Switch} from '../../../vendor/core/ui/switch';
 import {
   BlokNodeErrorSurface,
-  createBlokComponent,
   useBlok,
   useValue,
   type BlokNodeErrorProps,
+  type BlokRender,
   type BlokRenderArgs,
 } from '../../runtime';
-import {describedString} from '../shared/schemas';
+import type {sceneContracts} from '../../../catalogs/parts/scene';
 import {
   createSceneStore,
   SceneStoreProvider,
@@ -797,26 +796,9 @@ export const SceneSurface = ({
   );
 };
 
-const sceneSchema = z
-  .object({
-    camera: z
-      .enum(['iso', 'front', 'side', 'top'])
-      .optional()
-      .describe('Where the camera starts looking from; it frames the models whatever their size. Defaults to iso.'),
-    grid: z.boolean().optional().describe('Whether the ground grid starts shown; the viewer can switch it. Defaults to true.'),
-    height: describedString(
-      'CSS height of the view, e.g. "24rem". Omit to fit the element the scene is in (24rem where that has no height of its own).',
-    ),
-    persist: z
-      .boolean()
-      .optional()
-      .describe('Keep where the viewer leaves the camera (and the grid) on this device, by the scene\'s explicit id.'),
-  })
-  .describe(
-    'Root of a 3D view: one renderer, camera and light rig. Y is up and one unit is one meter. Place Model and Robot inside.',
-  );
+type Contracts = typeof sceneContracts;
 
-type SceneRenderArgs = BlokRenderArgs<typeof sceneSchema>;
+type SceneRenderArgs = BlokRenderArgs<Contracts['Scene']['schema']>;
 
 const SceneChildren = ({component, buildChild}: Pick<SceneRenderArgs, 'component' | 'buildChild'>) => (
   <>
@@ -864,19 +846,11 @@ const StandaloneScene = ({component, schema, buildChild}: SceneRenderArgs) => {
   );
 };
 
-export const SceneBlok = createBlokComponent(
-  {
-    name: 'Scene',
-    acceptsChildren: true,
-    placement: {childrenContext: 'scene', notDownstreamOf: ['Scene']},
-    schema: sceneSchema,
-  },
-  args =>
-    // Inside a scene that is already open, this one only adds what it holds:
-    // the camera, grid and size are the surrounding scene's.
-    useBlokSceneEmbedded() ? (
-      <SceneChildren component={args.component} buildChild={args.buildChild} />
-    ) : (
-      <StandaloneScene {...args} />
-    ),
-);
+export const SceneRender: BlokRender<Contracts['Scene']> = args =>
+  // Inside a scene that is already open, this one only adds what it holds:
+  // the camera, grid and size are the surrounding scene's.
+  useBlokSceneEmbedded() ? (
+    <SceneChildren component={args.component} buildChild={args.buildChild} />
+  ) : (
+    <StandaloneScene {...args} />
+  );
