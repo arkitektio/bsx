@@ -1,0 +1,21 @@
+{
+  "branches": ["main", {"name": "next", "prerelease": "rc"}],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}],
+    ["@semantic-release/npm", {"pkgRoot": "packages/bsx", "npmPublish": true}],
+    [
+      "@semantic-release/exec",
+      {"prepareCmd": "node scripts/set-version.mjs ${nextRelease.version} && pnpm --filter bsx-vscode package"}
+    ],
+    [
+      "@semantic-release/git",
+      {"assets": ["packages/bsx/package.json", "packages/vscode/package.json", "CHANGELOG.md"]}
+    ],
+    [
+      "@semantic-release/github",
+      {"assets": [{"path": "packages/vscode/*.vsix", "label": "BSX for VS Code (.vsix)"}]}
+    ]
+  ]
+}

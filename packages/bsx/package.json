@@ -1,0 +1,190 @@
+{
+  "name": "@arkitektio/bsx",
+  "version": "0.0.0",
+  "description": "The BSX language, the blok spec, runtime and React renderer: one copy for every Arkitekt frontend.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arkitektio/bsx.git",
+    "directory": "packages/bsx"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "default": "./dist/web.js"
+    },
+    "./scene": {
+      "types": "./dist/scene.d.ts",
+      "default": "./dist/scene.js"
+    },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "default": "./dist/editor.js"
+    },
+    "./tailwind": {
+      "types": "./dist/tailwind.d.ts",
+      "default": "./dist/tailwind.js"
+    },
+    "./package.json": "./package.json",
+    "./*.json": "./dist/*.json",
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "theme": "node scripts/embed-theme.mjs",
+    "build": "node scripts/embed-theme.mjs && tsc -p tsconfig.build.json && node scripts/finish-build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@react-three/drei": "^10.7.0",
+    "@react-three/fiber": "^9.4.0",
+    "@testing-library/react": "^16.3.0",
+    "blurhash": "^2.0.5",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "embla-carousel-react": "^8.6.0",
+    "graphql": "^16.8.0",
+    "input-otp": "^1.4.2",
+    "lucide-react": ">=0.500.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19.2.0",
+    "react-day-picker": "^9.11.0",
+    "react-dom": "^19.2.0",
+    "react-lazy-load-image-component": "^1.6.0",
+    "react-resizable-panels": "^3.0.6",
+    "recharts": "^2.15.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.1.0",
+    "three": ">=0.180.0",
+    "vaul": "^1.1.2",
+    "zod": "^4.0.0",
+    "zustand": "^5.0.0",
+    "monaco-editor": ">=0.50.0"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    },
+    "three": {
+      "optional": true
+    },
+    "@react-three/fiber": {
+      "optional": true
+    },
+    "@react-three/drei": {
+      "optional": true
+    },
+    "@monaco-editor/react": {
+      "optional": true
+    },
+    "tailwindcss": {
+      "optional": true
+    },
+    "radix-ui": {
+      "optional": true
+    },
+    "class-variance-authority": {
+      "optional": true
+    },
+    "clsx": {
+      "optional": true
+    },
+    "tailwind-merge": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
+    "recharts": {
+      "optional": true
+    },
+    "vaul": {
+      "optional": true
+    },
+    "embla-carousel-react": {
+      "optional": true
+    },
+    "react-day-picker": {
+      "optional": true
+    },
+    "input-otp": {
+      "optional": true
+    },
+    "react-resizable-panels": {
+      "optional": true
+    },
+    "blurhash": {
+      "optional": true
+    },
+    "react-lazy-load-image-component": {
+      "optional": true
+    },
+    "@testing-library/react": {
+      "optional": true
+    },
+    "monaco-editor": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-lazy-load-image-component": "^1.6.4",
+    "@types/three": "^0.184.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "blurhash": "^2.0.5",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "embla-carousel-react": "^8.6.0",
+    "graphql": "^16.8.0",
+    "input-otp": "^1.4.2",
+    "jsdom": "^29.1.1",
+    "lucide-react": "^0.562.0",
+    "monaco-editor": "0.56.0",
+    "radix-ui": "1.4.3",
+    "react": "19.2.7",
+    "react-day-picker": "^9.13.0",
+    "react-dom": "19.2.7",
+    "react-lazy-load-image-component": "^1.6.0",
+    "react-resizable-panels": "^3.0.6",
+    "recharts": "^2.15.4",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.1.18",
+    "three": "^0.184.0",
+    "typescript": "^5.9.3",
+    "vaul": "^1.1.2",
+    "vite": "^7.2.6",
+    "vitest": "^4.1.9",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.12"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
