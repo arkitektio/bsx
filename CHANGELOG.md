@@ -1,3 +1,19 @@
+# [2.0.0](https://github.com/arkitektio/bsx/compare/v1.0.1...v2.0.0) (2026-10-28)
+
+
+* feat!: catalogs are contracts, apps implement them ([7746bd4](https://github.com/arkitektio/bsx/commit/7746bd4d34cfc294c4a8eae435b8170f96a0b194))
+
+
+### BREAKING CHANGES
+
+* @arkitektio/bsx/web no longer exports the component
+sets (composeBlokCatalog, shadcnComposableComponents, logoBlokComponents,
+RawInspector, the bloks barrel). Import the renders from
+@arkitektio/bsx/shadcn and @arkitektio/bsx/scene and compose them with
+declareBlokUi.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 ## [1.0.1](https://github.com/arkitektio/bsx/compare/v1.0.0...v1.0.1) (2026-10-28)
 
 
