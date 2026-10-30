@@ -3,9 +3,5 @@ packages:
 
 # pnpm blocks dependency lifecycle scripts unless they are listed here.
 #   esbuild           - postinstall resolves the platform binary
-#   @vscode/vsce-sign - marketplace signing, which `vsce package` does not need
-#   keytar            - vsce's credential store, only for `vsce publish` from a terminal
 allowBuilds:
   esbuild: true
-  '@vscode/vsce-sign': false
-  keytar: false
