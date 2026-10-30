@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/arkitektio/bsx/compare/v2.1.0...v2.2.0) (2026-10-30)
+
+
+### Features
+
+* the classic math functions ([01efd75](https://github.com/arkitektio/bsx/commit/01efd75c549738ed06d3af3d41878b2fd888f40c))
+
 # [2.1.0](https://github.com/arkitektio/bsx/compare/v2.0.0...v2.1.0) (2026-10-30)
 
 
