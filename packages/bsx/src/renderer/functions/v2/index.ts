@@ -259,6 +259,14 @@ const mathUnary =
     return value === null ? null : operate(value);
   };
 
+/** The classic functions: what is not a finite number (`sqrt(-1)`, `log(0)`) is null. */
+const finite = (value: number): number | null => (Number.isFinite(value) ? value : null);
+
+const mathReal = (operate: (value: number) => number): Impl => args => {
+  const value = num(args.value);
+  return value === null ? null : finite(operate(value));
+};
+
 const strUnary =
   (operate: (value: string) => unknown): Impl =>
   args => {
@@ -333,6 +341,7 @@ const IMPLEMENTATIONS: Readonly<Partial<Record<string, Impl>>> = {
   'math.mul': mathBinary((a, b) => a * b),
   'math.div': mathBinary((a, b) => (b === 0 ? null : a / b)),
   'math.mod': mathBinary((a, b) => (b === 0 ? null : a % b)),
+  'math.pow': mathBinary((a, b) => finite(a ** b)),
   'math.neg': mathUnary('a', value => -value || 0),
   'math.abs': mathUnary('value', Math.abs),
   'math.round': args => {
@@ -356,6 +365,45 @@ const IMPLEMENTATIONS: Readonly<Partial<Record<string, Impl>>> = {
     return values.length ? Math.max(...values) : null;
   },
   'math.sum': args => numbers(args.values).reduce((total, value) => total + value, 0),
+  'math.sqrt': mathReal(Math.sqrt),
+  'math.cbrt': mathReal(Math.cbrt),
+  'math.exp': mathReal(Math.exp),
+  'math.log': args => {
+    const value = num(args.value);
+    if (value === null) return null;
+    if (args.base === null || args.base === undefined) return finite(Math.log(value));
+    const base = num(args.base);
+    return base === null ? null : finite(Math.log(value) / Math.log(base));
+  },
+  'math.log2': mathReal(Math.log2),
+  'math.log10': mathReal(Math.log10),
+  'math.sin': mathReal(Math.sin),
+  'math.cos': mathReal(Math.cos),
+  'math.tan': mathReal(Math.tan),
+  'math.asin': mathReal(Math.asin),
+  'math.acos': mathReal(Math.acos),
+  'math.atan': mathReal(Math.atan),
+  'math.atan2': args => {
+    const y = num(args.y);
+    const x = num(args.x);
+    return y === null || x === null ? null : finite(Math.atan2(y, x));
+  },
+  'math.sinh': mathReal(Math.sinh),
+  'math.cosh': mathReal(Math.cosh),
+  'math.tanh': mathReal(Math.tanh),
+  'math.asinh': mathReal(Math.asinh),
+  'math.acosh': mathReal(Math.acosh),
+  'math.atanh': mathReal(Math.atanh),
+  'math.degrees': mathReal(value => (value * 180) / Math.PI),
+  'math.radians': mathReal(value => (value * Math.PI) / 180),
+  'math.sign': mathReal(value => Math.sign(value) || 0),
+  'math.trunc': mathReal(value => Math.trunc(value) || 0),
+  'math.hypot': args => {
+    const values = numbers(args.values);
+    return values.length ? finite(Math.hypot(...values)) : null;
+  },
+  'math.pi': () => Math.PI,
+  'math.e': () => Math.E,
 
   // str
   'str.upper': strUnary(value => value.toUpperCase()),

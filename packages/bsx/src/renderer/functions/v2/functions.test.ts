@@ -18,7 +18,7 @@ describe('coverage', () => {
   it('implements every pure vocabulary function, and nothing else', () => {
     const declared = [...loadVocabulary().functions.values()].filter(fn => !fn.effect).map(fn => fn.name).sort();
     expect([...v2Functions.keys()].sort()).toEqual(declared);
-    expect(declared).toHaveLength(80);
+    expect(declared).toHaveLength(107);
     expect(undeclaredImplementations()).toEqual([]);
   });
 
@@ -53,6 +53,37 @@ describe('the null table', () => {
     ['math.div', {a: 1, b: 0}, null],
     ['math.div', {a: null, b: 2}, null],
     ['math.mod', {a: 1, b: 0}, null],
+    ['math.pow', {a: null, b: 2}, null],
+    ['math.pow', {a: -8, b: 0.5}, null],
+    ['math.pow', {a: 10, b: 400}, null],
+    ['math.sqrt', {value: -1}, null],
+    ['math.cbrt', {value: null}, null],
+    ['math.exp', {value: 1000}, null],
+    ['math.log', {value: 0}, null],
+    ['math.log', {value: null}, null],
+    ['math.log', {value: 8, base: 1}, null],
+    ['math.log2', {value: -1}, null],
+    ['math.log10', {value: 0}, null],
+    ['math.sin', {value: null}, null],
+    ['math.cos', {value: null}, null],
+    ['math.tan', {value: null}, null],
+    ['math.asin', {value: 2}, null],
+    ['math.acos', {value: 2}, null],
+    ['math.atan', {value: null}, null],
+    ['math.atan2', {y: null, x: 1}, null],
+    ['math.sinh', {value: 1000}, null],
+    ['math.cosh', {value: 1000}, null],
+    ['math.tanh', {value: null}, null],
+    ['math.asinh', {value: null}, null],
+    ['math.acosh', {value: 0}, null],
+    ['math.atanh', {value: 1}, null],
+    ['math.degrees', {value: null}, null],
+    ['math.radians', {value: null}, null],
+    ['math.sign', {value: null}, null],
+    ['math.trunc', {value: null}, null],
+    ['math.hypot', {values: []}, null],
+    ['math.pi', {}, Math.PI],
+    ['math.e', {}, Math.E],
     ['math.neg', {a: null}, null],
     ['math.abs', {value: null}, null],
     ['math.round', {value: null}, null],
@@ -160,6 +191,34 @@ describe('semantics', () => {
     expect(call('math.clamp', {value: 12, min: 0, max: 10})).toBe(10);
     expect(call('math.max', {values: [1, 7, 3]})).toBe(7);
     expect(call('math.mod', {a: 7, b: 3})).toBe(1);
+    expect(call('math.pow', {a: 2, b: 10})).toBe(1024);
+    expect(call('math.sqrt', {value: 9})).toBe(3);
+    expect(call('math.cbrt', {value: 27})).toBe(3);
+    expect(call('math.exp', {value: 0})).toBe(1);
+    expect(call('math.log', {value: Math.E})).toBe(1);
+    expect(call('math.log', {value: 8, base: 2})).toBeCloseTo(3);
+    expect(call('math.log2', {value: 8})).toBe(3);
+    expect(call('math.log10', {value: 1000})).toBe(3);
+    expect(call('math.sin', {value: 0})).toBe(0);
+    expect(call('math.cos', {value: 0})).toBe(1);
+    expect(call('math.tan', {value: 0})).toBe(0);
+    expect(call('math.asin', {value: 1})).toBeCloseTo(Math.PI / 2);
+    expect(call('math.acos', {value: 1})).toBe(0);
+    expect(call('math.atan', {value: 1})).toBeCloseTo(Math.PI / 4);
+    expect(call('math.atan2', {y: 1, x: 1})).toBeCloseTo(Math.PI / 4);
+    expect(call('math.sinh', {value: 0})).toBe(0);
+    expect(call('math.cosh', {value: 0})).toBe(1);
+    expect(call('math.tanh', {value: 0})).toBe(0);
+    expect(call('math.asinh', {value: 0})).toBe(0);
+    expect(call('math.acosh', {value: 1})).toBe(0);
+    expect(call('math.atanh', {value: 0})).toBe(0);
+    expect(call('math.degrees', {value: Math.PI})).toBe(180);
+    expect(call('math.radians', {value: 180})).toBe(Math.PI);
+    expect(call('math.sign', {value: -3})).toBe(-1);
+    expect(call('math.trunc', {value: -1.5})).toBe(-1);
+    expect(call('math.hypot', {values: [3, 4]})).toBe(5);
+    expect(call('math.pi', {})).toBe(Math.PI);
+    expect(call('math.e', {})).toBe(Math.E);
   });
 
   it('works on strings', () => {
