@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/arkitektio/bsx/compare/v2.0.0...v2.1.0) (2026-10-30)
+
+
+### Features
+
+* **vscode:** complete against a blok's own scope; arkitekt.server.connect ([31dc47a](https://github.com/arkitektio/bsx/commit/31dc47a25f8341eb9739faff3abcd3cdb1ec97d3))
+
 # [2.0.0](https://github.com/arkitektio/bsx/compare/v1.0.1...v2.0.0) (2026-10-28)
 
 
