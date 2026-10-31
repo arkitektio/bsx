@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {act, cleanup, screen} from '@testing-library/react';
+import {act, cleanup, fireEvent, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it} from 'vitest';
 import {foreachItemIds} from './control';
 import {renderBsx, testCatalog} from './testing';
@@ -83,6 +83,64 @@ describe('foreach', () => {
     expect([...document.querySelectorAll('p')].map(element => element.textContent)).toEqual(['one', 'two']);
     act(() => store.getState().setRuntimeValue('xs', ['one', 'two', 'three']));
     expect([...document.querySelectorAll('p')].map(element => element.textContent)).toEqual(['one', 'two', 'three']);
+  });
+
+  describe('inside another foreach', () => {
+    const rows = [
+      {id: 'r1', cells: [{id: 'c1', name: 'One'}, {id: 'c2', name: 'Two'}]},
+      {id: 'r2', cells: [{id: 'c3', name: 'Three'}]},
+    ];
+    const nested = (items: string) =>
+      `<Card><foreach items={${items}} let="row" key={row.id}><foreach items={row.cells} let="cell" key={cell.id}><Text>{cell.name}</Text></foreach></foreach></Card>`;
+    const texts = () => [...document.querySelectorAll('p')].map(element => element.textContent);
+
+    it('reads the fields of items of a list on the outer item', () => {
+      render(nested('rows'), {rows});
+      expect(texts()).toEqual(['One', 'Two', 'Three']);
+    });
+
+    it('reads them when the outer list is on the agent', () => {
+      render(nested('self.rows'), {deps: {self: {rows}}});
+      expect(texts()).toEqual(['One', 'Two', 'Three']);
+    });
+
+    it('reads them when the outer items came by value', () => {
+      render(nested('list.reverse(rows)'), {rows});
+      expect(texts()).toEqual(['Three', 'One', 'Two']);
+    });
+
+    it('reads them through a third level', () => {
+      const deep = [{id: 'a', rows: [{id: 'b', cells: [{id: 'c', name: 'Deep'}]}]}];
+      render(
+        '<Card><foreach items={outer} let="o" key={o.id}><foreach items={o.rows} let="r" key={r.id}><foreach items={r.cells} let="c" key={c.id}><Text>{c.name}</Text></foreach></foreach></foreach></Card>',
+        {outer: deep},
+      );
+      expect(texts()).toEqual(['Deep']);
+    });
+
+    it('keys its items by their own field, not by a missing one', () => {
+      const {store} = render(nested('rows'), {rows});
+      const before = document.querySelectorAll('p')[1];
+      act(() => store.getState().setRuntimeValue('rows/0/cells', [rows[0].cells[1], rows[0].cells[0]]));
+      expect(texts()).toEqual(['Two', 'One', 'Three']);
+      expect(document.querySelectorAll('p')[0]).toBe(before);
+    });
+
+    it('follows the live data', () => {
+      const {store} = render(nested('rows'), {rows});
+      act(() => store.getState().setRuntimeValue('rows/1/cells/0/name', 'Changed'));
+      expect(texts()).toEqual(['One', 'Two', 'Changed']);
+    });
+
+    it('writes a bound control to the real list', () => {
+      const {store} = render(
+        '<Card><foreach items={rows} let="row" key={row.id}><foreach items={row.cells} let="cell" key={cell.id}><Input bind={cell.name} /></foreach></foreach></Card>',
+        {rows},
+      );
+      fireEvent.change(screen.getAllByRole('textbox')[2], {target: {value: 'Written'}});
+      const model = store.getState().dataModel as {rows: typeof rows};
+      expect(model.rows[1].cells[0].name).toBe('Written');
+    });
   });
 
   it('names its items <id>@<key>, or <id>@#<n> without key', () => {

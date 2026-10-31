@@ -4,14 +4,18 @@ import {
   BlokScopeProvider,
   BlokSuspenseContext,
   createBlokComponent,
+  isWritableScopedPath,
+  resolveScopedPath,
   useBlok,
   useBlokDrawContext,
+  useBlokScope,
   useResolvedProp,
   useScopedResolver,
   useSuspenseReport,
   useValue,
   type BlokComponentNode,
   type BlokSourceStatus,
+  type BlokScope,
   type BlokSuspenseReporter,
 } from '../runtime';
 import {useBlokRunHost} from './run/host';
@@ -108,6 +112,18 @@ export const foreachItemIds = (id: string, count: number, keys: readonly unknown
   });
 };
 
+/**
+ * The absolute path of a foreach's list, or undefined when it has none.
+ *
+ * An alias is taken as absolute, so the items of a nested loop (`items={row.cells}`)
+ * must be addressed past the enclosing `row`. A list on an item handed down by value
+ * has no address at all, so its items are handed down by value too.
+ */
+const absoluteItemsPath = (path: string | null | undefined, scope: BlokScope): string | undefined => {
+  const trimmed = path?.replace(/[/.]+$/, '');
+  return trimmed && isWritableScopedPath(trimmed, scope) ? resolveScopedPath(trimmed, scope) : undefined;
+};
+
 export const Foreach = createBlokComponent(
   {name: 'foreach', acceptsChildren: true, placement: {inheritsContext: true}, schema: foreachSchema},
   ({buildChild, component, schema}) => {
@@ -116,7 +132,8 @@ export const Foreach = createBlokComponent(
     const scopeName = blok['let'].prop?.declares_value ?? (typeof blok['let'].prop?.static_value === 'string' ? blok['let'].prop.static_value : '');
     const resolve = useScopedResolver();
     const childIds = React.useMemo(() => component.children?.map(child => child.id) ?? [], [component]);
-    const itemsPath = blok.items.prop?.dynamic_value?.path?.replace(/[/.]+$/, '');
+    const scope = useBlokScope();
+    const itemsPath = absoluteItemsPath(blok.items.prop?.dynamic_value?.path, scope);
     const keyProp = blok.key.prop;
 
     if (!Array.isArray(items) || childIds.length === 0 || !scopeName) {
