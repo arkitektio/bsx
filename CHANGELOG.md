@@ -1,3 +1,11 @@
+# [2.3.0](https://github.com/arkitektio/bsx/compare/v2.2.1...v2.3.0) (2026-11-01)
+
+
+### Features
+
+* BlokComponentHost draws a component's tree ([539fb22](https://github.com/arkitektio/bsx/commit/539fb22947bde240c2dd78e92d7e832bc11f56f7))
+* the port engine, in @arkitektio/bsx/ports ([ec62a0e](https://github.com/arkitektio/bsx/commit/ec62a0e366e2d8032894f222483a584da2b832c9))
+
 ## [2.2.1](https://github.com/arkitektio/bsx/compare/v2.2.0...v2.2.1) (2026-10-31)
 
 
