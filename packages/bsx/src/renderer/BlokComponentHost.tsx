@@ -13,6 +13,7 @@ import {
   type BlokCatalog,
   type BlokPort,
 } from './runtime';
+import type {BlokPreflightResult} from './runtime/preflight';
 
 const NODE_ID = 'widget';
 
@@ -24,6 +25,8 @@ export type BlokComponentHostProps = {
   component: string;
   /** Its props, as they arrive from the server (camelCase) or as the runtime spells them. */
   props: readonly unknown[];
+  /** The nodes below it, in the runtime's own spelling: the server sends these as one JSON value. */
+  nodes?: readonly unknown[] | null;
   /**
    * What the props may read, by root: the hosted `value` and whatever else
    * the host puts beside it (a port's dependencies, by name).
@@ -38,25 +41,30 @@ export type BlokComponentHostProps = {
   catalog?: BlokCatalog;
 };
 
-const hostedDocument = (component: string, props: readonly unknown[]) => [
-  {id: NODE_ID, component, props: props.map(normalizeBlokProp)},
+const hostedDocument = (component: string, props: readonly unknown[], nodes?: readonly unknown[] | null) => [
+  {id: NODE_ID, component, props: props.map(normalizeBlokProp), ...(nodes?.length ? {children: nodes} : {})},
 ];
 
+/** A tree missing one node may have lost the control that fills the value, so it is all or nothing. */
+const hostable = ({nodes, invalidNodes, errors}: BlokPreflightResult) =>
+  nodes.has(NODE_ID) && invalidNodes.size === 0 && errors.length === 0;
+
 /**
- * Whether this catalog can render the component as declared: it has it, and
- * accepts these props. Asked by a host that draws something around the
- * component (a form field's label) and must not draw it around a fallback
- * that brings its own.
+ * Whether this catalog can render the component as declared: it has it and
+ * every node below it, and accepts their props. Asked by a host that draws
+ * something around the component (a form field's label) and must not draw it
+ * around a fallback that brings its own.
  */
 export const canHostBlokComponent = (
   component: string,
   props: readonly unknown[],
   catalog: BlokCatalog = appBlokCatalog(),
-): boolean => preflightBlokDocument(hostedDocument(component, props), catalog).nodes.has(NODE_ID);
+  nodes?: readonly unknown[] | null,
+): boolean => hostable(preflightBlokDocument(hostedDocument(component, props, nodes), catalog));
 
 /**
- * One catalog component on its own, outside a blok: what renders a CUSTOM
- * widget in a form.
+ * One catalog component and the nodes below it, outside a blok: what renders a
+ * CUSTOM widget in a form.
  *
  * The component gets the runtime a blok's node gets (prop resolution, pure
  * function calls), over a data model the host hands it. The root `value` is
@@ -65,13 +73,14 @@ export const canHostBlokComponent = (
  * kept here, so the host stays the one owner and a later change on its side
  * is not masked by a stale local copy.
  *
- * A component this catalog does not have, or props it refuses, render the
- * `fallback`: a widget declared for a newer catalog must not leave an input
+ * A component this catalog does not have, or props it refuses, anywhere in the
+ * tree, render the `fallback`: a widget declared for a newer catalog must not leave an input
  * that cannot be filled.
  */
 export const BlokComponentHost = ({
   component,
   props,
+  nodes,
   data,
   onValue,
   fallback,
@@ -82,10 +91,14 @@ export const BlokComponentHost = ({
   const catalog = givenCatalog ?? providedCatalog;
   // Keyed by content: both arrive as rebuilt objects on most renders.
   const propsKey = JSON.stringify(props);
+  const nodesKey = JSON.stringify(nodes ?? null);
   const preflight = React.useMemo(
     () =>
-      preflightBlokDocument(hostedDocument(component, JSON.parse(propsKey) as unknown[]), catalog),
-    [component, propsKey, catalog],
+      preflightBlokDocument(
+        hostedDocument(component, JSON.parse(propsKey) as unknown[], JSON.parse(nodesKey) as unknown[] | null),
+        catalog,
+      ),
+    [component, propsKey, nodesKey, catalog],
   );
 
   const [store] = React.useState(() =>
@@ -135,7 +148,7 @@ export const BlokComponentHost = ({
     [catalog, preflight],
   );
 
-  if (!preflight.nodes.has(NODE_ID)) {
+  if (!hostable(preflight)) {
     return <>{fallback}</>;
   }
 
