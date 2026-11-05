@@ -1,3 +1,18 @@
+# [3.0.0](https://github.com/arkitektio/bsx/compare/v2.3.0...v3.0.0) (2026-11-05)
+
+
+* feat(ports)!: drop ActionDescription and the handlebars peer ([9c0026a](https://github.com/arkitektio/bsx/commit/9c0026a027359b22f466bf32036c29eefab5adcc))
+
+
+### BREAKING CHANGES
+
+* @arkitektio/bsx/ports no longer exports
+ActionDescription, FormActionDescription or useActionDescription, and
+handlebars is no longer an (optional) peer. Render the description
+string directly.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [2.3.0](https://github.com/arkitektio/bsx/compare/v2.2.1...v2.3.0) (2026-11-01)
 
 
