@@ -1,7 +1,6 @@
 // @arkitektio/bsx/ports: an action's form, the port engine and its widgets. What the app gives it is
 // `configurePortHost`; `hostedStructure` draws structure@1 with the same host. A form needs the
-// optional peers react-hook-form, @hookform/resolvers, handlebars, cmdk and date-fns.
-export * from './ports/engine/ActionDescription';
+// optional peers react-hook-form, @hookform/resolvers, cmdk and date-fns.
 export * from './ports/engine/DependencyContext';
 export * from './ports/engine/EffectWrapper';
 export * from './ports/engine/PortFitsContext';

@@ -238,9 +238,6 @@ importers:
       graphql:
         specifier: ^16.8.0
         version: 16.14.2
-      handlebars:
-        specifier: ^4.7.8
-        version: 4.7.10
       input-otp:
         specifier: ^1.4.2
         version: 1.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

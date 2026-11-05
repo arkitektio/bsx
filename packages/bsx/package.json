@@ -79,7 +79,6 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "graphql": "^16.8.0",
-    "handlebars": "^4.7.8",
     "input-otp": "^1.4.2",
     "lucide-react": ">=0.500.0",
     "monaco-editor": ">=0.50.0",
@@ -168,9 +167,6 @@
     "@hookform/resolvers": {
       "optional": true
     },
-    "handlebars": {
-      "optional": true
-    },
     "cmdk": {
       "optional": true
     },
@@ -198,7 +194,6 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "graphql": "^16.8.0",
-    "handlebars": "^4.7.8",
     "input-otp": "^1.4.2",
     "jsdom": "^29.1.1",
     "lucide-react": "^0.562.0",
