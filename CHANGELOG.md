@@ -1,3 +1,17 @@
+# [4.0.0](https://github.com/arkitektio/bsx/compare/v3.0.0...v4.0.0) (2026-11-13)
+
+
+* feat(scene)!: an action's Space places its run's dependencies in a shared room ([6bc3cc3](https://github.com/arkitektio/bsx/commit/6bc3cc3207fdd1d97cdc8e80888a9a500234d680))
+
+
+### BREAKING CHANGES
+
+* `<Overlay>` and `<Anchor>` and the OVERLAY context are gone, and
+`resolveAnchors` with them. `BlokSpaceHost` is now `{useRoom(room), renderAgent(agentId,
+blok)}` (a room is `{poseOf, save?, reset?}`) instead of `{placementOf}`.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [3.0.0](https://github.com/arkitektio/bsx/compare/v2.3.0...v3.0.0) (2026-11-05)
 
 
