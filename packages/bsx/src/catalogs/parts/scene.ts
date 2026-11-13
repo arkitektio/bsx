@@ -119,10 +119,10 @@ export const transformSchema = z
 const IN_MODEL: BlokComponentPlacement = {context: 'scene', downstreamOf: ['Model', 'Robot']};
 
 /**
- * Bindings an action's overlay may also use under an `At`, on the model the
- * anchored device's scene blok loaded. Interaction (OnClick, Popout) sits here too.
+ * Bindings a `Space` may also use under a `Placed`, on the model the placed
+ * device's scene blok loaded. Interaction (OnClick, Popout) sits here too.
  */
-const IN_MODEL_OR_AT: BlokComponentPlacement = {context: 'scene', downstreamOf: ['Model', 'Robot', 'Anchor']};
+const IN_MODEL_OR_AT: BlokComponentPlacement = {context: 'scene', downstreamOf: ['Model', 'Robot', 'Placed']};
 
 const nodeProp = z.string().describe('The name of the node in the enclosing model that this binds.');
 
@@ -255,24 +255,24 @@ export const popoutSchema = z
 export const sceneContracts = {
   Scene: {
     acceptsChildren: true,
-    placement: {childrenContext: 'scene', notDownstreamOf: ['Scene']},
+    placement: {childrenContext: 'scene', notDownstreamOf: ['Scene', 'Space']},
     schema: sceneSchema,
   },
   Model: {
     acceptsChildren: true,
-    placement: {context: 'scene', downstreamOf: ['Scene']},
+    placement: {context: 'scene', downstreamOf: ['Scene', 'Space']},
     propKinds: MODEL_PROP_KINDS,
     schema: modelSchema,
   },
   Robot: {
     acceptsChildren: true,
-    placement: {context: 'scene', downstreamOf: ['Scene']},
+    placement: {context: 'scene', downstreamOf: ['Scene', 'Space']},
     propKinds: MODEL_PROP_KINDS,
     schema: robotSchema,
   },
   Transform: {
     acceptsChildren: true,
-    placement: {context: 'scene', downstreamOf: ['Overlay', 'Scene']},
+    placement: {context: 'scene', downstreamOf: ['Scene', 'Space']},
     schema: transformSchema,
   },
   Move: {placement: IN_MODEL, schema: moveSchema},

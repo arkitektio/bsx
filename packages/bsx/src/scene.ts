@@ -12,7 +12,6 @@ const renders = {...sceneRenders, ...runRenders};
 
 /** scene@1, drawn with three. */
 export const threeScene = implementBlokCatalog(sceneCatalog, {
-  Anchor: renders.Anchor,
   Animate: renders.Animate,
   Attach: renders.Attach,
   Beam: renders.Beam,
@@ -20,12 +19,13 @@ export const threeScene = implementBlokCatalog(sceneCatalog, {
   Model: renders.Model,
   Move: renders.Move,
   OnClick: renders.OnClick,
-  Overlay: renders.Overlay,
+  Placed: renders.Placed,
   Popout: renders.Popout,
   Robot: renders.Robot,
   Rotate: renders.Rotate,
   Route: renders.Route,
   Scene: renders.Scene,
+  Space: renders.Space,
   Tint: renders.Tint,
   Transform: renders.Transform,
   Visible: renders.Visible,

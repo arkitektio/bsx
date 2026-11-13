@@ -24,7 +24,7 @@ import {
   type BlokRender,
   type BlokRenderArgs,
 } from '../../runtime';
-import type {sceneContracts} from '../../../catalogs/parts/scene';
+import {sceneSchema, type sceneContracts} from '../../../catalogs/parts/scene';
 import {
   createSceneStore,
   SceneStoreProvider,
@@ -808,8 +808,21 @@ const SceneChildren = ({component, buildChild}: Pick<SceneRenderArgs, 'component
   </>
 );
 
-const StandaloneScene = ({component, schema, buildChild}: SceneRenderArgs) => {
-  const blok = useBlok(component, schema);
+export type SceneFrameProps = Pick<SceneRenderArgs, 'component' | 'buildChild'> & {
+  /** HTML over the canvas (beside the scene's own controls). */
+  overlay?: React.ReactNode;
+  /** What the scene holds; the component's children when left out. */
+  children?: React.ReactNode;
+};
+
+/**
+ * A scene with a canvas of its own, sized and kept as a `Scene` asks: its
+ * camera, grid, height and (with `persist`) the viewer's camera on this device.
+ * A `Space` is one too, with its room around what it holds. The props are read
+ * through the scene schema, which every such root extends.
+ */
+export const SceneFrame = ({component, buildChild, overlay, children}: SceneFrameProps) => {
+  const blok = useBlok(component, sceneSchema);
   const camera = useValue(blok.camera) ?? 'iso';
   const grid = useValue(blok.grid) ?? true;
   const declaredHeight = useValue(blok.height);
@@ -840,11 +853,16 @@ const StandaloneScene = ({component, schema, buildChild}: SceneRenderArgs) => {
       frameRef={frameRef}
       className={fill ? 'relative w-full overflow-hidden' : 'relative w-full overflow-hidden rounded-xl bg-muted/20'}
       style={{height}}
+      overlay={overlay}
     >
-      <SceneChildren component={component} buildChild={buildChild} />
+      {children ?? <SceneChildren component={component} buildChild={buildChild} />}
     </SceneSurface>
   );
 };
+
+const StandaloneScene = ({component, buildChild}: SceneRenderArgs) => (
+  <SceneFrame component={component} buildChild={buildChild} />
+);
 
 export const SceneRender: BlokRender<Contracts['Scene']> = args =>
   // Inside a scene that is already open, this one only adds what it holds:

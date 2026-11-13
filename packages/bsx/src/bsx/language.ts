@@ -1,7 +1,7 @@
 import {defaultBlokView, innerContext, type BlokView, type SpecComponent, type SpecProp} from '../spec/catalogs';
 import {loadVocabulary, type BlokContextName, type VocabFunction, type VocabRecordField} from '../spec/vocabulary';
 import {FOREACH_COMPONENT, FOREACH_LET_PROP, INTO_KEYWORD} from './parse';
-import {blokRootOf, drawnIn, type BlokCheckScope, type BlokPortMatch, type BlokScopeDependency, type BlokScopeLocalPort} from './references';
+import {blokRootsOf, drawnIn, type BlokCheckScope, type BlokPortMatch, type BlokScopeDependency, type BlokScopeLocalPort} from './references';
 import type {BsxRange} from './source';
 
 /**
@@ -289,8 +289,9 @@ const completeTag = (env: BsxEnvironment, cursor: Extract<BsxCursor, {kind: 'tag
   const components = [...view.components.values()];
   if (stack.length === 0) {
     const context = drawnIn(env.scope) as BlokContextName;
-    const root = blokRootOf(env.scope.context);
-    const candidates = root ? components.filter(component => component.name === root) : components.filter(component => fitsUnder(component, [], context));
+    // A Space places the run's dependencies: it starts only an action's own blok, which has a run.
+    const roots = blokRootsOf(env.scope.context).filter(root => root !== 'Space' || env.scope.kind === 'action');
+    const candidates = roots.length ? components.filter(component => roots.includes(component.name)) : components.filter(component => fitsUnder(component, [], context));
     return candidates.map(component => componentCompletion(component, from));
   }
   const parent = view.components.get(stack[stack.length - 1].tag);

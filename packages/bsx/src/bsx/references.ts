@@ -151,16 +151,24 @@ const SCENE = 'SCENE';
 /** The context a scope's components are drawn in: an action logo's is a logo's. */
 export const drawnIn = (scope: BlokCheckScope): string => (scope.context === ACTION_LOGO ? LOGO : scope.context);
 
-/** The root component a blok of ``context`` starts with (`HTML` → `Html`): a blok's root names its context. */
-export const blokRootOf = (context: string): string | null =>
-  Object.entries(loadVocabulary().blokRoots).find(([, named]) => named === context)?.[0] ?? null;
+/** The root components a blok of ``context`` may start with (`HTML` → `Html`; `SCENE` → `Scene`, `Space`): a blok's root names its context. */
+export const blokRootsOf = (context: string): string[] =>
+  Object.entries(loadVocabulary().blokRoots)
+    .filter(([, named]) => named === context)
+    .map(([root]) => root);
 
-/** The blok context a root component names (`Overlay` → `OVERLAY`), or null when it names none. */
+/** The root a new blok of ``context`` starts with: the first it may start with (`SCENE` → `Scene`). */
+export const blokRootOf = (context: string): string | null => blokRootsOf(context)[0] ?? null;
+
+/** The blok context a root component names (`Space` → `SCENE`), or null when it names none. */
 export const blokContextOf = (component: string): string | null => loadVocabulary().blokRoots[component] ?? null;
 
 /* -------------------------------------------------------------------------- */
 /* Matches                                                                    */
 /* -------------------------------------------------------------------------- */
+
+/** Props whose value is the blok's dependency keys, written out (not paths): each must be a dependency. */
+const DEPENDENCY_KEY_PROPS = new Set(['Placed.dep', 'Route.through']);
 
 const OPEN_IDENTIFIER = '*';
 const ITEM = '...';
@@ -428,9 +436,10 @@ class Checker {
     if (wrongLogo || !(this.kind.contexts as readonly string[]).includes(drawn)) {
       this.add('context.kind', null, {n: article(scope.kind), kind: scope.kind, contexts: this.kind.contexts.join(', '), context: scope.context});
     }
-    const root = blokRootOf(scope.context);
-    if (root && tree.component !== root) {
-      this.add('context.root', tree.id, {context: scope.context.toLowerCase(), root, component: tree.component});
+    // A context may have several roots (a SCENE blok is a <Scene> or a <Space>).
+    const roots = blokRootsOf(scope.context);
+    if (roots.length && !roots.includes(tree.component)) {
+      this.add('context.root', tree.id, {context: scope.context.toLowerCase(), root: roots.join('> or <'), component: tree.component});
     }
     if (scope.locals.length && !this.kind.locals) this.notInKind(null, 'locals', 'locals');
     for (const local of scope.locals) {
@@ -598,6 +607,27 @@ class Checker {
     }
   }
 
+  /** A ``Placed dep`` or ``Route through`` names dependencies of the blok, written out as keys. */
+  private checkDependencyKeys(node: BlokComponentNode, prop: BlokComponentProp): void {
+    if (this.scope.kind !== 'action') {
+      this.add('space.kind', node.id, {component: node.component, n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
+      return;
+    }
+    const path = `${node.component}.${prop.key}`;
+    const value = prop.static_value;
+    const keys = typeof value === 'string' ? [value] : Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string') : [];
+    for (const key of keys) {
+      if (!this.dependencies.has(key)) {
+        this.add(
+          'deps.unknown',
+          node.id,
+          {path, key, keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(key, this.scope.kind)},
+          prop.key,
+        );
+      }
+    }
+  }
+
   private checkProp(node: BlokComponentNode, prop: BlokComponentProp, spec: SpecComponent | undefined): void {
     const {vocabulary} = this;
     const propSpec = spec?.props.find(candidate => candidate.key === prop.key);
@@ -641,6 +671,11 @@ class Checker {
           if (propSpec) this.checkBindKind(node, propSpec.kind, path);
         }
       }
+    }
+    if (DEPENDENCY_KEY_PROPS.has(`${node.component}.${prop.key}`)) this.checkDependencyKeys(node, prop);
+    if (node.component === 'Space' && prop.key === 'room' && this.scope.kind !== 'action') {
+      // A Space places the run's dependencies: only an action's own blok has a run.
+      this.add('space.kind', node.id, {component: node.component, n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
     }
     if (node.component === TOAST_COMPONENT && prop.key === TOAST_TASK_PROP) {
       const path = prop.dynamic_value?.path ?? null;

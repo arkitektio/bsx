@@ -68,6 +68,7 @@ describe('completeBsx: components and props', () => {
     expect(labels('<Scene><Model><|')).toContain('OnClick');
     expect(labels('<Scene><|')).not.toContain('OnClick');
     expect(labels('<|', env({context: 'SCENE'}))).toEqual(['Scene']);
+    expect(labels('<|', env({kind: 'action', context: 'SCENE'}))).toEqual(['Scene', 'Space']);
     expect(labels('<|', env({context: 'LOGO'}))).toEqual(['AgentLogo']);
     expect(labels('<|', env({context: 'ACTION_LOGO'}))).toEqual(['ActionLogo']);
     expect(labels('<|', env({context: 'HTML'}))).toEqual(['Html']);

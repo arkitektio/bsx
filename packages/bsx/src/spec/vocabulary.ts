@@ -11,7 +11,7 @@ import vocabularyJson from './vocabulary.json';
 export type BlokKind = 'agent' | 'custom' | 'task' | 'action' | 'action_logo';
 export const BLOK_KINDS: readonly BlokKind[] = ['agent', 'custom', 'task', 'action', 'action_logo'];
 
-export type BlokContextName = 'HTML' | 'SCENE' | 'OVERLAY' | 'LOGO';
+export type BlokContextName = 'HTML' | 'SCENE' | 'LOGO';
 
 export type VocabParam = {key: string; kind: string; required: boolean};
 
@@ -224,7 +224,7 @@ const stringMap = (value: unknown, where: string): Record<string, string> =>
   );
 
 const isContext = (value: string): value is BlokContextName =>
-  value === 'HTML' || value === 'SCENE' || value === 'OVERLAY' || value === 'LOGO';
+  value === 'HTML' || value === 'SCENE' || value === 'LOGO';
 
 const recordFields = (value: unknown, where: string): VocabRecordField[] =>
   list(value, where).map((raw, index) => {

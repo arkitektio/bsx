@@ -66,7 +66,7 @@ const text = (value: unknown): string | null => (typeof value === 'string' ? val
 const texts = (value: unknown): string[] => rawList(value).filter((item): item is string => typeof item === 'string');
 
 const contextOf = (value: unknown): BlokContextName | null =>
-  value === 'HTML' || value === 'SCENE' || value === 'OVERLAY' || value === 'LOGO' ? value : null;
+  value === 'HTML' || value === 'SCENE' || value === 'LOGO' ? value : null;
 
 export const parseSpecCatalog = (raw: unknown, file: string): SpecCatalog => {
   if (!isRaw(raw) || typeof raw.name !== 'string') throw new Error(`${file} is not a catalog`);

@@ -138,14 +138,6 @@
    "accepts_children": true,
    "catalog": "shadcn@1"
   },
-  "Anchor": {
-   "text_prop": null,
-   "context": "SCENE",
-   "children_context": null,
-   "inherits_context": false,
-   "accepts_children": true,
-   "catalog": "scene@1"
-  },
   "Animate": {
    "text_prop": null,
    "context": "SCENE",
@@ -906,14 +898,6 @@
    "accepts_children": false,
    "catalog": "scene@1"
   },
-  "Overlay": {
-   "text_prop": null,
-   "context": "HTML",
-   "children_context": "SCENE",
-   "inherits_context": false,
-   "accepts_children": true,
-   "catalog": "scene@1"
-  },
   "Pagination": {
    "text_prop": null,
    "context": "HTML",
@@ -937,6 +921,14 @@
    "inherits_context": false,
    "accepts_children": false,
    "catalog": "logo@1"
+  },
+  "Placed": {
+   "text_prop": null,
+   "context": "SCENE",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": true,
+   "catalog": "scene@1"
   },
   "Polygon": {
    "text_prop": null,
@@ -1233,6 +1225,14 @@
    "inherits_context": false,
    "accepts_children": false,
    "catalog": "ui@1"
+  },
+  "Space": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": "SCENE",
+   "inherits_context": false,
+   "accepts_children": true,
+   "catalog": "scene@1"
   },
   "Spacer": {
    "text_prop": null,
@@ -3467,15 +3467,21 @@
    "printed": "<Scene id=\"main\" camera=\"front\" persist>\n  <Model src={self.assets.arm} />\n</Scene>"
   },
   {
-   "name": "an overlay",
-   "source": "<Overlay><Anchor dep=\"robot\"><Glow on={task.running} /></Anchor><Route through={[\"robot\", \"ot2\"]} /></Overlay>",
+   "name": "a space",
+   "source": "<Space room=\"room:lab\"><Placed dep=\"robot\"><Glow on={task.running} /></Placed><Route through={[\"robot\", \"ot2\"]} /></Space>",
    "tree": {
-    "id": "Overlay[0]",
-    "component": "Overlay",
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ],
     "children": [
      {
-      "id": "Overlay[0]/Anchor[0]",
-      "component": "Anchor",
+      "id": "Space[0]/Placed[0]",
+      "component": "Placed",
       "props": [
        {
         "key": "dep",
@@ -3484,7 +3490,7 @@
       ],
       "children": [
        {
-        "id": "Overlay[0]/Anchor[0]/Glow[0]",
+        "id": "Space[0]/Placed[0]/Glow[0]",
         "component": "Glow",
         "props": [
          {
@@ -3498,7 +3504,7 @@
       ]
      },
      {
-      "id": "Overlay[0]/Route[0]",
+      "id": "Space[0]/Route[0]",
       "component": "Route",
       "props": [
        {
@@ -3512,7 +3518,7 @@
      }
     ]
    },
-   "printed": "<Overlay>\n  <Anchor dep=\"robot\">\n    <Glow on={task.running} />\n  </Anchor>\n  <Route through={[\"robot\", \"ot2\"]} />\n</Overlay>"
+   "printed": "<Space room=\"room:lab\">\n  <Placed dep=\"robot\">\n    <Glow on={task.running} />\n  </Placed>\n  <Route through={[\"robot\", \"ot2\"]} />\n</Space>"
   },
   {
    "name": "a logo",
@@ -8539,15 +8545,21 @@
    ]
   },
   {
-   "name": "an overlay is an action's",
-   "source": "<Overlay />",
+   "name": "a space is an action's",
+   "source": "<Space room=\"room:lab\" />",
    "tree": {
-    "id": "Overlay[0]",
-    "component": "Overlay"
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ]
    },
    "scope": {
     "kind": "agent",
-    "context": "OVERLAY",
+    "context": "SCENE",
     "dependencies": [],
     "locals": [],
     "queries": [],
@@ -8561,7 +8573,90 @@
     "locals": []
    },
    "codes": [
-    "context.kind"
+    "space.kind"
+   ]
+  },
+  {
+   "name": "a custom blok has no run to place",
+   "source": "<Space room=\"room:lab\"><Placed dep=\"robot\" /></Space>",
+   "tree": {
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ],
+    "children": [
+     {
+      "id": "Space[0]/Placed[0]",
+      "component": "Placed",
+      "props": [
+       {
+        "key": "dep",
+        "static_value": "robot"
+       }
+      ]
+     }
+    ]
+   },
+   "scope": {
+    "kind": "custom",
+    "context": "SCENE",
+    "dependencies": [
+     {
+      "key": "robot",
+      "action_dependencies": [
+       {
+        "key": "move_to",
+        "demand": {
+         "arg_matches": [
+          {
+           "key": "position"
+          }
+         ],
+         "return_matches": [
+          {
+           "key": "arrived"
+          }
+         ]
+        }
+       }
+      ],
+      "state_dependencies": [
+       {
+        "key": "arm",
+        "demand": {
+         "matches": [
+          {
+           "key": "joints",
+           "kind": "LIST"
+          },
+          {
+           "key": "mode",
+           "kind": "STRING"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ],
+    "locals": [],
+    "queries": [],
+    "subscriptions": [],
+    "args": null,
+    "catalogs": [],
+    "catalog": true,
+    "module": null
+   },
+   "resolved": {
+    "locals": []
+   },
+   "codes": [
+    "space.kind",
+    "space.kind"
    ]
   },
   {
@@ -8745,14 +8840,20 @@
   },
   {
    "name": "an action blok",
-   "source": "<Overlay><Anchor dep=\"robot\"><Glow on={task.running} /></Anchor></Overlay>",
+   "source": "<Space room=\"room:lab\"><Placed dep=\"robot\"><Glow on={task.running} /></Placed></Space>",
    "tree": {
-    "id": "Overlay[0]",
-    "component": "Overlay",
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ],
     "children": [
      {
-      "id": "Overlay[0]/Anchor[0]",
-      "component": "Anchor",
+      "id": "Space[0]/Placed[0]",
+      "component": "Placed",
       "props": [
        {
         "key": "dep",
@@ -8761,7 +8862,7 @@
       ],
       "children": [
        {
-        "id": "Overlay[0]/Anchor[0]/Glow[0]",
+        "id": "Space[0]/Placed[0]/Glow[0]",
         "component": "Glow",
         "props": [
          {
@@ -8778,7 +8879,7 @@
    },
    "scope": {
     "kind": "action",
-    "context": "OVERLAY",
+    "context": "SCENE",
     "dependencies": [
      {
       "key": "robot",
@@ -8830,6 +8931,102 @@
     "locals": []
    },
    "codes": []
+  },
+  {
+   "name": "a placed key that is no dependency",
+   "source": "<Space room=\"room:lab\"><Placed dep=\"arm\" /><Route through={[\"robot\", \"arm\"]} /></Space>",
+   "tree": {
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ],
+    "children": [
+     {
+      "id": "Space[0]/Placed[0]",
+      "component": "Placed",
+      "props": [
+       {
+        "key": "dep",
+        "static_value": "arm"
+       }
+      ]
+     },
+     {
+      "id": "Space[0]/Route[0]",
+      "component": "Route",
+      "props": [
+       {
+        "key": "through",
+        "static_value": [
+         "robot",
+         "arm"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "scope": {
+    "kind": "action",
+    "context": "SCENE",
+    "dependencies": [
+     {
+      "key": "robot",
+      "action_dependencies": [
+       {
+        "key": "move_to",
+        "demand": {
+         "arg_matches": [
+          {
+           "key": "position"
+          }
+         ],
+         "return_matches": [
+          {
+           "key": "arrived"
+          }
+         ]
+        }
+       }
+      ],
+      "state_dependencies": [
+       {
+        "key": "arm",
+        "demand": {
+         "matches": [
+          {
+           "key": "joints",
+           "kind": "LIST"
+          },
+          {
+           "key": "mode",
+           "kind": "STRING"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ],
+    "locals": [],
+    "queries": [],
+    "subscriptions": [],
+    "args": null,
+    "catalogs": [],
+    "catalog": true,
+    "module": null
+   },
+   "resolved": {
+    "locals": []
+   },
+   "codes": [
+    "deps.unknown",
+    "deps.unknown"
+   ]
   },
   {
    "name": "task.answer in an agent blok",
@@ -9104,14 +9301,20 @@
   },
   {
    "name": "a scene colour that is no role",
-   "source": "<Overlay><Anchor dep=\"robot\"><Glow on={task.running} color=\"#ff3b30\" /></Anchor><Route through={[\"robot\"]} color=\"hotpink\" /></Overlay>",
+   "source": "<Space room=\"room:lab\"><Placed dep=\"robot\"><Glow on={task.running} color=\"#ff3b30\" /></Placed><Route through={[\"robot\"]} color=\"hotpink\" /></Space>",
    "tree": {
-    "id": "Overlay[0]",
-    "component": "Overlay",
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ],
     "children": [
      {
-      "id": "Overlay[0]/Anchor[0]",
-      "component": "Anchor",
+      "id": "Space[0]/Placed[0]",
+      "component": "Placed",
       "props": [
        {
         "key": "dep",
@@ -9120,7 +9323,7 @@
       ],
       "children": [
        {
-        "id": "Overlay[0]/Anchor[0]/Glow[0]",
+        "id": "Space[0]/Placed[0]/Glow[0]",
         "component": "Glow",
         "props": [
          {
@@ -9138,7 +9341,7 @@
       ]
      },
      {
-      "id": "Overlay[0]/Route[0]",
+      "id": "Space[0]/Route[0]",
       "component": "Route",
       "props": [
        {
@@ -9157,7 +9360,7 @@
    },
    "scope": {
     "kind": "action",
-    "context": "OVERLAY",
+    "context": "SCENE",
     "dependencies": [
      {
       "key": "robot",
@@ -11043,14 +11246,20 @@
   },
   {
    "name": "spectral roles are scene colours",
-   "source": "<Overlay><Anchor dep=\"robot\"><Glow on={task.running} color=\"spectrum-green\" /></Anchor><Route through={[\"robot\"]} color=\"spectrum-violet-soft\" /></Overlay>",
+   "source": "<Space room=\"room:lab\"><Placed dep=\"robot\"><Glow on={task.running} color=\"spectrum-green\" /></Placed><Route through={[\"robot\"]} color=\"spectrum-violet-soft\" /></Space>",
    "tree": {
-    "id": "Overlay[0]",
-    "component": "Overlay",
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ],
     "children": [
      {
-      "id": "Overlay[0]/Anchor[0]",
-      "component": "Anchor",
+      "id": "Space[0]/Placed[0]",
+      "component": "Placed",
       "props": [
        {
         "key": "dep",
@@ -11059,7 +11268,7 @@
       ],
       "children": [
        {
-        "id": "Overlay[0]/Anchor[0]/Glow[0]",
+        "id": "Space[0]/Placed[0]/Glow[0]",
         "component": "Glow",
         "props": [
          {
@@ -11077,7 +11286,7 @@
       ]
      },
      {
-      "id": "Overlay[0]/Route[0]",
+      "id": "Space[0]/Route[0]",
       "component": "Route",
       "props": [
        {
@@ -11096,7 +11305,7 @@
    },
    "scope": {
     "kind": "action",
-    "context": "OVERLAY",
+    "context": "SCENE",
     "dependencies": [
      {
       "key": "robot",
@@ -11231,14 +11440,20 @@
   },
   {
    "name": "scene colours are roles",
-   "source": "<Overlay><Anchor dep=\"robot\"><Glow on={task.running} color=\"info\" /></Anchor><Route through={[\"robot\"]} color=\"chart-2\" /></Overlay>",
+   "source": "<Space room=\"room:lab\"><Placed dep=\"robot\"><Glow on={task.running} color=\"info\" /></Placed><Route through={[\"robot\"]} color=\"chart-2\" /></Space>",
    "tree": {
-    "id": "Overlay[0]",
-    "component": "Overlay",
+    "id": "Space[0]",
+    "component": "Space",
+    "props": [
+     {
+      "key": "room",
+      "static_value": "room:lab"
+     }
+    ],
     "children": [
      {
-      "id": "Overlay[0]/Anchor[0]",
-      "component": "Anchor",
+      "id": "Space[0]/Placed[0]",
+      "component": "Placed",
       "props": [
        {
         "key": "dep",
@@ -11247,7 +11462,7 @@
       ],
       "children": [
        {
-        "id": "Overlay[0]/Anchor[0]/Glow[0]",
+        "id": "Space[0]/Placed[0]/Glow[0]",
         "component": "Glow",
         "props": [
          {
@@ -11265,7 +11480,7 @@
       ]
      },
      {
-      "id": "Overlay[0]/Route[0]",
+      "id": "Space[0]/Route[0]",
       "component": "Route",
       "props": [
        {
@@ -11284,7 +11499,7 @@
    },
    "scope": {
     "kind": "action",
-    "context": "OVERLAY",
+    "context": "SCENE",
     "dependencies": [
      {
       "key": "robot",

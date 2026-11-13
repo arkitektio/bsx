@@ -3,10 +3,11 @@ import * as React from 'react';
 /**
  * What an action's own blok needs from the app that shows a run of it.
  *
- * The blok core draws `Anchor`, `Route` and `ask`; it does not know which
- * agents a run got, where they stand, or how an ask is answered. The host
- * answers those through these contexts: the run (rekuest, from the task or a
- * dry run) and the space it is drawn into (rekuest's space scene).
+ * The blok core draws `Space`, `Placed`, `Route` and `ask`; it does not know
+ * which agents a run got, how an agent's own scene blok is found, where a room
+ * keeps its devices, or how an ask is answered. The host answers those through
+ * these contexts: the run (rekuest, from the task or a dry run) and the rooms
+ * (rekuest's spaces, kept on the server).
  *
  * Both are provided around the scene surface, not inside the canvas: a
  * `Popout`'s card is rendered by the scene's HTML half, outside the blok.
@@ -35,26 +36,51 @@ export const BlokRunHostProvider = BlokRunHostContext.Provider;
 
 export const useBlokRunHost = (): BlokRunHost => React.useContext(BlokRunHostContext);
 
+/** A 4x4 affine as four rows, in meters with Y up: what a room keeps per device. */
+export type BlokPose = number[][];
+
 /**
- * The space an overlay is drawn into: where each agent stands in it, as the
- * 4x4 affine its placement keeps (rows, meters, Y up).
+ * One room as the host keeps it: where people left its devices. Shared, so a
+ * device moved by one viewer stands there for every other.
  */
-export type BlokSpaceHost = {
-  /** The stored affine of the agent's placement; null where the space does not place it. */
-  placementOf: (agentId: string) => unknown;
+export type BlokRoom = {
+  /** Where someone left the agent in this room; null where nobody moved it (its `Placed` decides). */
+  poseOf: (agentId: string) => BlokPose | null;
+  /**
+   * Keep where the agent stands now, for everyone; `dependency` is the key it
+   * was placed under. Absent where the viewer may not arrange the room.
+   */
+  save?: (agent: BlokRunAgent, dependency: string, pose: BlokPose) => void;
+  /** Forget where the agent was left, so its `Placed` decides again. */
+  reset?: (agent: BlokRunAgent) => void;
 };
 
-const NO_SPACE: BlokSpaceHost = {placementOf: () => null};
+export type BlokSpaceHost = {
+  /** The room a `Space` names (`room="room:helsinki-lab"`). A hook. */
+  useRoom: (room: string) => BlokRoom;
+  /**
+   * Draw the agent with its own scene blok, inside the scene that is open: its
+   * default scene blok, or the one named. Nothing where it has none.
+   */
+  renderAgent: (agentId: string, blok: string | null) => React.ReactNode;
+};
 
-const BlokSpaceHostContext = React.createContext<BlokSpaceHost>(NO_SPACE);
+const NO_ROOM: BlokRoom = {poseOf: () => null};
+
+const DETACHED_SPACE: BlokSpaceHost = {
+  useRoom: () => NO_ROOM,
+  renderAgent: () => null,
+};
+
+const BlokSpaceHostContext = React.createContext<BlokSpaceHost>(DETACHED_SPACE);
 
 export const BlokSpaceHostProvider = BlokSpaceHostContext.Provider;
 
 export const useBlokSpaceHost = (): BlokSpaceHost => React.useContext(BlokSpaceHostContext);
 
 /**
- * Set below an `At` whose agent the space does not place: what would point at
- * the device (a `Popout`) shows in the side tray instead, under this title.
+ * Set where what would point at a device has nothing to point at: a `Popout`
+ * then shows in the side tray instead, under this title.
  */
 const BlokTrayContext = React.createContext<string | null>(null);
 
