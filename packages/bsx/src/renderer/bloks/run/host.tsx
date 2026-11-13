@@ -21,6 +21,8 @@ export type BlokRunHost = {
   agentsFor: (key: string) => readonly BlokRunAgent[];
   /** The run's open ask, answered in place (answering resumes the run); nothing while none is open. */
   renderAsk: () => React.ReactNode;
+  /** The form of the arguments of the run an assign blok starts (`<args />`); absent where no run is being started. */
+  renderArgs?: () => React.ReactNode;
 };
 
 const NO_AGENTS: readonly BlokRunAgent[] = Object.freeze([]);

@@ -3,7 +3,7 @@ import * as React from 'react';
 import {render, screen} from '@testing-library/react';
 import {describe, expect, it, vi} from 'vitest';
 import BlokRenderer from '../../BlokRenderer';
-import {BlokSpaceHostProvider, type BlokSpaceHost} from './host';
+import {BlokRunHostProvider, BlokSpaceHostProvider, type BlokRunHost, type BlokSpaceHost} from './host';
 import {testCatalog} from '../testing';
 
 // No WebGL in jsdom: the canvas holds nothing here. What is checked is the frame
@@ -47,5 +47,21 @@ describe('a space shown on its own', () => {
   it('renders with an empty room too: its notice belongs to the scene it opens', () => {
     mount(true, '');
     expect(screen.getByTestId('canvas')).toBeTruthy();
+  });
+});
+
+describe('the argument form an assign blok places', () => {
+  it('draws what the host gives for <args />, and nothing without a host', () => {
+    const tree = [{id: 'root', component: 'Html', children: [{id: 'form', component: 'args'}]}];
+    const run: BlokRunHost = {agentsFor: () => [], renderAsk: () => null, renderArgs: () => <div data-testid="args-form" />};
+    const hosted = render(
+      <BlokRunHostProvider value={run}>
+        <BlokRenderer catalog={testCatalog()} uiComponents={tree} />
+      </BlokRunHostProvider>,
+    );
+    expect(hosted.getByTestId('args-form')).toBeTruthy();
+    hosted.unmount();
+    const bare = render(<BlokRenderer catalog={testCatalog()} uiComponents={tree} />);
+    expect(bare.queryByTestId('args-form')).toBeNull();
   });
 });

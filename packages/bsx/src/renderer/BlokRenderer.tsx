@@ -82,6 +82,8 @@ type BlokRendererProps = {
   readExecutor?: BlokReadExecutor;
   /** Answers the open ask of `task` (`task.answer(values)`). */
   answerTask?: (values: Record<string, unknown>) => unknown;
+  /** Starts the run an assign blok prepares (`assign.start()`). */
+  startRun?: () => unknown;
   /** Where `persist` components keep their state by id; none: they keep nothing. */
   componentState?: BlokComponentStateStore | null;
   children?: React.ReactNode;
@@ -145,6 +147,7 @@ export default function BlokRenderer({
   subscriptions = NO_SUBSCRIPTIONS,
   readExecutor,
   answerTask,
+  startRun,
   componentState = null,
   children,
 }: BlokRendererProps) {
@@ -198,6 +201,7 @@ export default function BlokRenderer({
       statuses: unboundDependencies?.length ? {...statuses, ...unboundDependencyStatuses(unboundDependencies)} : statuses,
       travelAt,
       answerTask,
+      startRun,
     });
     return store;
   });
@@ -220,6 +224,10 @@ export default function BlokRenderer({
   useEffect(() => {
     runtimeStore.getState().setAnswerTask(answerTask);
   }, [answerTask, runtimeStore]);
+
+  useEffect(() => {
+    runtimeStore.getState().setStartRun(startRun);
+  }, [startRun, runtimeStore]);
 
   useEffect(() => {
     if (keptRoots) runtimeStore.getState().setKeptRoots(keptRoots);

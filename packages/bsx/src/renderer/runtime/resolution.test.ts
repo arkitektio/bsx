@@ -433,6 +433,14 @@ describe("a callback does exactly one thing (v2)", () => {
     expect(answerTask).toHaveBeenCalledWith({image: "7"});
   });
 
+  it("starts the run an assign blok prepares with assign.start, where a host starts one", () => {
+    const startRun = vi.fn(() => "starting");
+    const call = {type: "util" as const, call: {operation: "assign.start", arguments: []}};
+    expect(runActionCall(call, createContext({}, {startRun}), component)).toEqual({ok: true, value: "starting"});
+    expect(startRun).toHaveBeenCalledTimes(1);
+    expect(runActionCall(call, createContext({}), component).ok).toBe(false);
+  });
+
   it("refuses a pure function as a callback", () => {
     const result = runActionCall({type: "util", call: {operation: "str.upper", arguments: []}}, createContext({}), component);
     expect(result.ok).toBe(false);

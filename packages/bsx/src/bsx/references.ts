@@ -170,6 +170,14 @@ export const blokContextOf = (component: string): string | null => loadVocabular
 /** Props whose value is the blok's dependency keys, written out (not paths): each must be a dependency. */
 const DEPENDENCY_KEY_PROPS = new Set(['Placed.dep', 'Route.through']);
 
+/** The kinds that have a run's dependencies: an action's own bloks, for a run and for starting one. */
+const RUN_KINDS: readonly string[] = ['action', 'assign'];
+const ASSIGN_KIND = 'assign';
+/** The form of the run's arguments, placed by an assign blok. */
+const ARGS_COMPONENT = 'args';
+/** Starts the run an assign blok prepares. */
+const START_EFFECT = 'assign.start';
+
 const OPEN_IDENTIFIER = '*';
 const ITEM = '...';
 const TOAST_COMPONENT = 'Toast';
@@ -313,7 +321,7 @@ const DIGITS = /^[0-9]+$/;
  * - an agent blok has none: ``agent bloks read only `self` ``.
  */
 export const dependencyHint = (key: string, kind: BlokKind): string => {
-  if (kind === 'action' || kind === 'action_logo') return `add a dependency parameter \`${key}\` to the action`;
+  if (kind === 'action' || kind === 'assign' || kind === 'action_logo') return `add a dependency parameter \`${key}\` to the action`;
   if (kind === 'agent') return 'agent bloks read only `self`';
   return `dependencies=[AgentDependencyInput(key="${key}")]`;
 };
@@ -567,6 +575,9 @@ class Checker {
       this.shadowed.add(node.component);
       this.add('catalog.shadow', node.id, {component: node.component, catalog: shadow.catalog, module: shadow.module, winner: shadow.winner});
     }
+    if (node.component === ARGS_COMPONENT && this.scope.kind !== ASSIGN_KIND) {
+      this.add('assign.kind', node.id, {what: '<args>', n: article(this.scope.kind), kind: this.scope.kind});
+    }
     for (const prop of node.props ?? []) this.checkProp(node, prop, spec);
   }
 
@@ -609,7 +620,7 @@ class Checker {
 
   /** A ``Placed dep`` or ``Route through`` names dependencies of the blok, written out as keys. */
   private checkDependencyKeys(node: BlokComponentNode, prop: BlokComponentProp): void {
-    if (this.scope.kind !== 'action') {
+    if (!RUN_KINDS.includes(this.scope.kind)) {
       this.add('space.kind', node.id, {component: node.component, n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
       return;
     }
@@ -672,9 +683,12 @@ class Checker {
         }
       }
     }
+    if (prop.util_call?.operation === START_EFFECT && this.scope.kind !== ASSIGN_KIND) {
+      this.add('assign.kind', node.id, {what: 'assign.start()', n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
+    }
     if (DEPENDENCY_KEY_PROPS.has(`${node.component}.${prop.key}`)) this.checkDependencyKeys(node, prop);
-    if (node.component === 'Space' && prop.key === 'room' && this.scope.kind !== 'action') {
-      // A Space places the run's dependencies: only an action's own blok has a run.
+    if (node.component === 'Space' && prop.key === 'room' && !RUN_KINDS.includes(this.scope.kind)) {
+      // A Space places the run's dependencies: only an action's own blok (for a run, or for starting one) has them.
       this.add('space.kind', node.id, {component: node.component, n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
     }
     if (node.component === TOAST_COMPONENT && prop.key === TOAST_TASK_PROP) {

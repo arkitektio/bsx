@@ -390,6 +390,7 @@ const resolvePropValue = (
 /** The effects a callback may hold besides a task call (vocabulary functions flagged `effect`). */
 export const COPY_EFFECT = 'ui.copy';
 export const ANSWER_EFFECT = 'task.answer';
+export const START_EFFECT = 'assign.start';
 export const REFETCH_EFFECT = 'query.refetch';
 export const FETCH_MORE_EFFECT = 'query.fetch_more';
 
@@ -414,7 +415,9 @@ const getPropActionCall = (
 
 /** Whether a callback is a command: it is refused while the blok shows the past. */
 export const isCommand = (actionCall: BlokActionCall | undefined): boolean =>
-  actionCall !== undefined && (actionCall.type === 'agent' || (actionCall.type === 'util' && actionCall.call.operation === ANSWER_EFFECT));
+  actionCall !== undefined &&
+  (actionCall.type === 'agent' ||
+    (actionCall.type === 'util' && (actionCall.call.operation === ANSWER_EFFECT || actionCall.call.operation === START_EFFECT)));
 
 const copyToClipboard = (value: unknown): void => {
   const text = value === null || value === undefined ? '' : typeof value === 'string' ? value : JSON.stringify(value);
@@ -506,9 +509,15 @@ const runActionCall = (
     );
     return {ok: true, value: answered};
   }
+  if (operation === START_EFFECT) {
+    if (context.travelling) return {ok: true, value: undefined};
+    if (!context.startRun) return {ok: false, error: 'assign.start: nothing here starts a run.'};
+    // What the host returns (a promise, while the run is being started) keeps the control busy.
+    return {ok: true, value: context.startRun()};
+  }
   return {
     ok: false,
-    error: `${operation} is not a callback's one thing: a callback holds one task call or one effect (queries.<name>.refetch(), queries.<name>.fetch_more(...), ui.copy, task.answer).`,
+    error: `${operation} is not a callback's one thing: a callback holds one task call or one effect (queries.<name>.refetch(), queries.<name>.fetch_more(...), ui.copy, task.answer, assign.start).`,
   };
 };
 

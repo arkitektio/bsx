@@ -150,6 +150,7 @@ export const createBlokRuntimeStore = (config?: {
   statuses?: Readonly<Record<string, BlokSourceStatus>>;
   travelAt?: string | null;
   answerTask?: (values: Record<string, unknown>) => unknown;
+  startRun?: () => unknown;
 }): BlokRuntimeStore => {
   const initialDataModel = config?.initialDataModel;
   const keptValues = config?.keptValues ?? {};
@@ -173,6 +174,7 @@ export const createBlokRuntimeStore = (config?: {
     refetchQuery: undefined,
     fetchMoreQuery: undefined,
     answerTask: config?.answerTask,
+    startRun: config?.startRun,
     setStatus: (path, status) => {
       const key = canonicalStatusPath(path);
       set(currentState => {
@@ -208,6 +210,9 @@ export const createBlokRuntimeStore = (config?: {
     },
     setAnswerTask: answer => {
       set({answerTask: answer});
+    },
+    setStartRun: start => {
+      set({startRun: start});
     },
     setInitialDataModel: nextInitialDataModel => {
       set(currentState => {

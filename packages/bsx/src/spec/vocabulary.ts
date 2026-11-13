@@ -8,8 +8,8 @@ import vocabularyJson from './vocabulary.json';
  * diagnostics is read from this one file, never restated.
  */
 
-export type BlokKind = 'agent' | 'custom' | 'task' | 'action' | 'action_logo';
-export const BLOK_KINDS: readonly BlokKind[] = ['agent', 'custom', 'task', 'action', 'action_logo'];
+export type BlokKind = 'agent' | 'custom' | 'task' | 'action' | 'assign' | 'action_logo';
+export const BLOK_KINDS: readonly BlokKind[] = ['agent', 'custom', 'task', 'action', 'assign', 'action_logo'];
 
 export type BlokContextName = 'HTML' | 'SCENE' | 'LOGO';
 

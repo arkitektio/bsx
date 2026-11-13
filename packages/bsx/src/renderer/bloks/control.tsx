@@ -420,6 +420,20 @@ export const Ask = createBlokComponent(
   () => <>{useBlokRunHost().renderAsk()}</>,
 );
 
+/* -------------------------------------------------------------------------- */
+/* args                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const Args = createBlokComponent(
+  {
+    name: 'args',
+    schema: z
+      .object({})
+      .describe("The arguments of the run an assign blok starts, as a form generated from the action's ports: filled in right here, read as `args.<key>`."),
+  },
+  () => <>{useBlokRunHost().renderArgs?.() ?? null}</>,
+);
+
 export const controlBlokComponents = [
   Foreach,
   If,
@@ -433,4 +447,5 @@ export const controlBlokComponents = [
   Fallback,
   ErrorSlot,
   Ask,
+  Args,
 ];

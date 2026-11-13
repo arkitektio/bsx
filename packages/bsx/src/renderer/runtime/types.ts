@@ -214,6 +214,8 @@ export type BlokResolutionContext = {
   fetchMoreQuery?: (name: string, variables: Record<string, unknown>) => void;
   /** Answers the open ask of `task` (`task.answer(values)`). */
   answerTask?: (values: Record<string, unknown>) => unknown;
+  /** Starts the run an assign blok prepares (`assign.start()`); undefined where the host starts none. */
+  startRun?: () => unknown;
   /** Set while the blok shows a moment in the past: no command runs. */
   travelling?: boolean;
   resolvePath: (path: string) => string;
@@ -248,11 +250,14 @@ export type BlokRuntimeContext = {
   fetchMoreQuery: ((name: string, variables: Record<string, unknown>) => void) | undefined;
   /** Answers the open ask of `task`; set by a host that holds one. */
   answerTask: ((values: Record<string, unknown>) => unknown) | undefined;
+  /** Starts the run an assign blok prepares; set by a host that can start one. */
+  startRun: (() => unknown) | undefined;
   setStatus: (path: string, status: BlokSourceStatus | null) => void;
   setTravelAt: (at: string | null) => void;
   setRefetchQuery: (refetch: ((name: string) => void) | undefined) => void;
   setFetchMoreQuery: (fetchMore: ((name: string, variables: Record<string, unknown>) => void) | undefined) => void;
   setAnswerTask: (answer: ((values: Record<string, unknown>) => unknown) | undefined) => void;
+  setStartRun: (start: (() => unknown) | undefined) => void;
   agentMappingStateUpdates: BlokAgentMappingStateUpdates;
   invokeFunction: BlokInvokeFunctionHandler;
   dispatchAction: BlokDispatchActionHandler;
