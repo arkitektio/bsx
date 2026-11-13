@@ -1,3 +1,10 @@
+## [4.0.1](https://github.com/arkitektio/bsx/compare/v4.0.0...v4.0.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **scene:** a Space shown on its own opens its scene before its notice ([4f818d9](https://github.com/arkitektio/bsx/commit/4f818d96859c8d63e6d333ee0a9a94fa05ebaf30))
+
 # [4.0.0](https://github.com/arkitektio/bsx/compare/v3.0.0...v4.0.0) (2026-11-13)
 
 
