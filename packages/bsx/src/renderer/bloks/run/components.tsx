@@ -87,6 +87,12 @@ const ArrangeToggle = ({arranging, onChange}: {arranging: boolean; onChange: (ar
   </div>
 );
 
+/** Says so when a `Space` names no room. Rendered inside the scene: a notice needs the scene's store, which the frame opens. */
+const RoomNotice = ({reference}: {reference: string}) => {
+  useSceneNotice(reference ? null : 'A space without a room', 'Name the room (`room="room:lab"`): where devices stand is kept by it.');
+  return null;
+};
+
 const SpaceRender: BlokRender<Contracts['Space']> = ({component, buildChild}) => {
   const blok = useBlok(component, spaceSchema);
   const reference = useValue(blok.room) ?? '';
@@ -96,10 +102,10 @@ const SpaceRender: BlokRender<Contracts['Space']> = ({component, buildChild}) =>
   // Only a room the viewer may keep can be arranged, and never while viewing the past.
   const canArrange = room.save !== undefined && !still;
   const moving = arranging && canArrange;
-  useSceneNotice(reference ? null : 'A space without a room', 'Name the room (`room="room:lab"`): where devices stand is kept by it.');
 
   const children = (
     <RoomProvider room={room} arranging={moving}>
+      <RoomNotice reference={reference} />
       <BlokSceneInertProvider value={moving}>
         <Children component={component} buildChild={buildChild} />
       </BlokSceneInertProvider>
