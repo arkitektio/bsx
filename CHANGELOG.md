@@ -1,3 +1,10 @@
+# [4.1.0](https://github.com/arkitektio/bsx/compare/v4.0.1...v4.1.0) (2026-11-13)
+
+
+### Features
+
+* **run:** an action's assign bloks: <args /> and assign.start() ([5025bee](https://github.com/arkitektio/bsx/commit/5025bee6b97af6619e2e993e15b2de60e2afb4b0))
+
 ## [4.0.1](https://github.com/arkitektio/bsx/compare/v4.0.0...v4.0.1) (2026-11-13)
 
 
