@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
+import type { ListDependencyFragment } from "../rekuest";
 import {
   type DependencyNode,
+  agentLabel,
+  agentsOf,
+  awaitsPick,
   levelBelow,
+  namesAgents,
+  pickHint,
+  pickLimits,
   pinsFromFrozen,
   toPins,
   unmetDependencies,
@@ -164,5 +171,73 @@ describe("pinsFromFrozen", () => {
       // Unbound when it ran: unbound again, not resolved anew.
       { key: "maybe", autoResolve: false, mappedAgents: [] },
     ]);
+  });
+});
+
+const declared = (over: Partial<ListDependencyFragment> = {}): ListDependencyFragment => ({
+  id: "1",
+  key: "stage",
+  autoResolvable: false,
+  optional: false,
+  singular: false,
+  ...over,
+});
+
+describe("how many agents a dependency takes", () => {
+  it("is one for a singular dependency, whatever else it says", () => {
+    expect(pickLimits(declared({ singular: true, maxViableInstances: 4 }))).toEqual({ min: 1, max: 1 });
+    expect(pickHint(declared({ singular: true }))).toBe("One agent");
+  });
+
+  it("reads its bounds, and says nothing when there are none", () => {
+    expect(pickLimits(declared({ minViableInstances: 2, maxViableInstances: 3 }))).toEqual({ min: 2, max: 3 });
+    expect(pickHint(declared({ minViableInstances: 2, maxViableInstances: 3 }))).toBe("2–3 agents");
+    expect(pickHint(declared({ minViableInstances: 2, maxViableInstances: 2 }))).toBe("2 agents");
+    expect(pickHint(declared({ maxViableInstances: 3 }))).toBe("Up to 3 agents");
+    expect(pickHint(declared({ minViableInstances: 2 }))).toBe("At least 2 agents");
+    expect(pickLimits(declared())).toEqual({ min: 1, max: Infinity });
+    expect(pickHint(declared())).toBeNull();
+  });
+
+  it("may be none for an optional one", () => {
+    expect(pickLimits(declared({ optional: true })).min).toBe(0);
+  });
+});
+
+describe("agentLabel", () => {
+  const agent = { id: "7", connected: true, app: { identifier: "live.mikro" }, release: { version: "1" }, user: { sub: "1" } };
+
+  it("is the agent's name, else its app, else its id", () => {
+    expect(agentLabel({ ...agent, name: "lab-nas" }, "7")).toBe("lab-nas");
+    expect(agentLabel({ ...agent, name: " " }, "7")).toBe("live.mikro");
+    expect(agentLabel(undefined, "7")).toBe("7");
+  });
+});
+
+describe("what waits for the user", () => {
+  it("is a required dependency that may not resolve by itself and names nobody", () => {
+    expect(awaitsPick(declared(), undefined)).toBe(true);
+    expect(awaitsPick(declared(), { key: "stage", mappedAgents: [{ key: "stage", agent: "7" }] })).toBe(false);
+    expect(awaitsPick(declared({ optional: true }), undefined)).toBe(false);
+  });
+
+  it("is not one that resolves by itself, until that is switched off", () => {
+    const auto = declared({ autoResolvable: true });
+    expect(awaitsPick(auto, undefined)).toBe(false);
+    expect(awaitsPick(auto, { key: "stage", autoResolve: true, mappedAgents: [] })).toBe(false);
+    expect(awaitsPick(auto, { key: "stage", autoResolve: false, mappedAgents: [] })).toBe(true);
+  });
+});
+
+describe("what a level reaches", () => {
+  it("names an agent only where a pin does", () => {
+    expect(namesAgents([{ key: "stage", autoResolve: true, mappedAgents: [] }])).toBe(false);
+    expect(namesAgents([{ key: "stage", mappedAgents: [{ key: "stage", agent: "7" }] }])).toBe(true);
+    expect(namesAgents(undefined)).toBe(false);
+  });
+
+  it("lists every agent once, in the order bound", () => {
+    expect(agentsOf([bound("a", "7"), bound("b", "8"), bound("c", "7")]).map((agent) => agent.id)).toEqual(["7", "8"]);
+    expect(agentsOf(undefined)).toEqual([]);
   });
 });

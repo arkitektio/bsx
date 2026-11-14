@@ -1,35 +1,37 @@
-import { portHash } from "../engine/utils";
 import { portHost } from "../host";
 import type { ListDependencyFragment } from "../rekuest";
 import {
+  agentLabel,
+  agentsOf,
+  awaitsPick,
   levelBelow,
+  namesAgents,
+  pickHint,
+  pickLimits,
+  unmetDependencies,
   withLevelBelow,
   withPin,
   type DependencyAgent,
+  type DependencyBinding,
   type DependencyNode,
   type ResolvedDependencyInput,
 } from "./tree";
-import type { ArgPort, PortGroup } from "../engine/types";
 
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "../../vendor/core/ui/command";
-import { Command as CommandPrimitive } from "cmdk"
+import { Popover, PopoverContent, PopoverTrigger } from "../../vendor/core/ui/popover";
+import { useDebouncedCallback } from "../../vendor/core/util/hooks/useDebouncedCallback";
 import { cn } from "../../vendor/core/util/utils";
 
-import { Bot, CheckIcon, ChevronRight, Circle, SearchIcon, X, Zap } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../vendor/core/ui/collapsible";
-import { useDebouncedCallback } from "../../vendor/core/util/hooks/useDebouncedCallback";
+import { AlertCircle, ChevronRight, ChevronsUpDown, CircleSlash, Zap } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { Badge } from "../../vendor/core/ui/badge";
-import { Button } from "../../vendor/core/ui/button";
-import { FormDescription, FormLabel } from "../../vendor/core/ui/form";
-import { InputGroup, InputGroupAddon } from "../../vendor/core/ui/input-group";
 
 /**
  * What can bind a dependency. `dependency` narrows to an implementation's, `blokDependency` to a
@@ -51,48 +53,8 @@ query AgentForDependency($search: String, $values: [ID!], $dependency: ID, $blok
 }
 `;
 
-export type FilledGroup = PortGroup & {
-  filledPorts: ArgPort[];
-};
-
-export { portHash };
-
-export const NanaContainer = () => {
-  return (
-    <div className="grid @lg:grid-cols-2 @lg:grid-cols-2 @xl:grid-cols-3 @2xl:grid-cols-4 @3xl:grid-cols-5 @5xl:grid-cols-6 gap-5">
-      {" "}
-    </div>
-  );
-};
-
-function CommandInputWithBadges({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
-  return (
-    <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="bg-input/20 dark:bg-input/30 h-8!">
-        <CommandPrimitive.Input
-          data-slot="command-input"
-          className={cn(
-            "w-full text-xs/relaxed outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
-            className
-          )}
-          {...props}
-        />
-        {children && (
-          <InputGroupAddon className="gap-1">
-            {children}
-          </InputGroupAddon>
-        )}
-        <InputGroupAddon>
-          <SearchIcon className="size-3.5 shrink-0 opacity-50" />
-        </InputGroupAddon>
-      </InputGroup>
-    </div>
-  )
-}
+/** How many agents the closed field names before it counts the rest. */
+const SHOWN_AGENTS = 3;
 
 /** Whose dependency the id names: an implementation's, or a blok's. */
 export type DependencyOwner = "implementation" | "blok";
@@ -109,6 +71,36 @@ export type DependencyFieldProps = {
   error?: string;
 };
 
+const PresenceDot = ({ connected }: { connected: boolean | undefined }) => (
+  <span
+    aria-label={connected ? "Connected" : "Offline"}
+    className={cn("size-2 shrink-0 rounded-full", connected ? "bg-green-500" : "bg-muted-foreground/40")}
+  />
+);
+
+type ShownAgent = { id: string; agent?: DependencyAgent | null };
+
+/** Agents on one line: a presence dot and a name each, the rest counted. */
+const AgentNames = ({ agents, className }: { agents: ShownAgent[]; className?: string }) => (
+  <span className={cn("flex min-w-0 items-center gap-2.5", className)}>
+    {agents.slice(0, SHOWN_AGENTS).map(({ id, agent }) => (
+      <span key={id} className="flex min-w-0 items-center gap-1.5">
+        <PresenceDot connected={agent?.connected} />
+        <span className="truncate">{agentLabel(agent, id)}</span>
+      </span>
+    ))}
+    {agents.length > SHOWN_AGENTS && (
+      <span className="shrink-0 text-muted-foreground">+{agents.length - SHOWN_AGENTS}</span>
+    )}
+  </span>
+);
+
+/**
+ * One dependency on one line: what it is called, and what will serve it. The
+ * line is the picker's trigger: "Automatic" (whoever fits when it runs) or the
+ * agents pinned by name. What the agents it reaches need themselves follows
+ * below, folded until something there is pinned or unmet.
+ */
 export const DependencySearchField = ({
   dependency,
   owner = "implementation",
@@ -119,10 +111,13 @@ export const DependencySearchField = ({
 }: DependencyFieldProps) => {
   const [agents, setAgents] = useState<DependencyAgent[]>([]);
   const [agentCache, setAgentCache] = useState<Record<string, DependencyAgent>>({});
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const labelId = useId();
+  // A late answer to an earlier search must not replace a newer one.
+  const requestRef = useRef(0);
 
   const host = portHost();
   const { StructureDisplay } = host;
@@ -134,63 +129,41 @@ export const DependencySearchField = ({
 
   // The pin is the selection: it lives in the form, at this level.
   const selectedIds = useMemo(() => pin?.mappedAgents.map((mapped) => mapped.agent) ?? [], [pin]);
-  const autoResolve = pin?.autoResolve ?? false;
+  const pinned = selectedIds.length > 0;
+  const automatic = !pinned && (pin?.autoResolve ?? false);
+  const { max } = pickLimits(dependency);
+  const single = max === 1;
 
-  const remember = (found: DependencyAgent[]) => {
-    const newCache: Record<string, DependencyAgent> = {};
-    found.forEach((a) => { newCache[a.id] = a; });
-    setAgentCache((prev) => ({ ...prev, ...newCache }));
-  };
+  const remember = (found: DependencyAgent[]) =>
+    setAgentCache((known) => ({ ...known, ...Object.fromEntries(found.map((agent) => [agent.id, agent])) }));
 
-  const updateSelection = (agentIds: string[]) => {
-    onPin({
-      key: dependency.key,
-      autoResolve: autoResolve,
-      // An agent that stays keeps what is pinned below it.
-      mappedAgents: agentIds.map(
-        (id) => pin?.mappedAgents.find((mapped) => mapped.agent === id) ?? { agent: id, key: dependency.key },
-      ),
-    });
-  };
-
-  const toggleAutoResolve = () => {
-    onPin({
-      key: dependency.key,
-      autoResolve: !autoResolve,
-      mappedAgents: pin?.mappedAgents ?? [],
-    });
-  };
-
-  const queryAgents = useDebouncedCallback((searchStr: string) => {
-    if (!dependency.id) return;
-    search({ search: searchStr, ...dependencyFilter })
+  const load = (term: string) => {
+    if (!dependency.id) {
+      setLoaded(true);
+      return;
+    }
+    const request = ++requestRef.current;
+    search({ search: term, ...dependencyFilter })
       .then((found) => {
+        if (requestRef.current !== request) return;
         setAgents(found);
         remember(found);
-        setOpen(true);
-        setError(null);
+        setFailed(false);
       })
-      .catch((err) => {
-        setError(err.message);
+      .catch(() => {
+        if (requestRef.current !== request) return;
         setAgents([]);
-      });
-  });
+        setFailed(true);
+      })
+      .finally(() => requestRef.current === request && setLoaded(true));
+  };
+  const query = useDebouncedCallback(load);
 
-  // Load initial options
+  // Asked when the list is opened, not when the form mounts: most runs never open it.
   useEffect(() => {
-    if (!dependency.id) return;
-    search({ search: "", ...dependencyFilter })
-      .then((found) => {
-        setAgents(found);
-        remember(found);
-        setError(null);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setAgents([]);
-      });
+    if (open) load(inputValue);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dependency.id]);
+  }, [open, dependency.id]);
 
   // The agents the dry run bound are known without asking.
   const boundAgents = useMemo(() => {
@@ -211,225 +184,240 @@ export const DependencySearchField = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unknown]);
 
-  const maxAgents = dependency.singular ? 1 : (dependency.maxViableInstances ?? Infinity);
+  const pinAgents = (agentIds: string[]) => {
+    // Nobody named: back to "whoever fits", where the dependency allows it.
+    if (agentIds.length === 0) {
+      onPin(dependency.autoResolvable ? { key: dependency.key, autoResolve: true, mappedAgents: [] } : undefined);
+      return;
+    }
+    onPin({
+      key: dependency.key,
+      autoResolve: false,
+      // An agent that stays keeps what is pinned below it.
+      mappedAgents: agentIds.map(
+        (id) => pin?.mappedAgents.find((mapped) => mapped.agent === id) ?? { agent: id, key: dependency.key },
+      ),
+    });
+  };
 
   const toggleAgent = (agentId: string) => {
-    let newIds: string[];
-    if (selectedIds.includes(agentId)) {
-      newIds = selectedIds.filter((id) => id !== agentId);
-    } else {
-      newIds = [...selectedIds, agentId];
-      // Enforce max: drop oldest selections to stay within limit
-      if (newIds.length > maxAgents) {
-        newIds = newIds.slice(newIds.length - maxAgents);
-      }
+    if (single) {
+      pinAgents(selectedIds.includes(agentId) ? [] : [agentId]);
+      setOpen(false);
+      return;
     }
-    updateSelection(newIds);
-    setInputValue("");
+    pinAgents(
+      selectedIds.includes(agentId) ? selectedIds.filter((id) => id !== agentId) : [...selectedIds, agentId],
+    );
   };
 
-  const removeAgent = (agentId: string) => {
-    updateSelection(selectedIds.filter((id) => id !== agentId));
+  const chooseAutomatic = () => {
+    onPin({ key: dependency.key, autoResolve: true, mappedAgents: [] });
+    setOpen(false);
   };
 
-  // Build count hint string
-  const countHint = (() => {
-    const min = dependency.minViableInstances;
-    const max = dependency.maxViableInstances;
-    if (dependency.singular) return "1 agent";
-    if (min != null && max != null) return `${min}–${max} agents`;
-    if (min != null) return `≥${min} agents`;
-    if (max != null) return `≤${max} agents`;
-    return null;
-  })();
+  const chooseNone = () => {
+    onPin(undefined);
+    setOpen(false);
+  };
 
-  // What resolved without a pin: shown, so it is clear what an assign reaches.
-  const resolvedByItself = selectedIds.length === 0 ? (node?.mappedAgents ?? []) : [];
+  // What an assign reaches: the agents named, else what the dry run resolved by itself.
+  const named: ShownAgent[] = selectedIds.map((id) => ({ id, agent: agentCache[id] ?? boundAgents[id] }));
+  const resolved: ShownAgent[] = pinned
+    ? []
+    : (node?.mappedAgents ?? []).map((binding) => ({ id: binding.agentId, agent: binding.agent }));
+  const complaint = fieldError || node?.unmet || undefined;
+  const hint = pickHint(dependency);
+  const only = [dependency.appFilter, dependency.versionFilter].filter(Boolean).join(" ");
+  const full = !single && selectedIds.length >= max;
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {dependency.key != null && (
-            <FormLabel className="text-sm">{dependency.key}</FormLabel>
-          )}
-          {dependency.optional && (
-            <span className="text-[10px] text-muted-foreground">optional</span>
-          )}
-          {countHint && (
-            <span className="text-[10px] text-muted-foreground">
-              ({selectedIds.length}{autoResolve ? "+auto" : ""} / {countHint})
-            </span>
-          )}
-          {!countHint && selectedIds.length > 0 && (
-            <span className="text-[10px] text-muted-foreground">
-              ({selectedIds.length} selected{autoResolve ? " +auto" : ""})
-            </span>
-          )}
-        </div>
-        {dependency.autoResolvable && (
-          <Button
-            type="button"
-            variant={autoResolve ? "default" : "outline"}
-            size="sm"
-            className="h-6 text-[10px] px-2 gap-1"
-            onClick={toggleAutoResolve}
-          >
-            <Zap className={cn("h-3 w-3", autoResolve && "text-yellow-300")} />
-            {autoResolve ? "Auto" : "Auto-resolve"}
-          </Button>
+    <div className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5">
+      <div className="flex min-h-8 min-w-0 flex-col justify-center">
+        <span id={labelId} className="flex min-w-0 items-baseline gap-1.5 text-sm">
+          <span className="truncate font-medium">{dependency.key}</span>
+          {dependency.optional && <span className="shrink-0 text-xs text-muted-foreground">optional</span>}
+        </span>
+        {dependency.description && (
+          <span className="line-clamp-2 text-xs text-muted-foreground" title={dependency.description}>
+            {dependency.description}
+          </span>
         )}
       </div>
 
-      {/* Search + badges – hidden when auto-resolving */}
-      {!autoResolve && (
-      <Command
-        shouldFilter={false}
-        className="overflow-visible bg-transparent relative w-full"
-      >
-        <div className="rounded-md text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 flex flex-row w-full">
-
-          <div className="relative w-full">
-          <CommandInputWithBadges
-            ref={inputRef}
-            placeholder="Search for an agent..."
-            onValueChange={(e) => {
-              setInputValue(e);
-              queryAgents(e);
-            }}
-            value={inputValue}
-            onBlur={() => setOpen(false)}
-            onFocus={() => setOpen(true)}
-            className="w-full flex-grow"
-          >
-            <>
-              {selectedIds.map((id) => {
-                const agent = agentCache[id] ?? boundAgents[id];
-                return (
-                  <Badge
-                    key={id}
-                    variant="secondary"
-                    className="cursor-pointer text-[10px] px-1.5 py-0 h-5 flex-shrink-0 gap-1"
-                    onClick={() => removeAgent(id)}
-                  >
-                    {agent ? (
-                      <>
-                        <Circle className={cn("h-2 w-2 fill-current", agent.connected ? "text-green-500" : "text-muted-foreground/40")} />
-                        {agent.app.identifier}
-                      </>
-                    ) : (
-                      <>
-                        <Bot className="h-2.5 w-2.5" />
-                        {id}
-                      </>
-                    )}
-                    <X className="h-2.5 w-2.5 opacity-60" />
-                  </Badge>
-                );
-              })}
-            </>
-
-            </CommandInputWithBadges>
-          </div>
-
-        </div>
-        <div className="relative mt-1">
-          {open && (
-            <CommandList className="w-full">
-              <div className="absolute top-0 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in">
-                <CommandEmpty>No matching agent found</CommandEmpty>
-                {error && (
-                  <CommandGroup heading="Error">
-                    <CommandItem>{error}</CommandItem>
-                  </CommandGroup>
+      <div className="flex min-w-0 flex-col gap-1">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-labelledby={labelId}
+              aria-invalid={complaint ? true : undefined}
+              className={cn(
+                "flex h-8 w-full items-center gap-2 rounded-md border border-input bg-transparent px-2.5 text-left text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                complaint && "border-destructive/60",
+              )}
+            >
+              {pinned ? (
+                <AgentNames agents={named} className="flex-1" />
+              ) : resolved.length > 0 ? (
+                <>
+                  <Zap aria-label="Chosen automatically" className="size-3.5 shrink-0 text-muted-foreground" />
+                  <AgentNames agents={resolved} className="flex-1" />
+                </>
+              ) : automatic ? (
+                <>
+                  <Zap className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 truncate">Automatic</span>
+                </>
+              ) : (
+                <span className="flex-1 truncate text-muted-foreground">
+                  {dependency.optional ? "None" : single ? "Pick an agent…" : "Pick agents…"}
+                </span>
+              )}
+              <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" align="start" className="w-[max(var(--radix-popover-trigger-width),20rem)] p-0">
+            <Command shouldFilter={false} className="bg-transparent">
+              <CommandInput
+                placeholder="Search agents…"
+                value={inputValue}
+                onValueChange={(term) => {
+                  setInputValue(term);
+                  query(term);
+                }}
+              />
+              {(hint || only) && (
+                <div className="px-3.5 pt-2 text-[11px] text-muted-foreground">
+                  {[hint, only && `only ${only}`].filter(Boolean).join(" · ")}
+                </div>
+              )}
+              <CommandList>
+                {(dependency.autoResolvable || dependency.optional) && (
+                  <>
+                    <CommandGroup>
+                      {dependency.autoResolvable && (
+                        <CommandItem value="__automatic" data-checked={automatic} onSelect={chooseAutomatic}>
+                          <Zap className="text-muted-foreground" />
+                          <span className="flex min-w-0 flex-col">
+                            <span>Automatic</span>
+                            <span className="text-[11px] text-muted-foreground">Whoever fits when it runs</span>
+                          </span>
+                        </CommandItem>
+                      )}
+                      {dependency.optional && (
+                        <CommandItem value="__none" data-checked={!pinned && !automatic} onSelect={chooseNone}>
+                          <CircleSlash className="text-muted-foreground" />
+                          <span>None</span>
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                    <CommandSeparator />
+                  </>
+                )}
+                {failed && (
+                  <div className="flex items-center gap-2 px-3.5 py-3 text-xs text-destructive">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    The agents could not be loaded.
+                  </div>
+                )}
+                {loaded && !failed && agents.length === 0 && (
+                  <div className="px-3.5 py-4 text-center text-xs text-muted-foreground">
+                    {inputValue ? `No agent matches “${inputValue}”.` : "No agent provides this."}
+                  </div>
                 )}
                 {agents.length > 0 && (
-                  <CommandGroup heading="Agents">
+                  <CommandGroup heading={full ? `Agents · ${max} picked, unpick one to change` : "Agents"}>
                     {agents.map((agent) => {
                       const isSelected = selectedIds.includes(agent.id);
                       return (
                         <CommandItem
-                          value={agent.id}
                           key={agent.id}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
+                          value={agent.id}
+                          data-checked={isSelected}
+                          disabled={full && !isSelected}
                           onSelect={() => toggleAgent(agent.id)}
-                          className="flex items-center gap-3 py-2"
                         >
-                          <div className="relative flex-shrink-0">
-                            <StructureDisplay identifier="@lok/user" id={agent.user.sub} variant="avatar" className="h-7 w-7" />
-                            <Circle
-                              className={cn(
-                                "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full fill-current ring-2 ring-popover",
-                                agent.connected ? "text-green-500" : "text-muted-foreground/40",
-                              )}
-                            />
-                          </div>
-                          <div className="flex flex-col min-w-0 flex-1">
-                            <span className="text-sm font-medium truncate">
-                              {agent.app.identifier}
+                          <PresenceDot connected={agent.connected} />
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate">{agentLabel(agent, agent.id)}</span>
+                            <span className="truncate text-[11px] text-muted-foreground">
+                              {agent.app.identifier} · {agent.release.version}
+                              {!agent.connected && " · offline"}
                             </span>
-                            <span className="text-[10px] text-muted-foreground truncate">
-                              v{agent.release.version}
-                            </span>
-                          </div>
-                          <CheckIcon
-                            className={cn(
-                              "ml-auto h-4 w-4 flex-shrink-0",
-                              isSelected ? "opacity-100" : "opacity-0",
-                            )}
-                          />
+                          </span>
+                          <StructureDisplay identifier="@lok/user" id={agent.user.sub} variant="avatar" className="size-5" />
                         </CommandItem>
                       );
                     })}
                   </CommandGroup>
                 )}
-              </div>
-            </CommandList>
-          )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {complaint && <p className="text-xs text-destructive">{complaint}</p>}
+      </div>
+
+      {node?.mappedAgents.map((binding) => (
+        <LevelBelow
+          key={binding.agentId}
+          binding={binding}
+          pins={pin?.mappedAgents.find((mapped) => mapped.agent === binding.agentId)?.dependencies ?? NO_PINS}
+          onChange={(next) => onPin(withLevelBelow(pin, node, binding.agentId, next))}
+        />
+      ))}
+    </div>
+  );
+};
+
+const NO_PINS: ResolvedDependencyInput[] = [];
+
+/**
+ * What one bound agent needs itself: a line naming it, the level under it.
+ * Folded while it takes care of itself; open once something below is pinned
+ * or unmet, and it then stays open.
+ */
+const LevelBelow = ({
+  binding,
+  pins,
+  onChange,
+}: {
+  binding: DependencyBinding;
+  pins: ResolvedDependencyInput[];
+  onChange: (pins: ResolvedDependencyInput[]) => void;
+}) => {
+  const below = useMemo(() => levelBelow(binding), [binding]);
+  const needsLook = namesAgents(pins) || unmetDependencies(below).length > 0;
+  const [open, setOpen] = useState(needsLook);
+  useEffect(() => {
+    if (needsLook) setOpen(true);
+  }, [needsLook]);
+
+  if (below.length === 0) return null;
+  return (
+    <div className="col-span-2 flex flex-col gap-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((was) => !was)}
+        className="flex min-w-0 items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground"
+      >
+        <ChevronRight className={cn("size-3 shrink-0 transition-transform", open && "rotate-90")} />
+        <span className="truncate">
+          {agentLabel(binding.agent, binding.agentId)} needs {below.map((inner) => inner.key).join(", ")}
+        </span>
+      </button>
+      {open && (
+        <div className="ml-1.5 border-l pl-3">
+          <DependencyLevel
+            dependencies={below.map((inner) => inner.dependency ?? undeclared(inner.key))}
+            nodes={below}
+            value={pins}
+            onChange={onChange}
+          />
         </div>
-      </Command>
       )}
-      {resolvedByItself.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-          resolves to
-          {resolvedByItself.map((binding) => (
-            <Badge key={binding.agentId} variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal">
-              <Circle className={cn("h-2 w-2 fill-current", binding.agent?.connected ? "text-green-500" : "text-muted-foreground/40")} />
-              {binding.agent?.app.identifier ?? binding.agentId}
-            </Badge>
-          ))}
-        </div>
-      )}
-      {(fieldError || node?.unmet) && (
-        <p className="text-destructive text-xs">{fieldError || node?.unmet}</p>
-      )}
-      {dependency.description && (
-        <FormDescription>{dependency.description}</FormDescription>
-      )}
-      {node?.mappedAgents.map((binding) => {
-        const below = levelBelow(binding);
-        if (below.length === 0) return null;
-        const pinned = pin?.mappedAgents.find((mapped) => mapped.agent === binding.agentId);
-        return (
-          <Collapsible key={binding.agentId} defaultOpen className="ml-1 border-l pl-3">
-            <CollapsibleTrigger className="group flex items-center gap-1 py-1 text-xs text-muted-foreground">
-              <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]:rotate-90" />
-              {binding.agent?.app.identifier ?? binding.agentId} depends on
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-1 pb-2">
-              <DependencyLevel
-                dependencies={below.map((inner) => inner.dependency ?? undeclared(inner.key))}
-                nodes={below}
-                value={pinned?.dependencies ?? []}
-                onChange={(next) => onPin(withLevelBelow(pin, node, binding.agentId, next))}
-              />
-            </CollapsibleContent>
-          </Collapsible>
-        );
-      })}
     </div>
   );
 };
@@ -461,7 +449,7 @@ type DependencyLevelProps = {
 
 /** One level of the dependency tree: its dependencies, each with the levels below what it binds. */
 const DependencyLevel = ({ dependencies, nodes, value, onChange, owner, errors }: DependencyLevelProps) => (
-  <div className="grid overflow-visible gap-4">
+  <div className="flex flex-col gap-2.5">
     {dependencies.map((dep) => (
       <DependencySearchField
         dependency={dep}
@@ -484,6 +472,12 @@ export type DependencyContainerProps = {
   tree?: DependencyNode[] | null;
 };
 
+/**
+ * "Runs with": the agents a run reaches besides its own. One line while they
+ * resolve by themselves, which is most runs; it opens to one line per
+ * dependency when something is pinned, unmet or waiting to be picked, or when
+ * asked. Once open it stays open.
+ */
 export const DependenciesContainer = ({
   dependencies,
   owner,
@@ -513,15 +507,58 @@ export const DependenciesContainer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Per-dependency form errors (path: dependencies.{dep.key})
+  const errors = form.formState.errors?.dependencies as Record<string, { message?: string }> | undefined;
+  const unmet = useMemo(() => unmetDependencies(tree), [tree]);
+  const waiting = dependencies.filter((dep) => awaitsPick(dep, value.find((pin) => pin.key === dep.key)));
+  const refused = dependencies.filter((dep) => errors?.[dep.key]?.message);
+  const troubled = unmet.length > 0 || refused.length > 0;
+  const needsLook = troubled || waiting.length > 0 || namesAgents(value);
+
+  const [open, setOpen] = useState(needsLook);
+  useEffect(() => {
+    if (needsLook) setOpen(true);
+  }, [needsLook]);
+
+  if (dependencies.length === 0) return null;
+
+  const reached = agentsOf(tree);
   return (
-    <DependencyLevel
-      dependencies={dependencies}
-      nodes={tree}
-      value={value}
-      onChange={(next) => form.setValue("dependencies", next, { shouldValidate: true })}
-      owner={owner}
-      // Per-dependency form errors (path: dependencies.{dep.key})
-      errors={form.formState.errors?.dependencies as Record<string, { message?: string }> | undefined}
-    />
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((was) => !was)}
+        className="flex min-w-0 items-center gap-1.5 text-left text-sm"
+      >
+        <ChevronRight
+          className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
+        />
+        <span className="shrink-0 font-medium">Runs with</span>
+        {!open &&
+          (troubled ? (
+            <span className="flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="size-3.5" />
+              {Math.max(unmet.length, refused.length)} not met
+            </span>
+          ) : reached.length > 0 ? (
+            <AgentNames agents={reached} className="text-xs text-muted-foreground" />
+          ) : (
+            <span className="truncate text-xs text-muted-foreground">
+              {dependencies.length} {dependencies.length === 1 ? "other agent" : "other agents"}, chosen automatically
+            </span>
+          ))}
+      </button>
+      {open && (
+        <DependencyLevel
+          dependencies={dependencies}
+          nodes={tree}
+          value={value}
+          onChange={(next) => form.setValue("dependencies", next, { shouldValidate: true })}
+          owner={owner}
+          errors={errors}
+        />
+      )}
+    </div>
   );
 };

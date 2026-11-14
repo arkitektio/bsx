@@ -159,3 +159,57 @@ export const pinsFromFrozen = (frozen: readonly FrozenDependency[] | null | unde
       return [{ key: dependency.key, agent, ...(dependencies.length > 0 ? { dependencies } : {}) }];
     }),
   }));
+
+/** How many agents a dependency takes. */
+export const pickLimits = (dependency: ListDependencyFragment): { min: number; max: number } => {
+  if (dependency.singular) return { min: dependency.optional ? 0 : 1, max: 1 };
+  return {
+    min: dependency.minViableInstances ?? (dependency.optional ? 0 : 1),
+    max: dependency.maxViableInstances ?? Infinity,
+  };
+};
+
+/** The same, as the picker says it; nothing when any number will do. */
+export const pickHint = (dependency: ListDependencyFragment): string | null => {
+  if (dependency.singular) return "One agent";
+  const min = dependency.minViableInstances;
+  const max = dependency.maxViableInstances;
+  if (min != null && max != null) return min === max ? `${min} agents` : `${min}–${max} agents`;
+  if (min != null) return `At least ${min} agents`;
+  if (max != null) return `Up to ${max} agents`;
+  return null;
+};
+
+/** An agent as people call it: its name, else the app it runs. */
+export const agentLabel = (agent: DependencyAgent | null | undefined, id: string): string =>
+  agent?.name?.trim() || agent?.app.identifier || id;
+
+/**
+ * Whether these pins name an agent: the user chose, where the default is
+ * "whoever is there". Pins below sit under a named agent, so this level tells.
+ */
+export const namesAgents = (level: readonly Pin[] | null | undefined): boolean =>
+  (level ?? []).some((pin) => (pin.mappedAgents ?? []).length > 0);
+
+/** The agents a level reaches, each once, in the order they are bound. */
+export const agentsOf = (
+  nodes: readonly DependencyNode[] | null | undefined,
+): { id: string; agent?: DependencyAgent | null }[] => {
+  const seen = new Map<string, { id: string; agent?: DependencyAgent | null }>();
+  for (const node of nodes ?? []) {
+    for (const binding of node.mappedAgents) {
+      if (!seen.has(binding.agentId)) seen.set(binding.agentId, { id: binding.agentId, agent: binding.agent });
+    }
+  }
+  return [...seen.values()];
+};
+
+/**
+ * Whether a dependency still waits for the user: it is required, it may not
+ * resolve by itself, and no agent is pinned. The form refuses to submit it.
+ */
+export const awaitsPick = (dependency: ListDependencyFragment, pin: Pin | undefined): boolean => {
+  if (dependency.optional) return false;
+  if ((pin?.mappedAgents ?? []).length > 0) return false;
+  return !(dependency.autoResolvable && (pin?.autoResolve || !pin));
+};

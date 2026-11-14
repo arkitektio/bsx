@@ -46,6 +46,10 @@ type Answer = { dependencyTree?: { satisfied: boolean; dependencies: DependencyN
  * Asked again whenever a pin changes, and now and then, since agents come
  * and go.
  *
+ * While a changed pin is asked about, the tree of the pins before it stays
+ * (`pending` says so): the rows keep what they show, and an unmet tree does
+ * not read as met for the length of a round trip.
+ *
  * A server that cannot answer (an older one) leaves `satisfied` undefined:
  * the form then shows the root level alone and the assign itself decides.
  */
@@ -57,11 +61,11 @@ export const useDependencyTree = <TValues extends FieldValues>(
   const key = JSON.stringify(toPins(watched));
   const run = portHost().useServiceQuery("rekuest");
   const id = implementation && implementation.dependencies.length > 0 ? implementation.id : null;
-  const [answer, setAnswer] = useState<Answer["dependencyTree"]>(undefined);
+  // Kept with what it answers: another implementation's tree is nobody's, and an older pin's is stale.
+  const [answer, setAnswer] = useState<{ id: string; key: string; tree: Answer["dependencyTree"] } | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    setAnswer(undefined);
     setError(null);
     if (!id) return undefined;
     let live = true;
@@ -70,7 +74,7 @@ export const useDependencyTree = <TValues extends FieldValues>(
       run(DEPENDENCY_TREE, { input: { implementation: id, dependencies: JSON.parse(key) } })
         .then((data) => {
           if (!live) return;
-          setAnswer((data as Answer).dependencyTree);
+          setAnswer({ id, key, tree: (data as Answer).dependencyTree });
           timer = setTimeout(ask, POLL_MS);
         })
         // A server that refuses once will refuse again: no use asking every ten seconds.
@@ -87,7 +91,9 @@ export const useDependencyTree = <TValues extends FieldValues>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, key]);
 
-  const nodes = error ? undefined : answer?.dependencies;
+  const tree = !error && id && answer?.id === id ? answer.tree : undefined;
+  const nodes = tree?.dependencies;
   const unmet = useMemo(() => unmetDependencies(nodes), [nodes]);
-  return { nodes, satisfied: error ? undefined : answer?.satisfied, unmet, error };
+  const pending = Boolean(id) && !error && answer?.key !== key;
+  return { nodes, satisfied: tree?.satisfied, unmet, error, pending };
 };
