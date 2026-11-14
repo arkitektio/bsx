@@ -1,3 +1,10 @@
+# [4.2.0](https://github.com/arkitektio/bsx/compare/v4.1.0...v4.2.0) (2026-11-14)
+
+
+### Features
+
+* **ports:** the dependency picker: one line per dependency, folded while it resolves by itself ([b19c9f6](https://github.com/arkitektio/bsx/commit/b19c9f6ba3ba807fb3d10712e9cd94e9b27a202f))
+
 # [4.1.0](https://github.com/arkitektio/bsx/compare/v4.0.1...v4.1.0) (2026-11-13)
 
 
