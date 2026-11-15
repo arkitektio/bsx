@@ -1,3 +1,23 @@
+# [5.0.0](https://github.com/arkitektio/bsx/compare/v4.3.0...v5.0.0) (2026-11-15)
+
+
+* feat!: one base catalog with families, app catalogs, and text as a child ([856bf56](https://github.com/arkitektio/bsx/commit/856bf56343492baf36898edb0cda7c2fee28368e))
+
+
+### BREAKING CHANGES
+
+* `globalCatalogs`, `registerBlokModules`, `blokModuleSpec`,
+`moduleComponentsOf`, `moduleShadowsOf`, `STANDARD_CATALOGS`,
+`standardCatalog(s)` and `BlokView.shadows` are gone (`baseFamilies`,
+`setAppBlokCatalog`, `blokCatalogSpec`, `ownComponentsOf`). A family
+contract has no version, and its components' `origin` is `base@3`.
+`blokView` takes the catalog a blok is written for. `parseBsx` stores text as
+`#text` children instead of a text prop, and no longer refuses text by
+catalog (`bsx.text_*`). `BlokCheckScope.catalogs`/`module` are `target`. A
+module can no longer draw over a base component.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+
 # [4.3.0](https://github.com/arkitektio/bsx/compare/v4.2.0...v4.3.0) (2026-11-15)
 
 
