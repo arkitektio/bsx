@@ -1,11 +1,11 @@
 import {describe, expect, it} from 'vitest';
 import corpus from '../spec/bsx_v2.json';
-import {blokView, defaultBlokView, parseSpecCatalog, type BlokView} from '../spec/catalogs';
+import {baseBlokView, blokView, type BlokView} from '../spec/catalogs';
 import {resolveBlokScope} from './infer';
 import {parseBsx} from './parse';
 import {checkBlokTree, dependencyHint, emptyBlokScope, type BlokCheckScope} from './references';
 
-type CorpusScope = Omit<BlokCheckScope, 'module'> & {catalog?: boolean; module?: unknown};
+type CorpusScope = BlokCheckScope & {catalog?: boolean};
 type CheckedCase = {
   name: string;
   source: string;
@@ -15,18 +15,13 @@ type CheckedCase = {
   codes: string[];
 };
 
-/** The view a case is checked with: none, the Orkestrator's, or that plus the case's module. */
+/** The view a case is checked with: none (the language alone), the base catalog's, or that of the catalog it is written for. */
 const caseView = (scope: CorpusScope): BlokView | null => {
   if (scope.catalog === false) return null;
-  if (scope.module == null) return defaultBlokView();
-  return blokView([parseSpecCatalog(scope.module, 'module')]);
+  return scope.target == null ? baseBlokView() : blokView(scope.target);
 };
 
-const caseScope = (scope: CorpusScope): BlokCheckScope => {
-  const {module} = scope;
-  const named = typeof module === 'object' && module !== null && 'name' in module && typeof module.name === 'string' ? module.name : null;
-  return {...scope, module: named};
-};
+const caseScope = (scope: CorpusScope): BlokCheckScope => scope;
 
 /** The wire spells "nothing" as null or leaves it out (as bsx.test.ts compares trees). */
 const withoutNulls = (value: unknown): unknown => {
@@ -177,8 +172,10 @@ describe('what an assign blok places and reads of the run it prepares', () => {
 
   it('keeps <arg>, <deps>, <dep> and the assign root to an assign blok', () => {
     const task = emptyBlokScope('task');
-    expect(codes('<Html><arg key="image" /></Html>', task)).toEqual(['assign.kind']);
-    expect(codes('<Html><deps /><dep key="robot" /></Html>', task)).toEqual(['assign.kind', 'assign.kind']);
+    expect(codes('<Html><arg key="image" /></Html>', task)).toEqual(['catalog.kind']);
+    expect(codes('<Html><deps /><dep key="robot" /></Html>', task)).toEqual(['catalog.kind', 'catalog.kind']);
+    // The language alone knows no kind of a component: that is the catalog's to say.
+    expect(checkBlokTree(parseBsx('<Html><arg key="image" /></Html>').tree, task, null)).toEqual([]);
     expect(codes('<Html><Text text={assign.ready} /></Html>', task)).toEqual(['roots.not_in_kind']);
   });
 });
@@ -206,12 +203,17 @@ describe('what a blok places of its task, and what it leaves the host', () => {
   const codes = (source: string, scope: BlokCheckScope) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
 
   it('places the result, the status line and the time slider, and says how much chrome it wants', () => {
-    const source = '<Html chrome="none"><status /><returns only="image" /><timeline /><Text text={task.paused ? "waiting" : task.duration} /></Html>';
+    const source = '<Html chrome="none"><status /><ask /><returns only="image" /><timeline /><Text text={task.paused ? "waiting" : task.duration} /></Html>';
     expect(codes(source, emptyBlokScope('action'))).toEqual([]);
   });
 
+  it('warns where no chrome leaves the asks to a blok that places none, and where a part is claimed from inside a branch', () => {
+    expect(codes('<Html chrome="none"><status /></Html>', emptyBlokScope('action'))).toEqual(['chrome.no_ask']);
+    expect(codes('<Html><if when={task.running}><timeline /></if></Html>', emptyBlokScope('action'))).toEqual(['part.conditional']);
+  });
+
   it('keeps <returns> and <status> to a blok that has a task', () => {
-    expect(codes('<Html><returns /><status /></Html>', emptyBlokScope('assign'))).toEqual(['roots.not_in_kind', 'roots.not_in_kind']);
+    expect(codes('<Html><returns /><status /></Html>', emptyBlokScope('assign'))).toEqual(['catalog.kind', 'catalog.kind']);
   });
 
   it('reads what an assign blok knows of starting', () => {

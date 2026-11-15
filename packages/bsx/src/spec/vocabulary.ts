@@ -27,6 +27,8 @@ export type VocabFunction = {
   effect: boolean;
   /** An effect that changes the world (acts on a task, or starts one); an effect without it only changes what the viewer sees. */
   command: boolean;
+  /** Acts on the task the blok is about (`task.answer`, `task.cancel`): only where the blok reads one. */
+  taskOperation: boolean;
   /** Sees a pending or failed argument instead of suspending. */
   seesStatus: boolean;
   /** The parameter names, in positional order. */
@@ -144,6 +146,8 @@ export type VocabLimits = {
 
 export type BlokVocabulary = {
   vocab: number;
+  /** How far the language has grown within `vocab`: it only ever gains. */
+  minor: number;
   /** `self deps queries subscriptions args task event viewer then`, with what each means. */
   dataRoots: Readonly<Record<string, string>>;
   /** Roots bound only somewhere: `event` (a callback), `error` (an `<error>` slot). */
@@ -174,9 +178,21 @@ export type BlokVocabulary = {
   theme: VocabTheme;
   limits: VocabLimits;
   locals: VocabLocals;
-  baseVersion: number;
-  /** The standard catalogs by name, at their versions (`ui: 1`). */
-  catalogs: Readonly<Record<string, number>>;
+  /** The id of the base catalog: what a blok is written for when it names no catalog. */
+  baseCatalog: string;
+  /** The catalogs that ship with the vocabulary, id → file (the base catalog first). */
+  bundledCatalogs: Readonly<Record<string, string>>;
+  /** What a published catalog's id looks like: the https address it is published at, ending in its version. */
+  catalogId: RegExp;
+  /** What the name of a catalog registered in an organization looks like. */
+  catalogName: RegExp;
+  /** The components that place a part of the host's own interface (`args`, `timeline`). */
+  hostParts: readonly string[];
+  /** Class variants and utility prefixes outside the portable subset (`class.not_portable`). */
+  unportableVariants: ReadonlySet<string>;
+  unportableUtilities: readonly string[];
+  /** The utilities whose value may be written in brackets (`w-[12rem]`) and stay portable. */
+  arbitraryValues: ReadonlySet<string>;
   diagnostics: ReadonlyMap<string, VocabDiagnostic>;
 };
 
@@ -260,6 +276,7 @@ const parseFunction = (name: string, raw: unknown): VocabFunction => {
     lazy: entry.lazy === true,
     effect: entry.effect === true,
     command: entry.command === true,
+    taskOperation: entry.task_operation === true,
     seesStatus: entry.sees_status === true,
     keys: params.map(param => param.key),
     requiredKeys: params.filter(param => param.required).map(param => param.key),
@@ -327,6 +344,10 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
   const limits = object(root.limits, 'limits');
   const catalogs = object(root.catalogs, 'catalogs');
   const locals = object(root.locals, 'locals');
+  const classes = object(root.classes, 'classes');
+  const bundledCatalogs = stringMap(catalogs.bundled, 'catalogs.bundled');
+  const baseCatalog = string(catalogs.base, 'catalogs.base');
+  if (!(baseCatalog in bundledCatalogs)) throw new Error('vocabulary.json: the base catalog is not among the bundled ones');
 
   const diagnosticsRaw = object(root.diagnostics, 'diagnostics');
   const diagnostics = new Map<string, VocabDiagnostic>();
@@ -343,6 +364,7 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
 
   return {
     vocab: number(root.vocab, 'vocab'),
+    minor: root.minor === undefined ? 0 : number(root.minor, 'minor'),
     dataRoots: stringMap(roots.data, 'roots.data'),
     scopedRoots: stringMap(roots.scoped, 'roots.scoped'),
     functionNamespaces: strings(roots.functions, 'roots.functions'),
@@ -391,10 +413,14 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
       bindKinds: kindTable(locals.bind_kinds, 'locals.bind_kinds'),
       argKinds: kindTable(locals.arg_kinds, 'locals.arg_kinds'),
     },
-    baseVersion: number(catalogs.base, 'catalogs.base'),
-    catalogs: Object.fromEntries(
-      Object.entries(object(catalogs.standard, 'catalogs.standard')).map(([name, version]) => [name, number(version, `catalogs.standard.${name}`)]),
-    ),
+    baseCatalog,
+    bundledCatalogs,
+    catalogId: new RegExp(string(catalogs.id, 'catalogs.id')),
+    catalogName: new RegExp(string(catalogs.name, 'catalogs.name')),
+    hostParts: strings(object(catalogs.host_parts, 'catalogs.host_parts').parts, 'catalogs.host_parts.parts'),
+    unportableVariants: new Set(strings(classes.variants, 'classes.variants')),
+    unportableUtilities: strings(classes.utilities, 'classes.utilities'),
+    arbitraryValues: new Set(strings(classes.arbitrary_values, 'classes.arbitrary_values')),
     diagnostics,
   };
 };

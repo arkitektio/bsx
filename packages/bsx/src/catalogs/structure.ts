@@ -1,10 +1,10 @@
-import {defineBlokCatalog} from '../renderer/runtime/catalog';
+import {BASE_CATALOG_REF, defineBlokCatalog} from '../renderer/runtime/catalog';
 import {parts} from './parts';
 
-/** `structure@1`. */
+/** The `structure` family of the base catalog. */
 export const structureCatalog = defineBlokCatalog({
   name: "structure",
-  version: 1,
+  partOf: BASE_CATALOG_REF,
   description: "Pick, show and view structures, typed by `\"@package/key\"`.",
   components: {
     StructureDisplay: parts.StructureDisplay,

@@ -8,5 +8,9 @@ import {uiCatalog} from './ui';
 export {htmlCatalog, logoCatalog, sceneCatalog, shadcnCatalog, structureCatalog, uiCatalog};
 export * from './props';
 
-/** The global catalogs this package defines: what the spec publishes, every UI may claim. */
-export const globalCatalogs = [uiCatalog, htmlCatalog, logoCatalog, sceneCatalog, structureCatalog, shadcnCatalog] as const;
+/**
+ * The families of the base catalog this package holds contracts for: every
+ * component of it that is not the language's own (`renderer/bloks/control`).
+ * The spec's `catalogs/base@3.json` is what they say (`catalogs.test.ts`).
+ */
+export const baseFamilies = [uiCatalog, htmlCatalog, logoCatalog, sceneCatalog, structureCatalog, shadcnCatalog] as const;

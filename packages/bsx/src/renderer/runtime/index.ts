@@ -15,6 +15,7 @@ export * from './status';
 export * from './resource';
 export * from './reads';
 export * from './task';
+export * from './text';
 export * from './tree';
 export * from './types';
 export * from './viewer';

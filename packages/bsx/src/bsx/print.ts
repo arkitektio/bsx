@@ -5,7 +5,7 @@ import type {
   BlokComponentProp,
   BlokUtilCall,
 } from '../renderer/runtime/types';
-import {defaultBlokView, innerContext, isLanguageContainer, type BlokView} from '../spec/catalogs';
+import {defaultBlokView, type BlokView} from '../spec/catalogs';
 import {isExplicitId, loadVocabulary, type BlokContextName} from '../spec/vocabulary';
 import {
   CLASS_NAME,
@@ -13,7 +13,9 @@ import {
   FETCH_MORE_FUNCTION,
   FOREACH_COMPONENT,
   FOREACH_LET_PROP,
-  IMPLICIT_TEXTS,
+  LEGACY_IMPLICIT_TEXTS,
+  TEXT_NODE,
+  TEXT_VALUE,
   REFETCH_FUNCTION,
   TEMPLATE_FUNCTION,
 } from './parse';
@@ -157,10 +159,8 @@ class Printer {
     this.indent = indent;
   }
 
-  node(node: BlokComponentNode, derived: string, depth: number, context: BlokContextName, lines: string[]): void {
+  node(node: BlokComponentNode, derived: string, depth: number, lines: string[]): void {
     const pad = ' '.repeat(this.indent * depth);
-    const spec = this.view.components.get(node.component);
-    const inner = spec ? innerContext(spec, context) : context;
     const attributes: string[] = [];
     if (node.id !== derived) {
       if (!isExplicitId(node.id)) {
@@ -169,23 +169,9 @@ class Printer {
       attributes.push(`id=${quoted(node.id)}`);
     }
     const children = node.children ?? [];
-    const elements = children.filter(child => !Printer.isImplicit(child, node.id));
-    let textChild: string | null = null;
-    const textProp = spec?.textProp ?? null;
-    const drawsText = this.vocabulary.contexts[inner]?.text ?? true;
-    const props = node.props ?? [];
-    props.forEach((prop, position) => {
-      // The parser puts the prop text children fill last, so only the last is spelled as text.
-      const last = position === props.length - 1;
-      if (textProp !== null && prop.key === textProp && last && children.length === 0 && drawsText) {
-        const printed = this.textOf(prop, node, true);
-        if (printed !== null) {
-          textChild = printed;
-          return;
-        }
-      }
-      attributes.push(this.attribute(node, prop));
-    });
+    // Its one child a text node: spelled on the line of its tags.
+    const textChild = children.length === 1 && Printer.isImplicit(children[0], node.id) ? this.textNode(children[0], true) : null;
+    for (const prop of node.props ?? []) attributes.push(this.attribute(node, prop));
     let head = `<${node.component}${attributes.map(attribute => ` ${attribute}`).join('')}`;
     const wrapped = pad.length + head.length > LINE_WIDTH && attributes.length > 1;
     if (wrapped) {
@@ -204,27 +190,32 @@ class Printer {
     let implicit = 0;
     for (const child of children) {
       if (Printer.isImplicit(child, node.id)) {
-        if (elements.length === 0 && !isLanguageContainer(spec)) {
-          refuse(`<${node.component}> (${node.id}) holds implicit Text with no element beside it`);
-        }
-        if (child.id !== `${node.id}/#${implicit}`) refuse(`<${node.component}> (${node.id}): implicit Text '${child.id}' is out of order`);
+        if (child.id !== `${node.id}/#${implicit}`) refuse(`<${node.component}> (${node.id}): the text node '${child.id}' is out of order`);
         implicit += 1;
-        const only = child.props && child.props.length === 1 ? child.props[0] : null;
-        const text = only ? this.textOf(only, child, false) : null;
-        if (text === null) refuse(`implicit Text '${child.id}' cannot be spelled as text`);
-        lines.push(`${pad}${' '.repeat(this.indent)}${text}`);
+        lines.push(`${pad}${' '.repeat(this.indent)}${this.textNode(child, false)}`);
         continue;
       }
       const index = counts.get(child.component) ?? 0;
       counts.set(child.component, index + 1);
-      this.node(child, `${node.id}/${child.component}[${index}]`, depth + 1, inner, lines);
+      this.node(child, `${node.id}/${child.component}[${index}]`, depth + 1, lines);
     }
     lines.push(`${pad}</${node.component}>`);
   }
 
+  /** Whether `child` is a run of text of `parent`: a text node, or what one was stored as before. */
   static isImplicit(child: BlokComponentNode, parent: string): boolean {
     const match = IMPLICIT.exec(child.id);
-    return match !== null && match.groups?.parent === parent && IMPLICIT_TEXTS.includes(child.component);
+    return match !== null && match.groups?.parent === parent && (child.component === TEXT_NODE || LEGACY_IMPLICIT_TEXTS.includes(child.component));
+  }
+
+  /** A text node as the text it was parsed from; refuses one that holds anything but its one value. */
+  private textNode(child: BlokComponentNode, inline: boolean): string {
+    const key = child.component === TEXT_NODE ? TEXT_VALUE : 'text';
+    const props = child.props ?? [];
+    const only = props.length === 1 && props[0].key === key && !(child.children && child.children.length > 0) ? props[0] : null;
+    const text = only ? this.textOf(only, child, inline) : null;
+    if (text === null) return refuse(`the text node '${child.id}' cannot be spelled as text`);
+    return text;
   }
 
   /**
@@ -233,7 +224,6 @@ class Printer {
    * its ends; on a line of its own they are trimmed, so they are spelled as strings.
    */
   private textOf(prop: BlokComponentProp, node: BlokComponentNode, inline: boolean): string | null {
-    if (prop.key !== 'text' && IMPLICIT_TEXTS.includes(node.component)) return null;
     if (prop.declares_value || prop.agent_call) return null;
     if (typeof prop.static_value === 'string') return textLiteral(prop.static_value, !inline);
     if (prop.dynamic_value) {
@@ -406,7 +396,7 @@ class Printer {
 /** Print `node` as v2 BSX that `parseBsx` (with the same view) reads back into it. Throws a `BsxPrintError`. */
 export const printBsx = (node: BlokComponentNode, options: {view?: BlokView; indent?: number} = {}): string => {
   const lines: string[] = [];
-  new Printer(options.view ?? defaultBlokView(), options.indent ?? 2).node(node, `${node.component}[0]`, 0, 'HTML', lines);
+  new Printer(options.view ?? defaultBlokView(), options.indent ?? 2).node(node, `${node.component}[0]`, 0, lines);
   return lines.join('\n');
 };
 

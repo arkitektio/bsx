@@ -4,7 +4,7 @@ import {describedString} from '../props';
 import {sceneSchema} from './scene';
 
 /**
- * The components that place an action's dependencies in 3D (scene@1). `Space`
+ * The components that place an action's dependencies in 3D (the scene family). `Space`
  * is a scene whose layout is shared: a room the whole organization arranges,
  * found again by its `room` (not `id`: that is every node's own explicit id). `Placed` draws the agent a dependency is bound to
  * with that agent's own scene blok, where the room keeps it, and `Route` draws

@@ -67,6 +67,12 @@ type BlokComponentApi = {
    * where the schema itself only says "a path".
    */
   bindKinds?: Readonly<Record<string, string>>;
+  /** The blok kinds it may be placed in (`assign`); any kind when left out. */
+  kinds?: readonly string[];
+  /** The service it needs where it is drawn (`mikro`): without it a notice shows in its place. */
+  service?: string;
+  /** The minor of its catalog that added it; the first when left out. */
+  since?: number;
 };
 
 /**
@@ -82,7 +88,7 @@ export type BlokComponentDefinition = BlokComponentApi & {
   name: string;
   schema: BlokObjectSchema;
   render: React.ComponentType<BlokRenderArgs>;
-  /** The catalog contract it implements (`ui@1`, `newswitch`); unset for one built on its own. */
+  /** The catalog it is of (`base@3` for a component of one of its families, `newswitch`); unset for one built on its own. */
   origin?: string;
 };
 
@@ -99,6 +105,9 @@ export const createBlokComponent = <TSchema extends BlokObjectSchema>(
   textProp: api.textProp,
   events: api.events,
   bindKinds: api.bindKinds,
+  kinds: api.kinds,
+  service: api.service,
+  since: api.since,
   render: render as React.ComponentType<BlokRenderArgs>,
 });
 

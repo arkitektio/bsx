@@ -22,7 +22,7 @@ import {
 type Contracts = typeof logoContracts;
 
 /**
- * The `logo@1` module drawn: see the contract for the language. A node's id is
+ * The `logo` family drawn: see the contract for the language. A node's id is
  * the BSX `id`, and that is what a gradient or a clip path is referenced by.
  * Ids are made unique per drawing, so two logos on one page never share a
  * gradient.
@@ -265,7 +265,7 @@ const ClipPathRender: BlokRender<Contracts['ClipPath']> = args => {
   );
 };
 
-/** The `logo@1` module: the root, seven shapes, text, and what shapes reference. */
+/** The `logo` family: the root, seven shapes, text, and what shapes reference. */
 export const logoRenders = {
   AgentLogo: LogoRootRender,
   ActionLogo: LogoRootRender,

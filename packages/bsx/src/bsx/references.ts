@@ -6,6 +6,7 @@ import type {
   BlokUtilCall,
 } from '../renderer/runtime/types';
 import {defaultBlokView, type BlokView, type SpecComponent} from '../spec/catalogs';
+import {TEXT_NODE} from './parse';
 import {valueFitsPort} from '../spec/locals';
 import {LOCAL_ANY, resolveBlokScope} from './infer';
 import {
@@ -107,6 +108,43 @@ export type BlokScopeSubscription = {
   history?: string | null;
 };
 
+/** A class at its variant colons, those inside brackets left alone (`[&>*]:p-2`). */
+const splitClass = (token: string): string[] => {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const character of token) {
+    if (character === '[') depth += 1;
+    else if (character === ']') depth = Math.max(0, depth - 1);
+    if (character === ':' && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else current += character;
+  }
+  parts.push(current);
+  return parts;
+};
+
+/** What of the class `token` is outside the portable subset (`the before variant`), or null. */
+export const unportableClass = (token: string, vocabulary: BlokVocabulary): string | null => {
+  const parts = splitClass(token);
+  const utility = (parts.pop() ?? '').replace(/^[!-]+/, '');
+  for (const variant of parts) {
+    if (variant.startsWith('[')) return 'an arbitrary variant';
+    const name = variant.split('/')[0];
+    if (vocabulary.unportableVariants.has(name) || vocabulary.unportableVariants.has(name.split('-[')[0])) return `the ${name} variant`;
+  }
+  if (utility.startsWith('[')) return 'an arbitrary property';
+  if (utility.includes('[')) {
+    const prefix = utility.split('-[')[0];
+    return vocabulary.arbitraryValues.has(prefix) ? null : `an arbitrary value of ${prefix}`;
+  }
+  for (const prefix of vocabulary.unportableUtilities) {
+    if (utility === prefix || utility.startsWith(`${prefix}-`)) return `the ${prefix} utility`;
+  }
+  return null;
+};
+
 /** What a blok declares beside its tree; the corpus' `scope` verbatim. */
 export type BlokCheckScope = {
   kind: BlokKind;
@@ -118,10 +156,8 @@ export type BlokCheckScope = {
   subscriptions: readonly BlokScopeSubscription[];
   /** The keys `args.<key>` may read; null reads any. */
   args: readonly string[] | null;
-  /** The standard catalogs the blok declares (`ui@1`); none declared checks none. */
-  catalogs: readonly string[];
-  /** The module (an app's own extras) the blok names, if any. */
-  module?: string | null;
+  /** The id of the catalog the blok is written for; null (or absent): the base catalog. The corpus' `target`. */
+  target?: string | null;
   /** Per declared query, the shape of its value when its service's schema is known. */
   query_values?: Readonly<Record<string, BlokPortMatch>>;
   /** The assets `self.assets.<name>` may name; null (or absent) names any. */
@@ -141,7 +177,6 @@ export const emptyBlokScope = (kind: BlokKind = 'agent', context = 'HTML'): Blok
   queries: [],
   subscriptions: [],
   args: null,
-  catalogs: [],
 });
 
 const ACTION_LOGO = 'ACTION_LOGO';
@@ -173,10 +208,11 @@ const DEPENDENCY_KEY_PROPS = new Set(['Placed.dep', 'Route.through']);
 /** The kinds that have a run's dependencies: an action's own bloks, for a run and for starting one. */
 const RUN_KINDS: readonly string[] = ['action', 'assign'];
 const ASSIGN_KIND = 'assign';
-/** What an assign blok places of the host's own: the argument form or one argument, the dependency picker or one dependency. */
-const ASSIGN_COMPONENTS: ReadonlySet<string> = new Set(['args', 'arg', 'deps', 'dep']);
-/** What a blok places of the task it is about: only a kind with a `task`. */
-const TASK_COMPONENTS: ReadonlySet<string> = new Set(['returns', 'status']);
+const ASK_COMPONENT = 'ask';
+const CHROME_PROP = 'chrome';
+const CHROME_NONE = 'none';
+/** The language's elements whose children do not always show: a host part inside one still claims its slot. */
+const CONDITIONAL_COMPONENTS: ReadonlySet<string> = new Set(['if', 'else', 'match', 'case', 'default', 'foreach', 'suspense', 'fallback', 'error']);
 /** The one field of an agent that is not text. */
 const AGENT_CONNECTED = 'connected';
 /** Where an assign blok reads which arguments the caller decided. */
@@ -409,7 +445,9 @@ class Checker {
   private readonly subscriptions: Map<string, BlokScopeSubscription>;
   private readonly boundLocals = new Set<string>();
   private readonly into = new Set<string>();
-  private readonly shadowed = new Set<string>();
+  private asks = false;
+  /** The id of the root that says `chrome="none"`, when it does. */
+  private chromeless: string | null = null;
   private readonly colour: RegExp;
 
   readonly scope: ResolvedBlokScope;
@@ -516,6 +554,7 @@ class Checker {
     for (const local of this.scope.locals) {
       if (local.persist && !this.boundLocals.has(local.key)) this.add('local.unused_persist', `locals.${local.key}`, {name: local.key});
     }
+    if (this.chromeless !== null && this.kind.roots.includes('task') && !this.asks) this.add('chrome.no_ask', this.chromeless);
   }
 
   /* -- the walk -- */
@@ -572,28 +611,36 @@ class Checker {
 
   private visitComponent(node: BlokComponentNode, ancestors: readonly BlokComponentNode[]): void {
     const spec = this.view?.components.get(node.component);
-    if (this.view && !spec && this.view.complete) {
-      this.add('catalog.unknown_component', node.id, {component: node.component, catalogs: this.view.label});
+    if (this.view && !spec) {
+      const foreign = this.view.foreign.get(node.component);
+      if (foreign !== undefined) {
+        this.add('catalog.target', node.id, {component: node.component, catalog: foreign, target: this.view.target ?? this.view.label});
+      } else if (this.view.complete) {
+        this.add('catalog.unknown_component', node.id, {component: node.component, catalogs: this.view.label});
+      }
     }
     if (spec) this.checkCatalog(node, spec, ancestors);
-    const shadow = this.view?.shadows.get(node.component);
-    if (shadow && !this.shadowed.has(node.component)) {
-      this.shadowed.add(node.component);
-      this.add('catalog.shadow', node.id, {component: node.component, catalog: shadow.catalog, module: shadow.module, winner: shadow.winner});
-    }
-    if (TASK_COMPONENTS.has(node.component) && !this.kind.roots.includes('task')) {
-      this.notInKind(node.id, `<${node.component}>`, 'task');
-    }
-    if (ASSIGN_COMPONENTS.has(node.component) && this.scope.kind !== ASSIGN_KIND) {
-      this.add('assign.kind', node.id, {what: `<${node.component}>`, n: article(this.scope.kind), kind: this.scope.kind});
-    }
+    this.checkHostPart(node, ancestors);
     for (const prop of node.props ?? []) this.checkProp(node, prop, spec);
   }
 
   private checkCatalog(node: BlokComponentNode, spec: SpecComponent, ancestors: readonly BlokComponentNode[]): void {
     const view = this.view;
     if (!view) return;
-    if (node.children?.length && !spec.acceptsChildren) this.add('catalog.children', node.id, {component: node.component});
+    const texts = (node.children ?? []).filter(child => child.component === TEXT_NODE);
+    const elements = (node.children ?? []).length - texts.length;
+    if (elements && !spec.acceptsChildren) this.add('catalog.children', node.id, {component: node.component});
+    if (texts.length) {
+      // Text is a child like any other; what takes it is the catalog's to say.
+      const textProp = spec.textProp;
+      if (textProp === null && !spec.acceptsChildren) {
+        this.add('catalog.text', node.id, {component: node.component, detail: 'takes no text'});
+      } else if (textProp !== null && (node.props ?? []).some(prop => prop.key === textProp)) {
+        this.add('catalog.text', node.id, {component: node.component, detail: `sets ${textProp} as an attribute and as its text`});
+      } else if (textProp !== null && !spec.acceptsChildren && (elements || texts.length > 1)) {
+        this.add('catalog.text', node.id, {component: node.component, detail: `takes one run of text as its ${textProp}, and no elements beside it`});
+      }
+    }
     const present = new Set((node.props ?? []).map(prop => prop.key));
     const known = new Set([...spec.props.map(prop => prop.key), WHEN_PROP]);
     const unknown = [...present].filter(key => !known.has(key)).sort();
@@ -619,20 +666,31 @@ class Checker {
     if (forbidden.length) {
       this.add('catalog.placement', node.id, {component: node.component, detail: `must not be inside [${forbidden.map(pythonRepr).join(', ')}]`});
     }
-    // Only the versioned standard catalogs are declared; a module (the Orkestrator's, an app's) is what the blok's `module` names.
-    const catalog = spec.catalog;
-    const standard = catalog.includes('@') && catalog.split('@')[0] in this.vocabulary.catalogs;
-    if (this.scope.catalogs.length && standard && !this.scope.catalogs.includes(catalog)) {
-      this.add('catalog.undeclared', node.id, {component: node.component, catalog});
+    if (spec.kinds.length && !spec.kinds.includes(this.scope.kind)) {
+      this.add('catalog.kind', node.id, {component: node.component, kinds: spec.kinds.join(' and '), n: article(this.scope.kind), kind: this.scope.kind});
+    }
+  }
+
+  /**
+   * What the language itself says of the host's parts, whatever catalog draws
+   * them: a part placed anywhere claims its slot, and a root without chrome
+   * leaves the asks to the blok.
+   */
+  private checkHostPart(node: BlokComponentNode, ancestors: readonly BlokComponentNode[]): void {
+    if (node.component === ASK_COMPONENT) this.asks = true;
+    if (ancestors.length === 0 && (node.props ?? []).some(prop => prop.key === CHROME_PROP && prop.static_value === CHROME_NONE)) {
+      this.chromeless = node.id;
+    }
+    if (this.vocabulary.hostParts.includes(node.component)) {
+      const inside = [...ancestors].reverse().find(ancestor => CONDITIONAL_COMPONENTS.has(ancestor.component));
+      if (inside) this.add('part.conditional', node.id, {component: node.component, inside: inside.component});
     }
   }
 
   /** A ``Placed dep`` or ``Route through`` names dependencies of the blok, written out as keys. */
   private checkDependencyKeys(node: BlokComponentNode, prop: BlokComponentProp): void {
-    if (!RUN_KINDS.includes(this.scope.kind)) {
-      this.add('space.kind', node.id, {component: node.component, n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
-      return;
-    }
+    // catalog.kind says it: a Space and its parts belong to an action's own blok.
+    if (!RUN_KINDS.includes(this.scope.kind)) return;
     const path = `${node.component}.${prop.key}`;
     const value = prop.static_value;
     const keys = typeof value === 'string' ? [value] : Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string') : [];
@@ -678,7 +736,7 @@ class Checker {
     }
     // `task.answer(...)`, `task.cancel()` and their kin act on the task the blok is about.
     const effect = prop.util_call?.operation;
-    if (effect?.startsWith('task.') && vocabulary.functions.get(effect)?.effect && !this.kind.roots.includes('task')) {
+    if (effect !== undefined && vocabulary.functions.get(effect)?.taskOperation && !this.kind.roots.includes('task')) {
       this.notInKind(node.id, effect, 'task', prop.key);
     }
     if (prop.key === BIND_PROP) {
@@ -698,10 +756,6 @@ class Checker {
       this.add('assign.kind', node.id, {what: 'assign.start()', n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
     }
     if (DEPENDENCY_KEY_PROPS.has(`${node.component}.${prop.key}`)) this.checkDependencyKeys(node, prop);
-    if (node.component === 'Space' && prop.key === 'room' && !RUN_KINDS.includes(this.scope.kind)) {
-      // A Space places the run's dependencies: only an action's own blok (for a run, or for starting one) has them.
-      this.add('space.kind', node.id, {component: node.component, n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
-    }
     if (node.component === TOAST_COMPONENT && prop.key === TOAST_TASK_PROP) {
       const path = prop.dynamic_value?.path ?? null;
       if (path === null || (path !== 'task' && !this.into.has(path))) this.add('toast.task', node.id, {what: path ?? what(prop)}, prop.key);
@@ -749,7 +803,11 @@ class Checker {
           {token, suggestion: `${arbitrary.groups.utility}-<role> (${this.vocabulary.theme.colourRoles.slice(0, 6).join(', ')}, ...)`},
           propKey,
         );
+        continue;
       }
+      // A colour that is no role is told as that; anything else outside the portable subset as this.
+      const unportable = unportableClass(token, this.vocabulary);
+      if (unportable !== null) this.add('class.not_portable', owner, {token, what: unportable}, propKey);
     }
   }
 

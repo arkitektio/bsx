@@ -16,7 +16,7 @@ import {progressFraction, routePoints, splitRoute, throughKeys} from './math';
 type Contracts = typeof runContracts;
 
 /**
- * The components that place an action's dependencies in 3D (scene@1). `Space`
+ * The components that place an action's dependencies in 3D (the scene family). `Space`
  * is a scene whose layout is a shared room, `Placed` draws the agent a
  * dependency is bound to with that agent's own scene blok where the room keeps
  * it, and `Route` draws a line through several.

@@ -13,7 +13,7 @@ import {typographyRenders} from './typography';
 
 /**
  * The shadcn/HTML/SVG renders, by component name: what `@arkitektio/bsx/shadcn`
- * implements ui@1, html@1, logo@1 and shadcn@1 with. Grouped by family as the
+ * implements the ui family, the html family, the logo family and the shadcn family with. Grouped by family as the
  * contracts are (`catalogs/parts`).
  */
 export const domRenders = {

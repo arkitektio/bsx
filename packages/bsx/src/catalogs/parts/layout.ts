@@ -152,6 +152,17 @@ export const layoutContracts = {
       })
       .describe('A scrollable region with styled scrollbars.'),
   },
+  List: {
+    schema: z
+      .object({
+        children: childListSchema,
+        className: classNameSchema,
+        height: sizeSchema.describe('CSS height of the list; it scrolls inside it. Fills its parent when left out.'),
+      })
+      .describe(
+        'A long list: a `<foreach>` placed directly inside it is drawn row by row as it scrolls into view, so thousands of items cost what a screenful does. Anything else inside it is drawn as a Column would.',
+      ),
+  },
   Resizable: {
     schema: z
       .object({

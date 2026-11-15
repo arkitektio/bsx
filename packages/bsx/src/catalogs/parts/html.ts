@@ -3,7 +3,7 @@ import type {BlokComponentContracts} from '../../renderer/runtime/catalog';
 import {BlokPropSchemas} from '../../renderer/runtime/schemas';
 import {actionProp, boolSchema, classNameSchema, contentSchema, layoutFields, textFields} from '../props';
 
-/** ui@1's links and media: `Link`, `Image` and `Code`. */
+/** the ui family's links and media: `Link`, `Image` and `Code`. */
 
 export const htmlContracts = {
   Link: {

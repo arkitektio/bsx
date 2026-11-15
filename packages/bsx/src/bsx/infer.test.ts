@@ -104,29 +104,20 @@ describe('new warnings', () => {
   });
 });
 
-describe('shadowing', () => {
-  it("leaves the Orkestrator's view without shadows", () => {
-    expect([...defaultBlokView().shadows.keys()]).toEqual([]);
+describe('a catalog only adds', () => {
+  it('refuses one that redefines a component of the base catalog, the language included', () => {
+    const redefining = (name: string) => parseSpecCatalog({name: 'mine', components: [{name, context: 'HTML', props: [{key: 'bind', kind: 'STRING'}]}]}, 'mine');
+    expect(() => blokView(redefining('Slider'))).toThrow(/redefines <Slider> of base@3: a catalog only adds/);
+    expect(() => blokView(redefining('foreach'))).toThrow(/redefines <foreach>/);
   });
 
-  it("draws a module's definition over a standard one, never over base's", () => {
-    const module = parseSpecCatalog(
-      {
-        name: 'mine',
-        components: [
-          {name: 'Slider', context: 'HTML', props: [{key: 'bind', kind: 'STRING'}]},
-          {name: 'foreach', context: 'HTML', props: []},
-        ],
-      },
-      'mine',
-    );
-    const view = blokView([module]);
-    expect(view.components.get('Slider')?.catalog).toBe('mine');
-    expect(view.shadows.get('Slider')).toEqual({component: 'Slider', catalog: 'ui@1', module: 'mine', winner: 'mine'});
-    expect(view.components.get('foreach')?.catalog).toMatch(/^base@/);
-    expect(view.shadows.get('foreach')?.winner).toMatch(/^base@/);
-    const found = checkBlokTree(parseBsx('<Html><Card><Slider bind={l} /><Slider bind={l} /></Card></Html>').tree, {...emptyBlokScope('agent'), locals: [{key: 'l', kind: 'STRING'}]}, view);
-    expect(found.map(finding => finding.code)).toEqual(['catalog.shadow']);
+  it('draws what it adds on top of the base', () => {
+    const view = blokView(parseSpecCatalog({name: 'mine', components: [{name: 'Gauge', context: 'HTML', props: []}]}, 'mine'));
+    expect(view.components.get('Gauge')?.catalog).toBe('mine');
+    expect(view.components.get('Slider')?.catalog).toBe('base@3');
+    expect(view.label).toBe('base@3 + mine');
+    const found = checkBlokTree(parseBsx('<Html><Card><Gauge /></Card></Html>').tree, emptyBlokScope('agent'), view);
+    expect(found).toEqual([]);
   });
 });
 
@@ -137,13 +128,14 @@ describe('??', () => {
       operation: 'logic.coalesce',
       arguments: [{key: 'values', value_list: [{value_path: 'a'}, {value_path: 'b'}, {value_path: 'c'}]}],
     });
-    expect(printBsx(tree)).toBe('<Text>{a ?? b ?? c}</Text>');
+    expect(printBsx(tree)).toBe('<Text text={a ?? b ?? c} />');
+    expect(printBsx(parseBsx('<Text>{a ?? b ?? c}</Text>').tree)).toBe('<Text>{a ?? b ?? c}</Text>');
   });
 
   it('binds looser than || and tighter than a ternary', () => {
-    expect(printBsx(parseBsx('<Text text={(a || b) ?? c} />').tree)).toBe('<Text>{a || b ?? c}</Text>');
-    expect(printBsx(parseBsx('<Text text={a || (b ?? c)} />').tree)).toBe('<Text>{a || (b ?? c)}</Text>');
-    expect(printBsx(parseBsx('<Text text={(a ?? b) ? x : y} />').tree)).toBe('<Text>{a ?? b ? x : y}</Text>');
-    expect(printBsx(parseBsx('<Text text={(a ?? b) ?? c} />').tree)).toBe('<Text>{(a ?? b) ?? c}</Text>');
+    expect(printBsx(parseBsx('<Text>{(a || b) ?? c}</Text>').tree)).toBe('<Text>{a || b ?? c}</Text>');
+    expect(printBsx(parseBsx('<Text>{a || (b ?? c)}</Text>').tree)).toBe('<Text>{a || (b ?? c)}</Text>');
+    expect(printBsx(parseBsx('<Text>{(a ?? b) ? x : y}</Text>').tree)).toBe('<Text>{a ?? b ? x : y}</Text>');
+    expect(printBsx(parseBsx('<Text>{(a ?? b) ?? c}</Text>').tree)).toBe('<Text>{(a ?? b) ?? c}</Text>');
   });
 });

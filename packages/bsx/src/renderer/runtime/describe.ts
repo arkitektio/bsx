@@ -5,10 +5,12 @@ import {isRequiredField} from './preflight';
 import {isActionSchema, isBindSchema, unwrapSchema} from './schemas';
 
 /**
- * A contract as the spec publishes it (`spec/catalogs/ui@1.json`, arkitekt-spec's
- * `blok/catalogs/`): the JSON the server and `arkitekt check` validate bloks
- * against. Written from the contract, never by hand: the zod schemas are the
- * source, the JSON what they say in the spec's terms.
+ * A contract in the spec's terms: what a catalog file (`spec/catalogs/base@3.json`,
+ * arkitekt-spec's `blok/catalogs/`) says of each component. Written from the
+ * contract, never by hand: the zod schemas are the source of a component's
+ * props and documentation, the JSON what they say in the spec's terms. The
+ * spec's base catalog is built from it (`pnpm spec:export`), and an app
+ * catalog is published as it (`blokCatalogSpec`).
  */
 
 export type SpecValueKind = 'STRING' | 'INT' | 'FLOAT' | 'BOOL' | 'DICT' | 'LIST' | 'ANY' | 'CALLBACK' | 'ASSET';
@@ -33,11 +35,19 @@ export type SpecComponentJson = {
   not_downstream_of: string[];
   text_prop: string | null;
   props: SpecPropJson[];
+  kinds?: string[];
+  service?: string;
+  since?: number;
 };
 
 export type SpecCatalogJson = {
+  /** The address a published catalog is known by. */
+  id?: string;
   name: string;
   version?: number;
+  minor?: number;
+  /** The id of the catalog it adds to. */
+  extends?: string;
   description: string;
   components: SpecComponentJson[];
 };
@@ -163,6 +173,9 @@ export const describeBlokComponent = (name: string, component: BlokComponentCont
     not_downstream_of: [...(placement.notDownstreamOf ?? [])],
     text_prop: component.textProp ?? null,
     props,
+    ...(component.kinds?.length ? {kinds: [...component.kinds]} : {}),
+    ...(component.service ? {service: component.service} : {}),
+    ...(component.since ? {since: component.since} : {}),
   };
 };
 

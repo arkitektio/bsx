@@ -1,10 +1,10 @@
-import {defineBlokCatalog} from '../renderer/runtime/catalog';
+import {BASE_CATALOG_REF, defineBlokCatalog} from '../renderer/runtime/catalog';
 import {parts} from './parts';
 
-/** `html@1`. */
+/** The `html` family of the base catalog. */
 export const htmlCatalog = defineBlokCatalog({
   name: "html",
-  version: 1,
+  partOf: BASE_CATALOG_REF,
   description: "Plain containers that translate directly to React Native: div (View), p and span (Text).",
   components: {
     div: parts.div,

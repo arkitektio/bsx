@@ -1,4 +1,4 @@
-// @arkitektio/bsx/shadcn: a reference implementation of ui@1, html@1, logo@1 and shadcn@1 in shadcn/ui
+// @arkitektio/bsx/shadcn: a reference implementation of the ui family, the html family, the logo family and the shadcn family in shadcn/ui
 // (radix, Tailwind) and SVG. Opt-in: an app passes these to declareBlokUi, or spreads one and draws over a part.
 // The app's Tailwind must see this package's classes: @source on node_modules/@arkitektio/bsx/dist.
 import {htmlCatalog, logoCatalog, shadcnCatalog, uiCatalog} from './catalogs/index';
@@ -7,7 +7,7 @@ import {implementBlokCatalog} from './renderer/runtime/catalog';
 
 export {domRenders};
 
-/** ui@1, drawn with shadcn/ui. */
+/** the ui family, drawn with shadcn/ui. */
 export const shadcnUiRenders = {
   Accordion: domRenders.Accordion,
   AccordionContent: domRenders.AccordionContent,
@@ -52,6 +52,7 @@ export const shadcnUiRenders = {
   RadioGroup: domRenders.RadioGroup,
   RadioGroupItem: domRenders.RadioGroupItem,
   Row: domRenders.Row,
+  List: domRenders.List,
   ScrollArea: domRenders.ScrollArea,
   Select: domRenders.Select,
   SelectContent: domRenders.SelectContent,
@@ -93,7 +94,7 @@ export const shadcnUiRenders = {
 
 export const shadcnUi = implementBlokCatalog(uiCatalog, shadcnUiRenders);
 
-/** html@1, drawn with shadcn/ui. */
+/** the html family, drawn with shadcn/ui. */
 export const shadcnHtmlRenders = {
   div: domRenders.div,
   p: domRenders.p,
@@ -102,7 +103,7 @@ export const shadcnHtmlRenders = {
 
 export const shadcnHtml = implementBlokCatalog(htmlCatalog, shadcnHtmlRenders);
 
-/** logo@1, drawn with shadcn/ui. */
+/** the logo family, drawn with shadcn/ui. */
 export const shadcnLogoRenders = {
   ActionLogo: domRenders.ActionLogo,
   AgentLogo: domRenders.AgentLogo,
@@ -124,7 +125,7 @@ export const shadcnLogoRenders = {
 
 export const shadcnLogo = implementBlokCatalog(logoCatalog, shadcnLogoRenders);
 
-/** shadcn@1, drawn with shadcn/ui. */
+/** the shadcn family, drawn with shadcn/ui. */
 export const shadcnExtrasRenders = {
   AlertDialog: domRenders.AlertDialog,
   AlertDialogAction: domRenders.AlertDialogAction,

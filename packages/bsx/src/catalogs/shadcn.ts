@@ -1,11 +1,11 @@
-import {defineBlokCatalog} from '../renderer/runtime/catalog';
+import {BASE_CATALOG_REF, defineBlokCatalog} from '../renderer/runtime/catalog';
 import {parts} from './parts';
 
-/** `shadcn@1`. */
+/** The `shadcn` family of the base catalog. */
 export const shadcnCatalog = defineBlokCatalog({
   name: "shadcn",
-  version: 1,
-  description: "The shadcn families beyond ui@1 (alert dialogs, sheets, drawers, menus, calendars, carousels, resizable panels, bento grids ...), charts and the raw inspector.",
+  partOf: BASE_CATALOG_REF,
+  description: "The shadcn families beyond the ui family (alert dialogs, sheets, drawers, menus, calendars, carousels, resizable panels, bento grids ...), charts and the raw inspector.",
   components: {
     AlertDialog: {...parts.AlertDialog, events: {onOpenChange: [{key: "value", kind: "BOOL", description: "Whether it is open now."}]}},
     AlertDialogAction: parts.AlertDialogAction,

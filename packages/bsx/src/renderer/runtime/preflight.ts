@@ -3,6 +3,7 @@ import type {BlokCatalog} from './functions';
 import {BlokSchemas, isActionSchema} from './schemas';
 import type {PreparedBlokNode} from './tree';
 import type {BlokActionArgument, BlokComponentNode, BlokComponentProp} from './types';
+import {lowerBlokText} from './text';
 import {extractUiComponents, isRecord} from './utils';
 import {loadVocabulary} from '../../spec/vocabulary';
 
@@ -192,7 +193,9 @@ export const preflightBlokDocument = (
   const invalidNodes = new Map<string, string[]>();
   const rootIds: string[] = [];
   const unknownKinds = new Map<string, string[]>();
-  extractUiComponents(uiComponents).forEach(raw => unknownCallKinds(raw, unknownKinds));
+  // Text is stored as nodes; what each component does with it is the catalog's to say.
+  const roots = extractUiComponents(uiComponents).map(raw => lowerBlokText(raw, catalog));
+  roots.forEach(raw => unknownCallKinds(raw, unknownKinds));
 
   const pushError = (error: BlokValidationError) => {
     errors.push(error);
@@ -242,7 +245,7 @@ export const preflightBlokDocument = (
     });
   };
 
-  extractUiComponents(uiComponents).forEach((rawComponent, componentIndex) => {
+  roots.forEach((rawComponent, componentIndex) => {
     const basePath = `uiComponents[${componentIndex}]`;
     const parsed = BlokSchemas.ComponentNode.safeParse(rawComponent);
 

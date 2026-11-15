@@ -1,10 +1,10 @@
-import {defineBlokCatalog} from '../renderer/runtime/catalog';
+import {BASE_CATALOG_REF, defineBlokCatalog} from '../renderer/runtime/catalog';
 import {parts} from './parts';
 
-/** `scene@1`. */
+/** The `scene` family of the base catalog. */
 export const sceneCatalog = defineBlokCatalog({
   name: "scene",
-  version: 1,
+  partOf: BASE_CATALOG_REF,
   description: "3D components: the Scene and Space roots, models, verb modifiers on a model's nodes, the HTML bridge (Popout), and the placed dependencies of a Space.",
   components: {
     Animate: parts.Animate,

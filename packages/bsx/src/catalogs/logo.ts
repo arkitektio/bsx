@@ -1,10 +1,10 @@
-import {defineBlokCatalog} from '../renderer/runtime/catalog';
+import {BASE_CATALOG_REF, defineBlokCatalog} from '../renderer/runtime/catalog';
 import {parts} from './parts';
 
-/** `logo@1`. */
+/** The `logo` family of the base catalog. */
 export const logoCatalog = defineBlokCatalog({
   name: "logo",
-  version: 1,
+  partOf: BASE_CATALOG_REF,
   description: "SVG drawing for logos and action logos; the palette is restricted to the logo pens.",
   components: {
     ActionLogo: parts.ActionLogo,

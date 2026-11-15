@@ -60,7 +60,7 @@ describe('parseBsxPartial', () => {
     const result = parseBsxPartial('<Html><Card><Text>Hel');
     expect(result.complete).toBe(false);
     expect(result.error?.code).toBe('bsx.unclosed');
-    expect(result.tree && [...ids(result.tree)]).toEqual(['Html[0]', 'Html[0]/Card[0]', 'Html[0]/Card[0]/Text[0]']);
+    expect(result.tree && [...ids(result.tree)]).toEqual(['Html[0]', 'Html[0]/Card[0]', 'Html[0]/Card[0]/Text[0]', 'Html[0]/Card[0]/Text[0]/#0']);
   });
 
   it('drops a tag that cannot draw until its attributes arrive', () => {

@@ -4,7 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {renderBsx, testCatalog} from './testing';
 
 /**
- * `<Time value relative? format?>` (ui@1): a moment, absolute or relative.
+ * `<Time value relative? format?>` (the ui family): a moment, absolute or relative.
  * Relative time ticks inside the component, against the wall clock live and
  * against `then` while travelling; a blok never reads the clock itself.
  */

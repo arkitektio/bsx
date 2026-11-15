@@ -2,7 +2,7 @@ import * as z from 'zod';
 import type {BlokComponentContracts} from '../../renderer/runtime/catalog';
 import {BlokPropSchemas} from '../../renderer/runtime/schemas';
 
-/** `<Toast task={move}>` (ui@1) and its outcome slots `done`, `failed`, `cancelled`. */
+/** `<Toast task={move}>` (the ui family) and its outcome slots `done`, `failed`, `cancelled`. */
 
 const toastSchema = z
   .object({

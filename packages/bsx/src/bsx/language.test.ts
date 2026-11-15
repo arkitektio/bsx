@@ -162,7 +162,7 @@ describe('hover and signatures', () => {
     const source = '<Text text={str.upper(deps.stage.id)} />';
     expect(hoverBsx(source, source.indexOf('upper') + 1, env())?.contents).toContain('str.upper(value)');
     expect(hoverBsx(source, source.indexOf('deps') + 1, env())?.contents).toContain('**deps**');
-    expect(hoverBsx('<Time value={then} relative />', 2, env())?.contents).toContain('ui@1');
+    expect(hoverBsx('<Time value={then} relative />', 2, env())?.contents).toContain('base@3');
     const then = '<Time value={then} />';
     expect(hoverBsx(then, then.indexOf('then') + 1, env())?.contents).toContain('**then**');
   });

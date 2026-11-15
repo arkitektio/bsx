@@ -5,7 +5,7 @@ import {foreachItemIds} from './control';
 import {renderBsx, testCatalog} from './testing';
 
 /**
- * The language of base@2 rendered end to end, from BSX: branches, loops, the
+ * The language of the base catalog rendered end to end, from BSX: branches, loops, the
  * `when` guard, and the async model (suspense, fallback, error, stale).
  */
 

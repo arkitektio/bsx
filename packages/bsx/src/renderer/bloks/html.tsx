@@ -8,8 +8,8 @@ import {renderContent, textPresentationClasses, useTextPresentationProps} from '
 type Contracts = typeof htmlContracts;
 
 /**
- * ui@1's links and media: `Link`, `Image` and `Code`. Raw HTML tags are not
- * part of the language; html@1 keeps only `div`, `p` and `span`, the
+ * The ui family's links and media: `Link`, `Image` and `Code`. Raw HTML tags are not
+ * part of the language; the html family keeps only `div`, `p` and `span`, the
  * containers that translate directly to React Native (View, Text).
  */
 

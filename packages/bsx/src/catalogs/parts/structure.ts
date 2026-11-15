@@ -4,9 +4,9 @@ import {BlokPropSchemas} from '../../renderer/runtime/schemas';
 import {actionProp, bindSchema, boolSchema, classNameSchema, disabledSchema, sizeSchema, structureValueSchema} from '../props';
 
 /**
- * structure@1: bloks over other modules' objects, by structure identifier. The
+ * the structure family: bloks over other modules' objects, by structure identifier. The
  * contract only: drawing one needs the app's smart system (its option sources,
- * displays and viewers), so every app that claims structure@1 draws it itself.
+ * displays and viewers), so every app that claims the structure family draws it itself.
  */
 
 const emptyTextSchema = BlokPropSchemas.DynamicString.optional().describe(

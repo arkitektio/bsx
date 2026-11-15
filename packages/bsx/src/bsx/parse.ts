@@ -5,7 +5,7 @@ import type {
   BlokComponentProp,
   BlokUtilCall,
 } from '../renderer/runtime/types';
-import {defaultBlokView, innerContext, isLanguageContainer, type BlokView} from '../spec/catalogs';
+import {defaultBlokView, type BlokView} from '../spec/catalogs';
 import {isExplicitId, loadVocabulary, type BlokContextName} from '../spec/vocabulary';
 import {
   blokError,
@@ -30,8 +30,10 @@ import {BsxSyntaxError, type BsxRange} from './source';
  *
  * - `attr="..."` is always a literal string, `attr={...}` an expression, a bare
  *   `attr` is `true`.
- * - Text children fill the component's `text_prop`; mixed with elements they
- *   become implicit `Text` nodes. Several parts desugar to `str.template`.
+ * - Text is a child like any other: each run of text between elements is
+ *   stored as a `#text` node holding its `value`. What a component does with
+ *   it (a `Button` makes it its label) is its renderer's to say, so no catalog
+ *   is needed to parse. Several parts of one run desugar to `str.template`.
  *   Whitespace follows JSX.
  * - `className={[...]}` and `className={{...}}` desugar to `str.classes`.
  * - Operators desugar to `cmp.*` / `logic.*` calls; a callback holds one task
@@ -42,11 +44,15 @@ import {BsxSyntaxError, type BsxRange} from './source';
  */
 
 export const MAX_SOURCE_BYTES = 256 * 1024;
-/** The component a run of text becomes when it sits among elements. */
-export const IMPLICIT_TEXT = 'Text';
-/** Loose text inside an `html@` component becomes a `span`, so an html-only blok stays inside the catalogs it declares. */
-export const IMPLICIT_HTML_TEXT = 'span';
-export const IMPLICIT_TEXTS: readonly string[] = [IMPLICIT_TEXT, IMPLICIT_HTML_TEXT];
+/** The node a run of text is stored as: no element can be called this, so only text makes one. */
+export const TEXT_NODE = '#text';
+/** The prop of a text node that holds its text: a literal, or an expression. */
+export const TEXT_VALUE = 'value';
+/**
+ * The components text between elements was stored as before it was a node of
+ * its own: a tree stored then still prints as text, and still renders.
+ */
+export const LEGACY_IMPLICIT_TEXTS: readonly string[] = ['Text', 'span'];
 export const CLASS_NAME = 'className';
 export const CLASSES_FUNCTION = 'str.classes';
 export const TEMPLATE_FUNCTION = 'str.template';
@@ -378,24 +384,7 @@ class Lowering {
     return blokError(this.locator, code, offset, fields);
   }
 
-  node(
-    element: MarkupElement,
-    derivedId: string,
-    context: BlokContextName,
-    parent: string | null,
-    inheritedLooseText: string = IMPLICIT_TEXT,
-  ): BlokComponentNode {
-    const spec = this.view.components.get(element.name);
-    // the component loose text becomes here, from the nearest non-language ancestor
-    const catalog = spec?.catalog;
-    const looseText =
-      spec === undefined
-        ? inheritedLooseText
-        : catalog?.startsWith('html@')
-          ? IMPLICIT_HTML_TEXT
-          : catalog?.startsWith('base@')
-            ? inheritedLooseText
-            : IMPLICIT_TEXT;
+  node(element: MarkupElement, derivedId: string, parent: string | null): BlokComponentNode {
     if (element.name === ELSE_COMPONENT && parent !== IF_COMPONENT) throw this.fail('bsx.else_outside_if', element.offset);
     let nodeId = derivedId;
     const explicit = element.attributes.find(attribute => attribute.name === 'id');
@@ -411,31 +400,15 @@ class Lowering {
     const props = element.attributes.filter(attribute => attribute.name !== 'id').map(attribute => this.prop(element.name, attribute));
     if (element.name === FOREACH_COMPONENT) this.checkForeach(element);
 
-    const inner = spec ? innerContext(spec, context) : context;
-
     const children: BlokComponentNode[] = [];
     const runs = this.runs(element);
-    const hasElements = element.children.some(child => child.kind === 'element');
-    const textRuns = runs.filter(isTextRun);
-    let implicitText = false;
-    if (textRuns.length > 0) {
-      const textProp = this.textTarget(element, inner, textRuns, hasElements);
-      implicitText = textProp === null;
-      if (textProp !== null) {
-        if (props.some(prop => prop.key === textProp)) {
-          throw this.fail('bsx.text_and_prop', element.offset, {component: element.name, key: textProp});
-        }
-        props.push(this.textProp(textProp, textRuns[0], element.offset));
-      }
-    }
     let implicit = 0;
     const counts = new Map<string, number>();
     let seenElse = false;
     for (const run of runs) {
       if (isTextRun(run)) {
-        if (!implicitText) continue;
         if (seenElse) throw this.fail('bsx.else_order', element.offset);
-        children.push({id: `${nodeId}/#${implicit}`, component: looseText, props: [this.textProp('text', run, element.offset)]});
+        children.push({id: `${nodeId}/#${implicit}`, component: TEXT_NODE, props: [this.textProp(TEXT_VALUE, run, element.offset)]});
         implicit += 1;
         continue;
       }
@@ -446,7 +419,7 @@ class Lowering {
       }
       const index = counts.get(child.name) ?? 0;
       counts.set(child.name, index + 1);
-      children.push(this.node(child, `${nodeId}/${child.name}[${index}]`, inner, element.name, looseText));
+      children.push(this.node(child, `${nodeId}/${child.name}[${index}]`, element.name));
     }
     if (element.name === IF_COMPONENT) {
       const elses = element.children.filter((child): child is MarkupElement => child.kind === 'element' && child.name === ELSE_COMPONENT);
@@ -533,23 +506,6 @@ class Lowering {
     }
     flush();
     return runs;
-  }
-
-  /** Where text goes: the text_prop (returned), implicit Text nodes (null), or refused. */
-  private textTarget(element: MarkupElement, context: BlokContextName, runs: Part[][], hasElements: boolean): string | null {
-    const component = this.view.components.get(element.name);
-    const sample = runs[0].map(part => (typeof part === 'string' ? part : '{...}')).join('').slice(0, 60);
-    if (!component) throw this.fail('bsx.text_unknown_component', element.offset, {component: element.name, text: sample});
-    const drawsText = this.vocabulary.contexts[context];
-    if (drawsText && !drawsText.text) {
-      throw this.fail('bsx.text_in_context', element.offset, {component: element.name, context, text: sample});
-    }
-    if (component.textProp !== null && !hasElements) {
-      if (runs.length > 1) throw this.fail('bsx.text_not_accepted', element.offset, {component: element.name, text: sample});
-      return component.textProp;
-    }
-    if (component.textProp !== null || isLanguageContainer(component)) return null;
-    throw this.fail('bsx.text_not_accepted', element.offset, {component: element.name, text: sample});
   }
 
   private textProp(key: string, parts: Part[], offset: number): BlokComponentProp {
@@ -827,7 +783,7 @@ export const parseBsx = (source: string, view: BlokView = defaultBlokView()): {t
   const markup = new Markup(source, locator);
   const root = markup.document();
   const lowering = new Lowering(view, locator, markup);
-  const tree = lowering.node(root, `${root.name}[0]`, 'HTML', null);
+  const tree = lowering.node(root, `${root.name}[0]`, null);
   return {tree, sources: lowering.sources};
 };
 

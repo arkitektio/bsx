@@ -16,7 +16,7 @@ type Contracts = typeof toastContracts;
 
 /**
  * `<Toast task={move}>`: a notification when a task settles, once per task
- * (ui@1). Each outcome slot (`done`, `failed`, `cancelled`) is optional and
+ * (the ui family). Each outcome slot (`done`, `failed`, `cancelled`) is optional and
  * holds the text shown for it:
  *
  *     <Toast task={move}>

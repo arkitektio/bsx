@@ -3,7 +3,7 @@ import type {BlokComponentContracts} from '../../renderer/runtime/catalog';
 import {classNameSchema, numberSchema} from '../props';
 
 /**
- * The icons a blok payload may name, and `Icon` (ui@1).
+ * The icons a blok payload may name, and `Icon` (the ui family).
  *
  * The names are spelled out here so the contract carries no icon set: the
  * renderer's `BLOK_ICONS` map is typed against this tuple, so a name without a

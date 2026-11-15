@@ -166,6 +166,33 @@ const ScrollAreaRender: BlokRender<Contracts['ScrollArea']> = ({buildChild, comp
   );
 };
 
+/**
+ * A long list. Its rows are the children a `foreach` draws straight into it:
+ * each is left unlaid and unpainted until it scrolls near the view
+ * (`content-visibility`), so a list of thousands costs what a screenful does
+ * to draw. The rows are still mounted, as a renderer without a window of its
+ * own would mount them.
+ */
+const ListRender: BlokRender<Contracts['List']> = ({buildChild, component, schema}) => {
+  const blok = useBlok(component, schema);
+  const children = useValue(blok.children);
+  const className = useValue(blok.className);
+  const height = useValue(blok.height);
+
+  return (
+    <div
+      className={cn(
+        'flex min-h-0 min-w-0 flex-col overflow-y-auto [&>*]:shrink-0 [&>*]:[contain-intrinsic-size:auto_2.5rem] [&>*]:[content-visibility:auto]',
+        !height && 'h-full',
+        className,
+      )}
+      style={{height}}
+    >
+      {renderChildList(children, buildChild)}
+    </div>
+  );
+};
+
 const ResizableRender: BlokRender<Contracts['Resizable']> = ({buildChild, component, schema}) => {
   const blok = useBlok(component, schema);
   const children = useValue(blok.children);
@@ -293,6 +320,7 @@ export const layoutRenders = {
   Separator: SeparatorRender,
   AspectRatio: AspectRatioRender,
   ScrollArea: ScrollAreaRender,
+  List: ListRender,
   Resizable: ResizableRender,
   ResizablePanel: ResizablePanelRender,
   ResizableHandle: ResizableHandleRender,

@@ -22,7 +22,7 @@ import {useBlokRunHost} from './run/host';
 import {blokPlatform} from '../../platform';
 
 /**
- * The language of base@2 (`core/blok/spec/base_v2.json`): components that
+ * The language of the base catalog (`core/blok/spec/base_v2.json`): components that
  * decide *whether* and *how often* their children render, rather than drawing
  * anything themselves. Lowercase names are reserved for language.
  *
@@ -226,6 +226,21 @@ export const Else = createBlokComponent(
       .describe('A branch of an `<if>`: rendered when the `if` and every `<else>` before it did not hold.'),
   },
   ({buildChild, component}) => renderDeclaredChildren(component, buildChild),
+);
+
+/** A run of text, as the parser stores it: drawn as it stands where no component took it (`runtime/text`). */
+export const TextNode = createBlokComponent(
+  {
+    name: '#text',
+    schema: z
+      .object({value: z.unknown().describe('The text: a literal, or an expression whose value is shown as text.')})
+      .describe('A run of text between elements: what the parser stores it as (no element can be called this).'),
+  },
+  ({component, schema}) => {
+    const blok = useBlok(component, schema);
+    const value = useValue(blok.value);
+    return <>{value === null || value === undefined ? null : typeof value === 'string' ? value : String(value)}</>;
+  },
 );
 
 export const Fragment = createBlokComponent(
@@ -540,6 +555,7 @@ export const Timeline = createBlokComponent(
 );
 
 export const controlBlokComponents = [
+  TextNode,
   Foreach,
   If,
   Else,

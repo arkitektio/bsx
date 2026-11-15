@@ -1,4 +1,4 @@
-// @arkitektio/bsx/scene: scene@1 drawn with three, @react-three/fiber and drei (opt-in: an app passes
+// @arkitektio/bsx/scene: the scene family drawn with three, @react-three/fiber and drei (opt-in: an app passes
 // threeScene to declareBlokUi), and the scene and run hosts the renderer mounts.
 import {sceneCatalog} from './catalogs/index';
 import {runRenders} from './renderer/bloks/run';
@@ -10,7 +10,7 @@ export * from './renderer/bloks/run';
 
 const renders = {...sceneRenders, ...runRenders};
 
-/** scene@1, drawn with three. */
+/** the scene family, drawn with three. */
 export const threeScene = implementBlokCatalog(sceneCatalog, {
   Animate: renders.Animate,
   Attach: renders.Attach,

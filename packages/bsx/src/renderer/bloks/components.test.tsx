@@ -8,7 +8,7 @@ afterEach(cleanup);
 const render = (roots: unknown[], initialState?: unknown) =>
   renderBlokDocument(testCatalog(), roots, initialState);
 
-describe('links and media (ui@1)', () => {
+describe('links and media (the ui family)', () => {
   it('renders a link, inline code and a heading', () => {
     const {errors} = render([
       {
@@ -33,7 +33,7 @@ describe('links and media (ui@1)', () => {
     expect(screen.getByRole('heading', {level: 2}).textContent).toBe('Overview');
   });
 
-  it('keeps raw html to the three containers html@1 has', () => {
+  it('keeps raw html to the three containers the html family has', () => {
     expect(testCatalog().components.has('div')).toBe(true);
     expect(testCatalog().components.has('p')).toBe(true);
     expect(testCatalog().components.has('span')).toBe(true);

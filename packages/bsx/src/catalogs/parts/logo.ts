@@ -5,7 +5,7 @@ import {loadVocabulary} from '../../spec/vocabulary';
 import {actionProp, describedString} from '../props';
 
 /**
- * The `logo@1` module of the blok language: the `AgentLogo` and `ActionLogo`
+ * The `logo` family of the blok language: the `AgentLogo` and `ActionLogo`
  * roots and the classic SVG elements as components.
  *
  * A logo root sits in html like `Scene` does and opens the `logo` context, so a
@@ -156,7 +156,7 @@ const gradientUnits = z
   .optional()
   .describe('Whether the coordinates are fractions of the shape (the default) or user units.');
 
-/** The `logo@1` module: the root, seven shapes, text, and what shapes reference. */
+/** The `logo` family: the root, seven shapes, text, and what shapes reference. */
 export const logoContracts = {
   [AGENT_LOGO_ROOT]: logoRoot(
     "The root of an agent's logo: a drawing in the viewer's pens. Its children are SVG shapes.",

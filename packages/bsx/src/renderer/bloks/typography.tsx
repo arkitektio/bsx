@@ -115,7 +115,7 @@ const useClock = (active: boolean, target: number | null): number => {
 };
 
 /**
- * `<Time value relative? format?>` (ui@1): a moment, absolute or relative.
+ * `<Time value relative? format?>` (the ui family): a moment, absolute or relative.
  * Relative time is measured from the viewed moment: the wall clock live
  * (ticking here), `then` while travelling, so the past renders as it did.
  */

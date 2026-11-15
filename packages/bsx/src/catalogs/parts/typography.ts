@@ -3,7 +3,7 @@ import type {BlokComponentContracts} from '../../renderer/runtime/catalog';
 import {BlokPropSchemas} from '../../renderer/runtime/schemas';
 import {classNameSchema, contentSchema, headingLevelSchema, textAlignSchema, textFields} from '../props';
 
-/** Text-bearing components: `Text` (ui@1), `p` and `span` (html@1), `Heading`, `Kbd`, `Markdown`, `Time`. */
+/** Text-bearing components: `Text` (the ui family), `p` and `span` (the html family), `Heading`, `Kbd`, `Markdown`, `Time`. */
 
 /** `Text` and `p`/`span` differ only in the element they render: one schema. */
 const textComponentSchema = z

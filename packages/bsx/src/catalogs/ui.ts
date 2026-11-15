@@ -1,10 +1,10 @@
-import {defineBlokCatalog} from '../renderer/runtime/catalog';
+import {BASE_CATALOG_REF, defineBlokCatalog} from '../renderer/runtime/catalog';
 import {parts} from './parts';
 
-/** `ui@1`. */
+/** The `ui` family of the base catalog. */
 export const uiCatalog = defineBlokCatalog({
   name: "ui",
-  version: 1,
+  partOf: BASE_CATALOG_REF,
   description: "Standard HTML components: layout, text, feedback, forms, data and overlays (shadcn-based).",
   components: {
     Accordion: {...parts.Accordion, events: {onChange: [{key: "value", kind: "ANY", description: "The open/pressed value(s): a string, or a list when multiple."}]}},
@@ -50,6 +50,7 @@ export const uiCatalog = defineBlokCatalog({
     RadioGroup: {...parts.RadioGroup, events: {onChange: [{key: "value", kind: "STRING", description: "The value now chosen."}]}, bindKinds: {bind: "STRING"}},
     RadioGroupItem: {...parts.RadioGroupItem, textProp: "label"},
     Row: parts.Row,
+    List: parts.List,
     ScrollArea: parts.ScrollArea,
     Select: {...parts.Select, events: {onChange: [{key: "value", kind: "STRING", description: "The value now chosen."}]}, bindKinds: {bind: "STRING"}},
     SelectContent: parts.SelectContent,
