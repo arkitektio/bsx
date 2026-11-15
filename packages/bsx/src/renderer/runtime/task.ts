@@ -11,16 +11,28 @@ import type {BlokRuntimeStore, BlokTaskObserver, BlokTaskUpdate} from './types';
  * An `into` record is the viewer's own state: nothing is published to the
  * agent, and a reload forgets it.
  */
-export type BlokTaskStatus = 'idle' | 'queued' | 'running' | 'asking' | 'done' | 'failed' | 'cancelled';
+export type BlokTaskStatus = 'idle' | 'queued' | 'running' | 'asking' | 'paused' | 'done' | 'failed' | 'cancelled';
 
 export type BlokTaskAsk = {question: string; form: Record<string, unknown>};
+
+/** One thing a task reported. */
+export type BlokTaskLogEntry = {at: string | null; kind: string; message: string | null};
+
+/** What may be done to a task: one flag per `task.<operation>()`. */
+export type BlokTaskControl = 'cancel' | 'pause' | 'resume' | 'step' | 'interrupt';
+export const TASK_CONTROLS: readonly BlokTaskControl[] = ['cancel', 'pause', 'resume', 'step', 'interrupt'];
+export type BlokTaskCan = Record<BlokTaskControl, boolean>;
+
+export const NO_TASK_CONTROL: BlokTaskCan = Object.freeze({cancel: false, pause: false, resume: false, step: false, interrupt: false});
 
 export type BlokTaskRecord = {
   /** The task's id; null before it was started. */
   id: string | null;
   status: BlokTaskStatus;
-  /** queued, running or asking. */
+  /** Started and not ended: queued, running, asking or paused. */
   running: boolean;
+  /** Waiting for someone to resume it. */
+  paused: boolean;
   done: boolean;
   failed: boolean;
   /** 0-100, as last reported; 100 once done. */
@@ -37,9 +49,19 @@ export type BlokTaskRecord = {
   answer: Record<string, unknown> | null;
   /** The latest yield, by return port key. */
   returns: Record<string, unknown>;
+  /** When it was started (ISO 8601); null before. */
+  started_at: string | null;
+  /** When it ended; null while it has not. */
+  ended_at: string | null;
+  /** Seconds from start to end; null while it has not ended. */
+  duration: number | null;
+  /** What it reported, oldest first. */
+  log: BlokTaskLogEntry[];
+  /** What the viewer may do to it right now (`task.cancel()` and its kin); all false where the host controls nothing. */
+  can: BlokTaskCan;
 };
 
-const TASK_STATUSES: readonly BlokTaskStatus[] = ['idle', 'queued', 'running', 'asking', 'done', 'failed', 'cancelled'];
+const TASK_STATUSES: readonly BlokTaskStatus[] = ['idle', 'queued', 'running', 'asking', 'paused', 'done', 'failed', 'cancelled'];
 export const isTaskStatus = (value: unknown): value is BlokTaskStatus =>
   typeof value === 'string' && (TASK_STATUSES as readonly string[]).includes(value);
 
@@ -50,6 +72,7 @@ export const idleTaskRecord = (): BlokTaskRecord => {
     id: null,
     status: 'idle',
     running: false,
+    paused: false,
     done: false,
     failed: false,
     progress: 0,
@@ -59,6 +82,11 @@ export const idleTaskRecord = (): BlokTaskRecord => {
     ask: null,
     answer: null,
     returns: {},
+    started_at: null,
+    ended_at: null,
+    duration: null,
+    log: [],
+    can: NO_TASK_CONTROL,
     ...(idle as Partial<BlokTaskRecord>),
   };
 };
@@ -71,7 +99,8 @@ export const isSettledStatus = (status: BlokTaskStatus): boolean =>
 export const withTaskStatus = (record: BlokTaskRecord, status: BlokTaskStatus): BlokTaskRecord => ({
   ...record,
   status,
-  running: status === 'queued' || status === 'running' || status === 'asking',
+  running: status === 'queued' || status === 'running' || status === 'asking' || status === 'paused',
+  paused: status === 'paused',
   done: status === 'done',
   failed: status === 'failed',
 });

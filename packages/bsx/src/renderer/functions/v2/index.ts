@@ -282,6 +282,19 @@ const strTest =
     return value !== null && other !== null && test(value, other);
   };
 
+/** What list.where keeps: the items whose `key` deep-equals `equals`, or is truthy when `equals` is left out. */
+const matching = (args: Args): ((item: unknown) => boolean) => {
+  const key = optStr(args.key, '', 'key');
+  const any = isNull(args.equals);
+  return item => {
+    const found = readDotted(item, key).value;
+    return any ? truthy(found) : deepEqual(found, args.equals);
+  };
+};
+
+/** Key names as a list holds them. */
+const keyNames = (value: unknown): string[] => (list(value) ?? []).filter((key): key is string => typeof key === 'string');
+
 const listOr =
   (fallback: () => unknown, operate: (value: unknown[], args: Args) => unknown): Impl =>
   args => {
@@ -517,6 +530,10 @@ const IMPLEMENTATIONS: Readonly<Partial<Record<string, Impl>>> = {
         .map(entry => entry.item);
     },
   ),
+  'list.where': listOr(() => [], (value, args) => value.filter(matching(args))),
+  'list.find': listOr(() => null, (value, args) => value.find(matching(args)) ?? null),
+  'list.count': listOr(() => 0, (value, args) => value.filter(matching(args)).length),
+  'list.concat': args => [...(list(args.value) ?? []), ...(list(args.other) ?? [])],
   'list.range': args => {
     const start = num(args.start);
     const end = num(args.end);
@@ -545,6 +562,21 @@ const IMPLEMENTATIONS: Readonly<Partial<Record<string, Impl>>> = {
     (value, args) => {
       const key = str(args.key);
       return key !== null && Object.prototype.hasOwnProperty.call(value, key);
+    },
+  ),
+  'obj.merge': args => ({...(dict(args.value) ?? {}), ...(dict(args.other) ?? {})}),
+  'obj.pick': dictOr(
+    () => ({}),
+    (value, args) => {
+      const keys = keyNames(args.keys);
+      return Object.fromEntries(Object.entries(value).filter(([key]) => keys.includes(key)));
+    },
+  ),
+  'obj.omit': dictOr(
+    () => ({}),
+    (value, args) => {
+      const keys = keyNames(args.keys);
+      return Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
     },
   ),
   'obj.keys': dictOr(() => [], value => Object.keys(value)),
@@ -648,6 +680,21 @@ const IMPLEMENTATIONS: Readonly<Partial<Record<string, Impl>>> = {
     const start = timeOf(args.start);
     const end = timeOf(args.end);
     return start === null || end === null ? null : (end - start) / 1000;
+  },
+  'time.add': args => {
+    const start = timeOf(args.value);
+    const seconds = num(args.seconds);
+    return start === null || seconds === null ? null : new Date(start + seconds * 1000).toISOString();
+  },
+  'time.before': args => {
+    const a = timeOf(args.a);
+    const b = timeOf(args.b);
+    return a !== null && b !== null && a < b;
+  },
+  'time.after': args => {
+    const a = timeOf(args.a);
+    const b = timeOf(args.b);
+    return a !== null && b !== null && a > b;
   },
 };
 

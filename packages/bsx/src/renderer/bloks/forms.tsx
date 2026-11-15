@@ -4,6 +4,16 @@ import {ButtonGroup as ShadButtonGroup} from '../../vendor/core/ui/button-group'
 import {Calendar as ShadCalendar} from '../../vendor/core/ui/calendar';
 import {Checkbox as ShadCheckbox} from '../../vendor/core/ui/checkbox';
 import {
+  Command as ShadCommand,
+  CommandEmpty as ShadCommandEmpty,
+  CommandGroup as ShadCommandGroup,
+  CommandInput as ShadCommandInput,
+  CommandItem as ShadCommandItem,
+  CommandList as ShadCommandList,
+} from '../../vendor/core/ui/command';
+import {Popover as ShadPopover, PopoverContent as ShadPopoverContent, PopoverTrigger as ShadPopoverTrigger} from '../../vendor/core/ui/popover';
+import {CalendarDays, Check, ChevronsUpDown} from 'lucide-react';
+import {
   Field as ShadField,
   FieldDescription as ShadFieldDescription,
   FieldError as ShadFieldError,
@@ -765,6 +775,120 @@ const CalendarRender: BlokRender<Contracts['Calendar']> = ({component, schema}) 
     );
 };
 
+const optionsOf = (raw: unknown): {value: string; label: string}[] =>
+  (Array.isArray(raw) ? raw : []).flatMap(option => {
+    if (typeof option === 'string') return [{value: option, label: option}];
+    if (option !== null && typeof option === 'object' && typeof (option as {value?: unknown}).value === 'string') {
+      const {value, label} = option as {value: string; label?: unknown};
+      return [{value, label: typeof label === 'string' ? label : value}];
+    }
+    return [];
+  });
+
+const ComboboxRender: BlokRender<Contracts['Combobox']> = ({component, schema}) => {
+  const blok = useBlok(component, schema);
+  const bind = useValue(blok.bind);
+  const value = useValue(blok.value);
+  const defaultValue = useValue(blok.defaultValue);
+  const options = optionsOf(useValue(blok.options));
+  const placeholder = useValue(blok.placeholder);
+  const searchPlaceholder = useValue(blok.searchPlaceholder);
+  const emptyText = useValue(blok.emptyText);
+  const disabled = useValue(blok.disabled);
+  const className = useValue(blok.className);
+  const onChange = useEventAction(blok.onChange);
+  const [open, setOpen] = React.useState(false);
+
+  const controlled = useControlledValue<string>({bind, value, defaultValue, fallback: '', parse: asString});
+  const picked = options.find(option => option.value === controlled.value);
+
+  return (
+    <ShadPopover open={open} onOpenChange={setOpen}>
+      <ShadPopoverTrigger asChild>
+        <ShadButton
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled === true}
+          className={cn('w-full justify-between font-normal', !picked && 'text-muted-foreground', className)}
+        >
+          <span className="truncate">{picked?.label ?? (asString(placeholder) || 'Pick one')}</span>
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+        </ShadButton>
+      </ShadPopoverTrigger>
+      <ShadPopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+        <ShadCommand>
+          <ShadCommandInput placeholder={asString(searchPlaceholder) || 'Search'} />
+          <ShadCommandList>
+            <ShadCommandEmpty>{asString(emptyText) || 'Nothing found'}</ShadCommandEmpty>
+            <ShadCommandGroup>
+              {options.map(option => (
+                <ShadCommandItem
+                  key={option.value}
+                  // Typing matches what is read, not the value behind it.
+                  value={option.label}
+                  onSelect={() => {
+                    controlled.setValue(option.value);
+                    onChange?.(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="truncate">{option.label}</span>
+                  {option.value === controlled.value ? <Check className="ml-auto size-4" /> : null}
+                </ShadCommandItem>
+              ))}
+            </ShadCommandGroup>
+          </ShadCommandList>
+        </ShadCommand>
+      </ShadPopoverContent>
+    </ShadPopover>
+  );
+};
+
+const DatePickerRender: BlokRender<Contracts['DatePicker']> = ({component, schema}) => {
+  const blok = useBlok(component, schema);
+  const bind = useValue(blok.bind);
+  const value = useValue(blok.value);
+  const defaultValue = useValue(blok.defaultValue);
+  const placeholder = useValue(blok.placeholder);
+  const disabled = useValue(blok.disabled);
+  const className = useValue(blok.className);
+  const onChange = useEventAction(blok.onChange);
+  const [open, setOpen] = React.useState(false);
+
+  const controlled = useControlledValue<string>({bind, value, defaultValue, fallback: '', parse: asString});
+  const picked = parseIsoDate(controlled.value);
+
+  return (
+    <ShadPopover open={open} onOpenChange={setOpen}>
+      <ShadPopoverTrigger asChild>
+        <ShadButton
+          type="button"
+          variant="outline"
+          disabled={disabled === true}
+          className={cn('w-full justify-start gap-2 font-normal', !picked && 'text-muted-foreground', className)}
+        >
+          <CalendarDays className="size-4 shrink-0 opacity-50" />
+          <span className="truncate">{picked ? picked.toLocaleDateString(undefined, {dateStyle: 'medium', timeZone: 'UTC'}) : asString(placeholder) || 'Pick a date'}</span>
+        </ShadButton>
+      </ShadPopoverTrigger>
+      <ShadPopoverContent className="w-auto p-0" align="start">
+        <ShadCalendar
+          mode="single"
+          selected={picked}
+          onSelect={next => {
+            const nextValue = next ? toIsoDate(next) : '';
+            controlled.setValue(nextValue);
+            onChange?.(nextValue);
+            setOpen(false);
+          }}
+        />
+      </ShadPopoverContent>
+    </ShadPopover>
+  );
+};
+
 export const formRenders = {
   Button: ButtonRender,
   ButtonGroup: ButtonGroupRender,
@@ -791,4 +915,6 @@ export const formRenders = {
   FieldSet: FieldSetRender,
   Field: FieldRender,
   Calendar: CalendarRender,
+  Combobox: ComboboxRender,
+  DatePicker: DatePickerRender,
 };

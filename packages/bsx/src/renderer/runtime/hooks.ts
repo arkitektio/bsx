@@ -195,6 +195,7 @@ const createLiveResolutionContext = (
   fetchMoreQuery: (name, variables) => store.getState().fetchMoreQuery?.(name, variables),
   answerTask: values => store.getState().answerTask?.(values),
   startRun: () => store.getState().startRun?.(),
+  controlTask: store.getState().controlTask ? operation => store.getState().controlTask?.(operation) : undefined,
   travelling: store.getState().travelAt !== null,
   invokeFunction: (name, args, options) => store.getState().invokeFunction(name, args, options),
   dispatchAction: (action, component, observe) =>

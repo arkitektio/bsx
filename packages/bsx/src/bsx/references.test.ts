@@ -159,3 +159,62 @@ describe('findings', () => {
     expect(checkBlokTree(tree, emptyBlokScope('agent'))).toEqual([]);
   });
 });
+
+describe('what an assign blok places and reads of the run it prepares', () => {
+  const codes = (source: string, scope: BlokCheckScope) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
+  const assign = {...emptyBlokScope('assign'), args: ['image', 'exposure']};
+
+  it('reads assign.given.<key>, assign.missing and assign.ready', () => {
+    const source =
+      '<Html><if when={assign.given.image}><Text text={args.image} /></if><arg key="exposure" /><args /><deps /><Button onClick={assign.start()} disabled={!assign.ready}>Run</Button></Html>';
+    expect(codes(source, assign)).toEqual([]);
+  });
+
+  it('refuses a given flag for an argument the action has not, and a field assign has not', () => {
+    expect(codes('<Html><Text text={assign.given.nope} /></Html>', assign)).toEqual(['args.unknown']);
+    expect(codes('<Html><Text text={assign.nope} /></Html>', assign)).toEqual(['path.unknown']);
+  });
+
+  it('keeps <arg>, <deps>, <dep> and the assign root to an assign blok', () => {
+    const task = emptyBlokScope('task');
+    expect(codes('<Html><arg key="image" /></Html>', task)).toEqual(['assign.kind']);
+    expect(codes('<Html><deps /><dep key="robot" /></Html>', task)).toEqual(['assign.kind', 'assign.kind']);
+    expect(codes('<Html><Text text={assign.ready} /></Html>', task)).toEqual(['roots.not_in_kind']);
+  });
+});
+
+describe('what a blok does to the task it is about', () => {
+  const codes = (source: string, scope: BlokCheckScope) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
+
+  it('cancels, pauses, resumes, steps and interrupts it, and reads whether it may', () => {
+    const source =
+      '<Html><Button onClick={task.cancel()} disabled={!task.can.cancel}>Stop</Button><Button onClick={task.pause()}>Pause</Button><Button onClick={task.resume()}>Resume</Button><Button onClick={task.step()}>Step</Button><Button onClick={task.interrupt()}>Kill</Button><Text text={deps.robot.connected ? task.started_at : task.status} /></Html>';
+    const scope = {...emptyBlokScope('action'), dependencies: [{key: 'robot'}]} as BlokCheckScope;
+    expect(codes(source, scope)).toEqual([]);
+  });
+
+  it('starts no run again: a rerun is the page\'s, never a blok\'s', () => {
+    expect(() => parseBsx('<Html><Button onClick={task.rerun()}>Again</Button></Html>')).toThrow(/calls nothing/);
+  });
+
+  it('refuses them where there is no task', () => {
+    expect(codes('<Html><Button onClick={task.cancel()}>Stop</Button></Html>', emptyBlokScope('assign'))).toEqual(['roots.not_in_kind']);
+  });
+});
+
+describe('what a blok places of its task, and what it leaves the host', () => {
+  const codes = (source: string, scope: BlokCheckScope) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
+
+  it('places the result, the status line and the time slider, and says how much chrome it wants', () => {
+    const source = '<Html chrome="none"><status /><returns only="image" /><timeline /><Text text={task.paused ? "waiting" : task.duration} /></Html>';
+    expect(codes(source, emptyBlokScope('action'))).toEqual([]);
+  });
+
+  it('keeps <returns> and <status> to a blok that has a task', () => {
+    expect(codes('<Html><returns /><status /></Html>', emptyBlokScope('assign'))).toEqual(['roots.not_in_kind', 'roots.not_in_kind']);
+  });
+
+  it('reads what an assign blok knows of starting', () => {
+    expect(codes('<Html><Text text={assign.blocked} /><Button disabled={assign.starting} onClick={assign.start()}>Run</Button></Html>', emptyBlokScope('assign'))).toEqual([]);
+  });
+});

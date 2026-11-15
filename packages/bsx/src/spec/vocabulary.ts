@@ -25,6 +25,8 @@ export type VocabFunction = {
   lazy: boolean;
   /** Allowed only as a callback's one thing (`ui.copy`, `task.answer`, `query.refetch`). */
   effect: boolean;
+  /** An effect that changes the world (acts on a task, or starts one); an effect without it only changes what the viewer sees. */
+  command: boolean;
   /** Sees a pending or failed argument instead of suspending. */
   seesStatus: boolean;
   /** The parameter names, in positional order. */
@@ -257,6 +259,7 @@ const parseFunction = (name: string, raw: unknown): VocabFunction => {
     null: typeof entry.null === 'string' ? entry.null : '',
     lazy: entry.lazy === true,
     effect: entry.effect === true,
+    command: entry.command === true,
     seesStatus: entry.sees_status === true,
     keys: params.map(param => param.key),
     requiredKeys: params.filter(param => param.required).map(param => param.key),

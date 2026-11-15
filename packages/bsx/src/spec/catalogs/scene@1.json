@@ -670,6 +670,16 @@
      ]
     },
     {
+     "key": "chrome",
+     "kind": "STRING",
+     "required": false,
+     "description": "What the host draws around the blok of its own: `auto` (the default) adds what the blok does not place (the time slider, the open ask, the rest of the argument form, its buttons); `none` adds nothing, the blok places what it wants.",
+     "values": [
+      "auto",
+      "none"
+     ]
+    },
+    {
      "key": "grid",
      "kind": "BOOL",
      "required": false,
@@ -713,6 +723,16 @@
       "front",
       "side",
       "top"
+     ]
+    },
+    {
+     "key": "chrome",
+     "kind": "STRING",
+     "required": false,
+     "description": "What the host draws around the blok of its own: `auto` (the default) adds what the blok does not place (the time slider, the open ask, the rest of the argument form, its buttons); `none` adds nothing, the blok places what it wants.",
+     "values": [
+      "auto",
+      "none"
      ]
     },
     {

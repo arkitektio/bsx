@@ -106,7 +106,7 @@ describe('completeBsx: expressions', () => {
 
   it('walks agents: states, tasks, assets, fields, and actions only in callbacks', () => {
     expect(labels('<Text text={deps.|')).toEqual(['stage']);
-    expect(labels('<Text text={deps.stage.|')).toEqual(['position', 'tasks', 'assets', 'id', 'name']);
+    expect(labels('<Text text={deps.stage.|')).toEqual(['position', 'tasks', 'assets', 'id', 'name', 'connected']);
     expect(labels('<Button onClick={deps.stage.|')).toContain('move');
     expect(at('<Button onClick={deps.stage.|').find(item => item.label === 'move')?.insertText).toBe('move(x: ${1}, y: ${2})');
     expect(labels('<Text text={deps.stage.position.|')).toEqual(['x', 'y']);

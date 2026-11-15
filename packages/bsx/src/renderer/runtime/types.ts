@@ -1,7 +1,7 @@
 import type {StoreApi} from 'zustand/vanilla';
 import {z} from 'zod';
 import type {BlokSourceStatus} from './status';
-import type {BlokTaskAsk, BlokTaskBinding} from './task';
+import type {BlokTaskAsk, BlokTaskBinding, BlokTaskControl} from './task';
 
 export type ChildDescriptor = string | {id: string; basePath?: string};
 
@@ -116,7 +116,7 @@ export type BlokTaskUpdate = {
   /** The task's id, once the host knows it. */
   id?: string;
   /** Where it stands while it has not ended. */
-  status?: 'queued' | 'running' | 'asking';
+  status?: 'queued' | 'running' | 'asking' | 'paused';
   /** The ask it opened (null: answered or withdrawn). */
   ask?: BlokTaskAsk | null;
   /** The values given for its ask. */
@@ -216,6 +216,8 @@ export type BlokResolutionContext = {
   answerTask?: (values: Record<string, unknown>) => unknown;
   /** Starts the run an assign blok prepares (`assign.start()`); undefined where the host starts none. */
   startRun?: () => unknown;
+  /** Cancels, pauses, resumes, steps, interrupts or reruns `task` (`task.cancel()` and its kin); undefined where the host controls no task. */
+  controlTask?: (operation: BlokTaskControl) => unknown;
   /** Set while the blok shows a moment in the past: no command runs. */
   travelling?: boolean;
   resolvePath: (path: string) => string;
@@ -252,12 +254,15 @@ export type BlokRuntimeContext = {
   answerTask: ((values: Record<string, unknown>) => unknown) | undefined;
   /** Starts the run an assign blok prepares; set by a host that can start one. */
   startRun: (() => unknown) | undefined;
+  /** Controls `task`; set by a host that can. */
+  controlTask: ((operation: BlokTaskControl) => unknown) | undefined;
   setStatus: (path: string, status: BlokSourceStatus | null) => void;
   setTravelAt: (at: string | null) => void;
   setRefetchQuery: (refetch: ((name: string) => void) | undefined) => void;
   setFetchMoreQuery: (fetchMore: ((name: string, variables: Record<string, unknown>) => void) | undefined) => void;
   setAnswerTask: (answer: ((values: Record<string, unknown>) => unknown) | undefined) => void;
   setStartRun: (start: (() => unknown) | undefined) => void;
+  setControlTask: (control: ((operation: BlokTaskControl) => unknown) | undefined) => void;
   agentMappingStateUpdates: BlokAgentMappingStateUpdates;
   invokeFunction: BlokInvokeFunctionHandler;
   dispatchAction: BlokDispatchActionHandler;

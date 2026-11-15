@@ -19,6 +19,12 @@ import {actionProp, bindSchema, describedString} from '../props';
 
 export const sceneSchema = z
   .object({
+    chrome: z
+      .enum(['auto', 'none'])
+      .optional()
+      .describe(
+        "What the host draws around the blok of its own: `auto` (the default) adds what the blok does not place (the time slider, the open ask, the rest of the argument form, its buttons); `none` adds nothing, the blok places what it wants.",
+      ),
     camera: z
       .enum(['iso', 'front', 'side', 'top'])
       .optional()

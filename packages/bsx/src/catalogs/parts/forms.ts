@@ -320,6 +320,38 @@ export const formContracts = {
       })
       .describe('A labelled form field with description and error slots.'),
   },
+  Combobox: {
+    schema: z
+      .object({
+        bind: markBindSchema(bindSchema.describe('Data-model path holding the picked value.')),
+        value: BlokPropSchemas.DynamicString.optional().describe('Controlled value.'),
+        defaultValue: BlokPropSchemas.DynamicString.optional().describe('Initial value.'),
+        options: z
+          .array(z.union([z.string(), z.object({value: z.string(), label: z.string().optional()})]))
+          .optional()
+          .describe('What can be picked: strings, or `{value, label}` objects. Typing narrows them.'),
+        placeholder: BlokPropSchemas.DynamicString.optional().describe('Shown while nothing is picked.'),
+        searchPlaceholder: BlokPropSchemas.DynamicString.optional().describe('Shown in the search field.'),
+        emptyText: BlokPropSchemas.DynamicString.optional().describe('Shown when typing matches nothing.'),
+        disabled: disabledSchema,
+        className: classNameSchema,
+        onChange: actionProp('Runs on selection. Arguments may read event.value.'),
+      })
+      .describe('A select with a search field: for a list too long to scan.'),
+  },
+  DatePicker: {
+    schema: z
+      .object({
+        bind: markBindSchema(bindSchema.describe('Data-model path holding an ISO date string (YYYY-MM-DD).')),
+        value: BlokPropSchemas.DynamicString.optional().describe('Controlled ISO date.'),
+        defaultValue: BlokPropSchemas.DynamicString.optional().describe('Initial ISO date.'),
+        placeholder: BlokPropSchemas.DynamicString.optional().describe('Shown while no date is picked.'),
+        disabled: disabledSchema,
+        className: classNameSchema,
+        onChange: actionProp('Runs on selection. Arguments may read event.value.'),
+      })
+      .describe('A button that opens a calendar and shows the date picked.'),
+  },
   Calendar: {
     schema: z
       .object({

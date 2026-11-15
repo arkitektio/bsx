@@ -9,6 +9,7 @@
    "subscriptions": "subscriptions.<name>: a declared subscription's record (status, value, error); value is the latest payload, or the last `keep` payloads.",
    "args": "args.<key>: what the blok is opened on: the item for an agent or custom blok, the task's args for a task or action blok.",
    "task": "The task this blok is about: the sending task, or the run. A task record.",
+   "assign": "The run an assign blok prepares: assign.given.<key> (true for an argument the caller decided, which is locked), assign.missing (the keys of required arguments still empty) and assign.ready (nothing is missing).",
    "event": "The payload a component hands its callback. Only inside a callback.",
    "viewer": "{user, org, roles} of whoever is looking.",
    "then": "The moment being viewed while time-travelling (an ISO 8601 datetime), null while live. A blok never reads the wall clock: a query passes then as an ordinary variable (variables={at: \"then\"}), <Time> measures relative time from it, and while it is set subscriptions pause (their history query, or the value at travel start, stale)."
@@ -20,13 +21,13 @@
   "functions": ["cmp", "logic", "math", "str", "list", "obj", "val", "fmt", "time", "ui", "query"],
   "future": ["mutations"]
  },
- "reserved": ["self", "deps", "queries", "subscriptions", "args", "task", "event", "viewer", "then", "error", "cmp", "logic", "math", "str", "list", "obj", "val", "fmt", "time", "ui", "query", "mutations"],
+ "reserved": ["self", "deps", "queries", "subscriptions", "args", "task", "assign", "event", "viewer", "then", "error", "cmp", "logic", "math", "str", "list", "obj", "val", "fmt", "time", "ui", "query", "mutations"],
  "agent_segments": {
   "description": "What follows an agent (self or deps.<key>): .<state>.<field> is state, .tasks.<action> the latest task of that action, .assets.<name> one of the agent's assets; deps.<key>.<action>(...) calls it.",
   "tasks": "tasks",
   "assets": "assets",
-  "fields": {"id": "The agent's id (a query variable: deps.robot.id).", "name": "The agent's name."},
-  "reserved_state_names": ["tasks", "assets", "id", "name"]
+  "fields": {"id": "The agent's id (a query variable: deps.robot.id).", "name": "The agent's name.", "connected": "Whether the agent is connected right now (true or false)."},
+  "reserved_state_names": ["tasks", "assets", "id", "name", "connected"]
  },
  "kinds": {
   "agent": {
@@ -55,7 +56,7 @@
   },
   "assign": {
    "description": "An action's own blok for starting a run of it (assign_bloks): shown before there is a task, with the arguments being filled in as args and the agents a run would get as deps.",
-   "roots": ["self", "deps", "args", "queries", "subscriptions", "viewer"],
+   "roots": ["self", "deps", "args", "assign", "queries", "subscriptions", "viewer"],
    "locals": true,
    "contexts": ["HTML", "SCENE"]
   },
@@ -80,8 +81,9 @@
    "description": "One shape for task, deps.<key>.tasks.<action>, self.tasks.<action> and every into name.",
    "fields": [
     {"key": "id", "kind": "STRING", "nullable": true, "description": "The task's id; null before it was started."},
-    {"key": "status", "kind": "STRING", "choices": ["idle", "queued", "running", "asking", "done", "failed", "cancelled"], "description": "Lowercase."},
-    {"key": "running", "kind": "BOOL", "description": "queued, running or asking."},
+    {"key": "status", "kind": "STRING", "choices": ["idle", "queued", "running", "asking", "paused", "done", "failed", "cancelled"], "description": "Lowercase."},
+    {"key": "running", "kind": "BOOL", "description": "Started and not ended: queued, running, asking or paused."},
+    {"key": "paused", "kind": "BOOL", "description": "Waiting for someone to resume it."},
     {"key": "done", "kind": "BOOL"},
     {"key": "failed", "kind": "BOOL"},
     {"key": "progress", "kind": "INT", "description": "0 to 100."},
@@ -90,9 +92,14 @@
     {"key": "args", "kind": "DICT", "description": "What it was called with, filled in by the renderer at dispatch."},
     {"key": "ask", "kind": "DICT", "nullable": true, "children": [{"key": "question", "kind": "STRING"}, {"key": "form", "kind": "DICT"}], "description": "The open ask, or null."},
     {"key": "answer", "kind": "DICT", "nullable": true, "description": "The values returned for the ask."},
-    {"key": "returns", "kind": "DICT", "description": "The latest yield, by return port key."}
+    {"key": "returns", "kind": "DICT", "description": "The latest yield, by return port key."},
+    {"key": "started_at", "kind": "STRING", "nullable": true, "description": "When it was started (an ISO 8601 datetime); null before."},
+    {"key": "ended_at", "kind": "STRING", "nullable": true, "description": "When it ended; null while it has not."},
+    {"key": "duration", "kind": "FLOAT", "nullable": true, "description": "Seconds from start to end; null while it has not ended (a blok never reads the wall clock: <Time> measures a running task)."},
+    {"key": "log", "kind": "LIST", "children": [{"key": "...", "kind": "DICT", "children": [{"key": "at", "kind": "STRING", "nullable": true}, {"key": "kind", "kind": "STRING"}, {"key": "message", "kind": "STRING", "nullable": true}]}], "description": "What it reported, oldest first: {at, kind, message} per entry, the latest hundred."},
+    {"key": "can", "kind": "DICT", "children": [{"key": "cancel", "kind": "BOOL"}, {"key": "pause", "kind": "BOOL"}, {"key": "resume", "kind": "BOOL"}, {"key": "step", "kind": "BOOL"}, {"key": "interrupt", "kind": "BOOL"}], "description": "What the viewer may do to the task right now: can.cancel says whether task.cancel() would be taken, and so on. All false for a record the blok started itself (an into name)."}
    ],
-   "idle": {"id": null, "status": "idle", "running": false, "done": false, "failed": false, "progress": 0, "message": null, "error": null, "args": {}, "ask": null, "answer": null, "returns": {}}
+   "idle": {"id": null, "status": "idle", "running": false, "done": false, "paused": false, "failed": false, "progress": 0, "message": null, "error": null, "args": {}, "ask": null, "answer": null, "returns": {}, "started_at": null, "ended_at": null, "duration": null, "log": [], "can": {"cancel": false, "pause": false, "resume": false, "step": false, "interrupt": false}}
   },
   "query": {
    "description": "A declared query's record.",
@@ -110,6 +117,16 @@
     {"key": "status", "kind": "STRING", "choices": ["pending", "ready", "stale", "failed"]},
     {"key": "value", "kind": "ANY", "nullable": true, "description": "The latest payload, or the list of the last `keep` payloads."},
     {"key": "error", "kind": "STRING", "nullable": true}
+   ]
+  },
+  "assign": {
+   "description": "What an assign blok knows of the run it prepares, besides args and deps.",
+   "fields": [
+    {"key": "given", "kind": "DICT", "description": "given.<key>: true for an argument the caller decided before the blok opened (a preset from a menu); it is locked, and <args /> leaves it out."},
+    {"key": "missing", "kind": "LIST", "children": [{"key": "...", "kind": "STRING"}], "description": "The keys of the required arguments that are still empty."},
+    {"key": "ready", "kind": "BOOL", "description": "True when no required argument is missing."},
+    {"key": "starting", "kind": "BOOL", "description": "True while assign.start() is being taken."},
+    {"key": "blocked", "kind": "STRING", "nullable": true, "description": "Why the run cannot start now, as a sentence (a dependency is not met, no agent fits); null when it can."}
    ]
   },
   "viewer": {
@@ -147,7 +164,7 @@
   ]
  },
  "functions": {
-  "description": "Pure functions by namespace, snake_case. Positional arguments map onto params in order. `lazy`: arguments are read only as needed. `effect`: allowed only as a callback's one thing (ui.*, task.answer, assign.start, query.*). `sees_status`: sees pending/failed instead of suspending. No function reads the wall clock. `null` says what the function does with a null argument (known absence); a missing path reads as null.",
+  "description": "Pure functions by namespace, snake_case. Positional arguments map onto params in order. `lazy`: arguments are read only as needed. `effect`: allowed only as a callback's one thing (ui.*, task.*, assign.start, query.*). `command`: an effect that changes the world (it acts on a task or starts one, and is recorded with it); an effect without it only changes what the viewer sees. A blok does nothing else: every other function is pure. `sees_status`: sees pending/failed instead of suspending. No function reads the wall clock. `null` says what the function does with a null argument (known absence); a missing path reads as null.",
   "cmp.eq": {"params": [["a", "ANY"], ["b", "ANY"]], "returns": "BOOL", "description": "Deep JSON equality.", "null": "null equals only null"},
   "cmp.ne": {"params": [["a", "ANY"], ["b", "ANY"]], "returns": "BOOL", "description": "Not deep-equal.", "null": "null equals only null"},
   "cmp.gt": {"params": [["a", "ANY"], ["b", "ANY"]], "returns": "BOOL", "description": "a > b, numbers or strings.", "null": "false"},
@@ -230,11 +247,18 @@
   "list.pluck": {"params": [["value", "LIST"], ["key", "STRING"]], "returns": "LIST", "null": "[]"},
   "list.sort": {"params": [["value", "LIST"], ["key", "STRING", false], ["descending", "BOOL", false]], "returns": "LIST", "null": "[]; null entries sort last"},
   "list.range": {"params": [["start", "INT"], ["end", "INT"], ["step", "INT", false]], "returns": "LIST", "null": "[]"},
+  "list.where": {"params": [["value", "LIST"], ["key", "STRING"], ["equals", "ANY", false]], "returns": "LIST", "description": "The items whose `key` (a dotted path) deep-equals `equals`; with `equals` left out, the items whose `key` is truthy.", "null": "[]"},
+  "list.find": {"params": [["value", "LIST"], ["key", "STRING"], ["equals", "ANY", false]], "returns": "ANY", "description": "The first item list.where would keep, or null.", "null": "null"},
+  "list.count": {"params": [["value", "LIST"], ["key", "STRING"], ["equals", "ANY", false]], "returns": "INT", "description": "How many items list.where would keep.", "null": "0"},
+  "list.concat": {"params": [["value", "LIST"], ["other", "LIST"]], "returns": "LIST", "description": "Both lists, one after the other.", "null": "a null list reads as empty"},
   "obj.get": {"params": [["value", "DICT"], ["key", "STRING"], ["default", "ANY", false]], "returns": "ANY", "description": "A dotted key reads a nested field.", "null": "default"},
   "obj.has": {"params": [["value", "DICT"], ["key", "STRING"]], "returns": "BOOL", "null": "false"},
   "obj.keys": {"params": [["value", "DICT"]], "returns": "LIST", "null": "[]"},
   "obj.values": {"params": [["value", "DICT"]], "returns": "LIST", "null": "[]"},
   "obj.entries": {"params": [["value", "DICT"]], "returns": "LIST", "description": "[{key, value}, ...].", "null": "[]"},
+  "obj.merge": {"params": [["value", "DICT"], ["other", "DICT"]], "returns": "DICT", "description": "Both dicts as one; `other` wins where both have a key. Not deep.", "null": "a null dict reads as empty"},
+  "obj.pick": {"params": [["value", "DICT"], ["keys", "LIST"]], "returns": "DICT", "description": "Only these keys.", "null": "{}"},
+  "obj.omit": {"params": [["value", "DICT"], ["keys", "LIST"]], "returns": "DICT", "description": "All but these keys.", "null": "{}"},
   "val.is_null": {"params": [["value", "ANY"]], "returns": "BOOL", "null": "true"},
   "val.is_set": {"params": [["value", "ANY"]], "returns": "BOOL", "null": "false"},
   "val.is_empty": {"params": [["value", "ANY"]], "returns": "BOOL", "description": "null, an empty string, list or object.", "null": "true"},
@@ -255,9 +279,17 @@
   "fmt.quantity": {"params": [["value", "ANY"], ["unit", "STRING", false]], "returns": "STRING", "description": "A quantity ({magnitude, unit} or a number in `unit`), in its unit.", "null": "empty string"},
   "fmt.duration": {"params": [["seconds", "FLOAT"]], "returns": "STRING", "description": "90 -> 1m 30s; negative durations keep their sign.", "null": "empty string"},
   "time.diff": {"params": [["start", "STRING"], ["end", "STRING"]], "returns": "FLOAT", "description": "Seconds from start to end (ISO 8601 datetimes); negative when end is earlier. Pure: relative time to the viewed moment is the <Time> component's.", "null": "null"},
+  "time.add": {"params": [["value", "STRING"], ["seconds", "FLOAT"]], "returns": "STRING", "description": "The moment `seconds` after `value` (before, when negative), as an ISO 8601 datetime in UTC.", "null": "null"},
+  "time.before": {"params": [["a", "STRING"], ["b", "STRING"]], "returns": "BOOL", "description": "Whether moment a is earlier than b.", "null": "false"},
+  "time.after": {"params": [["a", "STRING"], ["b", "STRING"]], "returns": "BOOL", "description": "Whether moment a is later than b.", "null": "false"},
   "ui.copy": {"params": [["text", "ANY"]], "returns": "ANY", "effect": true, "description": "Copies text to the viewer's clipboard: the only non-task effect.", "null": "copies an empty string"},
-  "task.answer": {"params": [["values", "DICT"]], "returns": "ANY", "effect": true, "task_operation": true, "description": "Answers the open ask of `task`. Counts as a task operation.", "null": "answers with no values"},
-  "assign.start": {"params": [], "returns": "ANY", "effect": true, "description": "Starts the run an assign blok prepares, with the arguments as they are filled in and the agents the blok was shown (deps) pinned. An assign blok only.", "null": "starts the run"},
+  "task.answer": {"params": [["values", "DICT"]], "returns": "ANY", "effect": true, "command": true, "task_operation": true, "description": "Answers the open ask of `task`. Counts as a task operation.", "null": "answers with no values"},
+  "task.cancel": {"params": [], "returns": "ANY", "effect": true, "command": true, "task_operation": true, "description": "Cancels the run `task` is about. Refused while `task.can.cancel` is false, and while the blok shows the past. Counts as a task operation.", "null": "takes no arguments"},
+  "task.pause": {"params": [], "returns": "ANY", "effect": true, "command": true, "task_operation": true, "description": "Pauses the run `task` is about: it waits until someone resumes it. Refused while `task.can.pause` is false, and while the blok shows the past. Counts as a task operation.", "null": "takes no arguments"},
+  "task.resume": {"params": [], "returns": "ANY", "effect": true, "command": true, "task_operation": true, "description": "Resumes the run `task` is about, after a pause. Refused while `task.can.resume` is false, and while the blok shows the past. Counts as a task operation.", "null": "takes no arguments"},
+  "task.step": {"params": [], "returns": "ANY", "effect": true, "command": true, "task_operation": true, "description": "Resumes the run `task` is about until its next breakpoint. Refused while `task.can.step` is false, and while the blok shows the past. Counts as a task operation.", "null": "takes no arguments"},
+  "task.interrupt": {"params": [], "returns": "ANY", "effect": true, "command": true, "task_operation": true, "description": "Interrupts the run `task` is about: stopped at once, without waiting for it to wind down. Refused while `task.can.interrupt` is false, and while the blok shows the past. Counts as a task operation.", "null": "takes no arguments"},
+  "assign.start": {"params": [], "returns": "ANY", "effect": true, "command": true, "description": "Starts the run an assign blok prepares, with the arguments as they are filled in and the agents the blok was shown (deps) pinned. An assign blok only.", "null": "starts the run"},
   "query.refetch": {"params": [["query", "STRING"]], "returns": "ANY", "effect": true, "description": "Re-reads the declared query named by the literal `query`; never suspends, queries.<name>.refetching is true meanwhile. BSX writes it queries.<name>.refetch().", "null": "refused: the query is named by a literal"},
   "query.fetch_more": {"params": [["query", "STRING"], ["variables", "DICT", false]], "returns": "ANY", "effect": true, "description": "Reads the next page of the declared query named by the literal `query`, its variables overridden by `variables`, and appends the page's list at the query's `more` field to what is shown; queries.<name>.fetching_more is true meanwhile. BSX writes it queries.<name>.fetch_more(name: value, ...). Refused on a query without `more`.", "null": "refused: the query is named by a literal; null variables fetch with the query's own"}
  },

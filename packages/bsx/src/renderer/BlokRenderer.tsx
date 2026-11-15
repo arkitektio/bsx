@@ -1,3 +1,4 @@
+import type {BlokTaskControl} from './runtime/task';
 import {useEffect, useId, useMemo, useRef, useState} from 'react';
 import {cn} from '../vendor/core/util/utils';
 import {useBlokTailwind} from '../tailwind/useBlokTailwind';
@@ -84,6 +85,8 @@ type BlokRendererProps = {
   answerTask?: (values: Record<string, unknown>) => unknown;
   /** Starts the run an assign blok prepares (`assign.start()`). */
   startRun?: () => unknown;
+  /** Cancels, pauses, resumes, steps, interrupts or reruns `task` (`task.cancel()` and its kin). */
+  controlTask?: (operation: BlokTaskControl) => unknown;
   /** Where `persist` components keep their state by id; none: they keep nothing. */
   componentState?: BlokComponentStateStore | null;
   children?: React.ReactNode;
@@ -148,6 +151,7 @@ export default function BlokRenderer({
   readExecutor,
   answerTask,
   startRun,
+  controlTask,
   componentState = null,
   children,
 }: BlokRendererProps) {
@@ -202,6 +206,7 @@ export default function BlokRenderer({
       travelAt,
       answerTask,
       startRun,
+      controlTask,
     });
     return store;
   });
@@ -228,6 +233,10 @@ export default function BlokRenderer({
   useEffect(() => {
     runtimeStore.getState().setStartRun(startRun);
   }, [startRun, runtimeStore]);
+
+  useEffect(() => {
+    runtimeStore.getState().setControlTask(controlTask);
+  }, [controlTask, runtimeStore]);
 
   useEffect(() => {
     if (keptRoots) runtimeStore.getState().setKeptRoots(keptRoots);

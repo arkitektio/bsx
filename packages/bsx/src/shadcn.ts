@@ -145,6 +145,8 @@ export const shadcnExtrasRenders = {
   ButtonGroup: domRenders.ButtonGroup,
   Calendar: domRenders.Calendar,
   Carousel: domRenders.Carousel,
+  Combobox: domRenders.Combobox,
+  DatePicker: domRenders.DatePicker,
   CarouselItem: domRenders.CarouselItem,
   Chart: domRenders.Chart,
   Collapsible: domRenders.Collapsible,

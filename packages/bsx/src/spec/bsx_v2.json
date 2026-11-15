@@ -386,6 +386,14 @@
    "accepts_children": true,
    "catalog": "ui@1"
   },
+  "Combobox": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "catalog": "shadcn@1"
+  },
   "ContextMenu": {
    "text_prop": null,
    "context": "HTML",
@@ -449,6 +457,14 @@
    "inherits_context": false,
    "accepts_children": true,
    "catalog": "logo@1"
+  },
+  "DatePicker": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "catalog": "shadcn@1"
   },
   "Dialog": {
    "text_prop": null,
@@ -1490,6 +1506,14 @@
    "accepts_children": false,
    "catalog": "scene@1"
   },
+  "arg": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "catalog": "base@2"
+  },
   "args": {
    "text_prop": null,
    "context": "HTML",
@@ -1528,6 +1552,22 @@
    "children_context": null,
    "inherits_context": true,
    "accepts_children": true,
+   "catalog": "base@2"
+  },
+  "dep": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "catalog": "base@2"
+  },
+  "deps": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
    "catalog": "base@2"
   },
   "div": {
@@ -1618,6 +1658,14 @@
    "accepts_children": true,
    "catalog": "html@1"
   },
+  "returns": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "catalog": "base@2"
+  },
   "span": {
    "text_prop": "text",
    "context": "HTML",
@@ -1626,12 +1674,28 @@
    "accepts_children": true,
    "catalog": "html@1"
   },
+  "status": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "catalog": "base@2"
+  },
   "suspense": {
    "text_prop": null,
    "context": "HTML",
    "children_context": null,
    "inherits_context": true,
    "accepts_children": true,
+   "catalog": "base@2"
+  },
+  "timeline": {
+   "text_prop": null,
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
    "catalog": "base@2"
   }
  },

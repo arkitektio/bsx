@@ -173,8 +173,14 @@ const DEPENDENCY_KEY_PROPS = new Set(['Placed.dep', 'Route.through']);
 /** The kinds that have a run's dependencies: an action's own bloks, for a run and for starting one. */
 const RUN_KINDS: readonly string[] = ['action', 'assign'];
 const ASSIGN_KIND = 'assign';
-/** The form of the run's arguments, placed by an assign blok. */
-const ARGS_COMPONENT = 'args';
+/** What an assign blok places of the host's own: the argument form or one argument, the dependency picker or one dependency. */
+const ASSIGN_COMPONENTS: ReadonlySet<string> = new Set(['args', 'arg', 'deps', 'dep']);
+/** What a blok places of the task it is about: only a kind with a `task`. */
+const TASK_COMPONENTS: ReadonlySet<string> = new Set(['returns', 'status']);
+/** The one field of an agent that is not text. */
+const AGENT_CONNECTED = 'connected';
+/** Where an assign blok reads which arguments the caller decided. */
+const GIVEN_FIELD = 'given';
 /** Starts the run an assign blok prepares. */
 const START_EFFECT = 'assign.start';
 
@@ -575,8 +581,11 @@ class Checker {
       this.shadowed.add(node.component);
       this.add('catalog.shadow', node.id, {component: node.component, catalog: shadow.catalog, module: shadow.module, winner: shadow.winner});
     }
-    if (node.component === ARGS_COMPONENT && this.scope.kind !== ASSIGN_KIND) {
-      this.add('assign.kind', node.id, {what: '<args>', n: article(this.scope.kind), kind: this.scope.kind});
+    if (TASK_COMPONENTS.has(node.component) && !this.kind.roots.includes('task')) {
+      this.notInKind(node.id, `<${node.component}>`, 'task');
+    }
+    if (ASSIGN_COMPONENTS.has(node.component) && this.scope.kind !== ASSIGN_KIND) {
+      this.add('assign.kind', node.id, {what: `<${node.component}>`, n: article(this.scope.kind), kind: this.scope.kind});
     }
     for (const prop of node.props ?? []) this.checkProp(node, prop, spec);
   }
@@ -667,8 +676,10 @@ class Checker {
         }
       }
     }
-    if (prop.util_call?.operation === 'task.answer' && !this.kind.roots.includes('task')) {
-      this.notInKind(node.id, 'task.answer', 'task', prop.key);
+    // `task.answer(...)`, `task.cancel()` and their kin act on the task the blok is about.
+    const effect = prop.util_call?.operation;
+    if (effect?.startsWith('task.') && vocabulary.functions.get(effect)?.effect && !this.kind.roots.includes('task')) {
+      this.notInKind(node.id, effect, 'task', prop.key);
     }
     if (prop.key === BIND_PROP) {
       const path = prop.dynamic_value?.path ?? null;
@@ -979,6 +990,16 @@ class Checker {
           return null;
         }
         return openMatch(path);
+      case 'assign':
+        // `assign.given.<key>` is open below `given`: one flag per argument of the action.
+        if (rest[0] === GIVEN_FIELD && rest.length > 1) {
+          if (this.scope.args !== null && !this.scope.args.includes(rest[1])) {
+            report('args.unknown', {path, key: rest[1], keys: this.scope.args.join(', ') || 'none'});
+            return null;
+          }
+          return {key: rest[1], kind: 'BOOL'};
+        }
+        return this.descend(recordMatch('assign', vocabulary.records.assign.fields), rest, path, nodeId, propKey);
       case 'task':
         this.checkReturns(path, rest, nodeId, propKey);
         return this.descend(taskRecordMatch('task'), rest, path, nodeId, propKey);
@@ -1050,7 +1071,7 @@ class Checker {
     const report = (code: string, fields: DiagnosticFields) => this.add(code, nodeId, fields, propKey);
     if (head in agentSegments.fields) {
       if (tail.length) report('path.unknown', {path, detail: `${head} of an agent has no fields`});
-      return {key: head, kind: 'STRING'};
+      return {key: head, kind: head === AGENT_CONNECTED ? 'BOOL' : 'STRING'};
     }
     if (head === agentSegments.tasks) {
       if (!tail.length) {

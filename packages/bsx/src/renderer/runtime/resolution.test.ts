@@ -441,6 +441,20 @@ describe("a callback does exactly one thing (v2)", () => {
     expect(runActionCall(call, createContext({}), component).ok).toBe(false);
   });
 
+  it("controls the task with task.cancel and its kin, where a host controls one, and never in the past", () => {
+    const controlTask = vi.fn(() => "taken");
+    for (const operation of ["cancel", "pause", "resume", "step", "interrupt"]) {
+      const call = {type: "util" as const, call: {operation: `task.${operation}`, arguments: []}};
+      expect(runActionCall(call, createContext({}, {controlTask}), component)).toEqual({ok: true, value: "taken"});
+      expect(controlTask).toHaveBeenLastCalledWith(operation);
+      expect(runActionCall(call, createContext({}), component).ok).toBe(false);
+    }
+    controlTask.mockClear();
+    const cancel = {type: "util" as const, call: {operation: "task.cancel", arguments: []}};
+    expect(runActionCall(cancel, createContext({}, {controlTask, travelling: true}), component)).toEqual({ok: true, value: undefined});
+    expect(controlTask).not.toHaveBeenCalled();
+  });
+
   it("refuses a pure function as a callback", () => {
     const result = runActionCall({type: "util", call: {operation: "str.upper", arguments: []}}, createContext({}), component);
     expect(result.ok).toBe(false);

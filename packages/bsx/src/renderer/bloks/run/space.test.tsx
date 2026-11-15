@@ -65,3 +65,79 @@ describe('the argument form an assign blok places', () => {
     expect(bare.queryByTestId('args-form')).toBeNull();
   });
 });
+
+describe('the time slider a task blok places', () => {
+  it('draws what the host gives for <timeline />, and nothing without a host', () => {
+    const tree = [{id: 'root', component: 'Html', children: [{id: 'slider', component: 'timeline'}]}];
+    const run: BlokRunHost = {agentsFor: () => [], renderAsk: () => null, renderTimeline: () => <div data-testid="timeline" />};
+    const hosted = render(
+      <BlokRunHostProvider value={run}>
+        <BlokRenderer catalog={testCatalog()} uiComponents={tree} />
+      </BlokRunHostProvider>,
+    );
+    expect(hosted.getByTestId('timeline')).toBeTruthy();
+    hosted.unmount();
+    const bare = render(<BlokRenderer catalog={testCatalog()} uiComponents={tree} />);
+    expect(bare.queryByTestId('timeline')).toBeNull();
+  });
+});
+
+describe('what an assign blok places one by one', () => {
+  it('hands <args /> its options, and <arg />, <deps />, <dep /> their keys', () => {
+    const tree = [
+      {
+        id: 'root',
+        component: 'Html',
+        children: [
+          {id: 'one', component: 'arg', props: [{key: 'key', static_value: 'exposure'}]},
+          {id: 'rest', component: 'args', props: [{key: 'omit', static_value: 'gain offset'}, {key: 'given', static_value: 'show'}]},
+          {id: 'dep', component: 'dep', props: [{key: 'key', static_value: 'robot'}]},
+          {id: 'deps', component: 'deps'},
+        ],
+      },
+    ];
+    const renderArgs = vi.fn(() => <div data-testid="args-form" />);
+    const run: BlokRunHost = {
+      agentsFor: () => [],
+      renderAsk: () => null,
+      renderArgs,
+      renderArg: key => <div data-testid={`arg-${key}`} />,
+      renderDeps: () => <div data-testid="deps" />,
+      renderDep: key => <div data-testid={`dep-${key}`} />,
+    };
+    const hosted = render(
+      <BlokRunHostProvider value={run}>
+        <BlokRenderer catalog={testCatalog()} uiComponents={tree} />
+      </BlokRunHostProvider>,
+    );
+    expect(hosted.getByTestId('arg-exposure')).toBeTruthy();
+    expect(hosted.getByTestId('dep-robot')).toBeTruthy();
+    expect(hosted.getByTestId('deps')).toBeTruthy();
+    expect(renderArgs).toHaveBeenLastCalledWith({only: undefined, omit: ['gain', 'offset'], given: 'show'});
+  });
+});
+
+describe('what a task blok places of its run', () => {
+  it('draws what the host gives for <returns /> and <status />', () => {
+    const tree = [
+      {
+        id: 'root',
+        component: 'Html',
+        children: [
+          {id: 'status', component: 'status'},
+          {id: 'result', component: 'returns', props: [{key: 'only', static_value: ['image']}]},
+        ],
+      },
+    ];
+    const renderReturns = vi.fn(() => <div data-testid="returns" />);
+    const run: BlokRunHost = {agentsFor: () => [], renderAsk: () => null, renderReturns, renderStatus: () => <div data-testid="status" />};
+    const hosted = render(
+      <BlokRunHostProvider value={run}>
+        <BlokRenderer catalog={testCatalog()} uiComponents={tree} />
+      </BlokRunHostProvider>,
+    );
+    expect(hosted.getByTestId('status')).toBeTruthy();
+    expect(hosted.getByTestId('returns')).toBeTruthy();
+    expect(renderReturns).toHaveBeenLastCalledWith({only: ['image'], omit: undefined});
+  });
+});

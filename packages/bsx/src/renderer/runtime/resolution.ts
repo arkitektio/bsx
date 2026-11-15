@@ -1,3 +1,4 @@
+import {TASK_CONTROLS, type BlokTaskControl} from './task';
 import {z} from 'zod';
 import {blokPlatform} from '../../platform';
 import {loadVocabulary} from '../../spec/vocabulary';
@@ -391,6 +392,12 @@ const resolvePropValue = (
 export const COPY_EFFECT = 'ui.copy';
 export const ANSWER_EFFECT = 'task.answer';
 export const START_EFFECT = 'assign.start';
+/** `task.cancel()` and its kin: what the viewer does to the task the blok is about. */
+const TASK_CONTROL_PREFIX = 'task.';
+export const taskControlOf = (operation: string): BlokTaskControl | null => {
+  const name = operation.startsWith(TASK_CONTROL_PREFIX) ? operation.slice(TASK_CONTROL_PREFIX.length) : '';
+  return (TASK_CONTROLS as readonly string[]).includes(name) ? (name as BlokTaskControl) : null;
+};
 export const REFETCH_EFFECT = 'query.refetch';
 export const FETCH_MORE_EFFECT = 'query.fetch_more';
 
@@ -417,7 +424,7 @@ const getPropActionCall = (
 export const isCommand = (actionCall: BlokActionCall | undefined): boolean =>
   actionCall !== undefined &&
   (actionCall.type === 'agent' ||
-    (actionCall.type === 'util' && (actionCall.call.operation === ANSWER_EFFECT || actionCall.call.operation === START_EFFECT)));
+    (actionCall.type === 'util' && loadVocabulary().functions.get(actionCall.call.operation)?.command === true));
 
 const copyToClipboard = (value: unknown): void => {
   const text = value === null || value === undefined ? '' : typeof value === 'string' ? value : JSON.stringify(value);
@@ -508,6 +515,13 @@ const runActionCall = (
       values !== null && typeof values === 'object' && !Array.isArray(values) ? (values as Record<string, unknown>) : {},
     );
     return {ok: true, value: answered};
+  }
+  const control = taskControlOf(operation);
+  if (control !== null) {
+    if (context.travelling) return {ok: true, value: undefined};
+    if (!context.controlTask) return {ok: false, error: `${operation}: nothing here controls a task.`};
+    // What the host returns (a promise, while the task takes it) keeps the control busy.
+    return {ok: true, value: context.controlTask(control)};
   }
   if (operation === START_EFFECT) {
     if (context.travelling) return {ok: true, value: undefined};

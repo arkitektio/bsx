@@ -26,6 +26,8 @@ export const shadcnCatalog = defineBlokCatalog({
     ButtonGroup: parts.ButtonGroup,
     Calendar: {...parts.Calendar, events: {onChange: [{key: "value", kind: "STRING", description: "The date picked, as an ISO date (YYYY-MM-DD)."}]}, bindKinds: {bind: "STRING"}},
     Carousel: parts.Carousel,
+    Combobox: {...parts.Combobox, events: {onChange: [{key: "value", kind: "STRING", description: "The value picked."}]}, bindKinds: {bind: "STRING"}},
+    DatePicker: {...parts.DatePicker, events: {onChange: [{key: "value", kind: "STRING", description: "The date picked, as an ISO date (YYYY-MM-DD)."}]}, bindKinds: {bind: "STRING"}},
     CarouselItem: parts.CarouselItem,
     Chart: parts.Chart,
     Collapsible: {...parts.Collapsible, events: {onChange: [{key: "value", kind: "BOOL", description: "Whether it is open now."}]}},

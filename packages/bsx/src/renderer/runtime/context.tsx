@@ -1,3 +1,4 @@
+import type {BlokTaskControl} from './task';
 import * as React from 'react';
 import {useStore} from 'zustand';
 import {createStore} from 'zustand/vanilla';
@@ -151,6 +152,7 @@ export const createBlokRuntimeStore = (config?: {
   travelAt?: string | null;
   answerTask?: (values: Record<string, unknown>) => unknown;
   startRun?: () => unknown;
+  controlTask?: (operation: BlokTaskControl) => unknown;
 }): BlokRuntimeStore => {
   const initialDataModel = config?.initialDataModel;
   const keptValues = config?.keptValues ?? {};
@@ -175,6 +177,7 @@ export const createBlokRuntimeStore = (config?: {
     fetchMoreQuery: undefined,
     answerTask: config?.answerTask,
     startRun: config?.startRun,
+    controlTask: config?.controlTask,
     setStatus: (path, status) => {
       const key = canonicalStatusPath(path);
       set(currentState => {
@@ -213,6 +216,9 @@ export const createBlokRuntimeStore = (config?: {
     },
     setStartRun: start => {
       set({startRun: start});
+    },
+    setControlTask: control => {
+      set({controlTask: control});
     },
     setInitialDataModel: nextInitialDataModel => {
       set(currentState => {

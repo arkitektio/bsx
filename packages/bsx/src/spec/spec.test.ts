@@ -85,3 +85,23 @@ describe('the catalog view', () => {
     expect(table).toEqual(corpus.text_table);
   });
 });
+
+describe('what a blok may do', () => {
+  it('is pure, or one effect: a command on a task, or something only the viewer sees', () => {
+    const functions = [...loadVocabulary().functions.values()];
+    const effects = functions.filter(fn => fn.effect);
+    // A command is always an effect, never something an expression may compute with.
+    expect(functions.filter(fn => fn.command && !fn.effect)).toEqual([]);
+    expect(effects.filter(fn => fn.command).map(fn => fn.name).sort()).toEqual([
+      'assign.start',
+      'task.answer',
+      'task.cancel',
+      'task.interrupt',
+      'task.pause',
+      'task.resume',
+      'task.step',
+    ]);
+    // What is left changes nothing but the viewer's own screen and clipboard.
+    expect(effects.filter(fn => !fn.command).map(fn => fn.name).sort()).toEqual(['query.fetch_more', 'query.refetch', 'ui.copy']);
+  });
+});

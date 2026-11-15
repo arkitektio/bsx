@@ -18,7 +18,7 @@ describe('coverage', () => {
   it('implements every pure vocabulary function, and nothing else', () => {
     const declared = [...loadVocabulary().functions.values()].filter(fn => !fn.effect).map(fn => fn.name).sort();
     expect([...v2Functions.keys()].sort()).toEqual(declared);
-    expect(declared).toHaveLength(107);
+    expect(declared).toHaveLength(117);
     expect(undeclaredImplementations()).toEqual([]);
   });
 
@@ -153,6 +153,16 @@ describe('the null table', () => {
     ['fmt.quantity', {value: null}, ''],
     ['time.diff', {start: null, end: NOW}, null],
     ['time.diff', {start: NOW, end: null}, null],
+    ['time.add', {value: null, seconds: 5}, null],
+    ['time.before', {a: null, b: NOW}, false],
+    ['time.after', {a: NOW, b: null}, false],
+    ['list.where', {value: null, key: 'x'}, []],
+    ['list.find', {value: null, key: 'x'}, null],
+    ['list.count', {value: null, key: 'x'}, 0],
+    ['list.concat', {value: null, other: [1]}, [1]],
+    ['obj.merge', {value: null, other: {a: 1}}, {a: 1}],
+    ['obj.pick', {value: null, keys: ['a']}, {}],
+    ['obj.omit', {value: null, keys: ['a']}, {}],
   ];
 
   it.each(nullCases)('%s(%j) is %j', (name, args, expected) => {
@@ -311,5 +321,34 @@ describe('semantics', () => {
     expect(call('fmt.duration', {seconds: -3600})).toBe('-1h');
     expect(call('fmt.duration', {seconds: 90061})).toBe('1d 1h 1m 1s');
     expect(call('fmt.duration', {seconds: time('2026-10-25T13:30:00Z')})).toBe('1h 30m');
+  });
+});
+
+describe('filtering, joining and moments', () => {
+  const rows = [
+    {name: 'a', state: {ok: true}, n: 1},
+    {name: 'b', state: {ok: false}, n: 2},
+    {name: 'c', state: {ok: true}, n: 2},
+  ];
+
+  it('keeps, finds and counts the items a key picks', () => {
+    expect(call('list.where', {value: rows, key: 'n', equals: 2})).toEqual([rows[1], rows[2]]);
+    expect(call('list.where', {value: rows, key: 'state.ok'})).toEqual([rows[0], rows[2]]);
+    expect(call('list.find', {value: rows, key: 'name', equals: 'b'})).toEqual(rows[1]);
+    expect(call('list.find', {value: rows, key: 'name', equals: 'z'})).toBeNull();
+    expect(call('list.count', {value: rows, key: 'state.ok'})).toBe(2);
+    expect(call('list.concat', {value: [1], other: [2, 3]})).toEqual([1, 2, 3]);
+  });
+
+  it('merges, picks and omits keys', () => {
+    expect(call('obj.merge', {value: {a: 1, b: 1}, other: {b: 2}})).toEqual({a: 1, b: 2});
+    expect(call('obj.pick', {value: {a: 1, b: 2}, keys: ['a']})).toEqual({a: 1});
+    expect(call('obj.omit', {value: {a: 1, b: 2}, keys: ['a']})).toEqual({b: 2});
+  });
+
+  it('moves and orders moments without reading the clock', () => {
+    expect(call('time.add', {value: '2026-01-01T00:00:00Z', seconds: 90})).toBe('2026-01-01T00:01:30.000Z');
+    expect(call('time.before', {a: '2026-01-01T00:00:00Z', b: '2026-01-02T00:00:00Z'})).toBe(true);
+    expect(call('time.after', {a: '2026-01-01T00:00:00Z', b: '2026-01-02T00:00:00Z'})).toBe(false);
   });
 });

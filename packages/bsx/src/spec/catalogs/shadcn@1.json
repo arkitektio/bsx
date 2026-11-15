@@ -1254,6 +1254,86 @@
    ]
   },
   {
+   "name": "Combobox",
+   "description": "A select with a search field: for a list too long to scan.",
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "downstream_of": [],
+   "not_downstream_of": [],
+   "text_prop": null,
+   "props": [
+    {
+     "key": "bind",
+     "kind": "STRING",
+     "required": false,
+     "description": "Data-model path holding the picked value. It writes a STRING: the local is a STRING, ENUM or DATE port."
+    },
+    {
+     "key": "className",
+     "kind": "STRING",
+     "required": false,
+     "description": "Extra Tailwind classes appended to the element."
+    },
+    {
+     "key": "defaultValue",
+     "kind": "ANY",
+     "required": false,
+     "description": "Initial value."
+    },
+    {
+     "key": "disabled",
+     "kind": "BOOL",
+     "required": false,
+     "description": "Disables the control."
+    },
+    {
+     "key": "emptyText",
+     "kind": "ANY",
+     "required": false,
+     "description": "Shown when typing matches nothing."
+    },
+    {
+     "key": "onChange",
+     "kind": "CALLBACK",
+     "required": false,
+     "description": "Runs on selection. Arguments may read event.value.",
+     "event": [
+      {
+       "key": "value",
+       "kind": "STRING",
+       "description": "The value picked."
+      }
+     ]
+    },
+    {
+     "key": "options",
+     "kind": "LIST",
+     "required": false,
+     "description": "What can be picked: strings, or `{value, label}` objects. Typing narrows them."
+    },
+    {
+     "key": "placeholder",
+     "kind": "ANY",
+     "required": false,
+     "description": "Shown while nothing is picked."
+    },
+    {
+     "key": "searchPlaceholder",
+     "kind": "ANY",
+     "required": false,
+     "description": "Shown in the search field."
+    },
+    {
+     "key": "value",
+     "kind": "ANY",
+     "required": false,
+     "description": "Controlled value."
+    }
+   ]
+  },
+  {
    "name": "ContextMenu",
    "description": "A menu opened by right-clicking its trigger.",
    "context": "HTML",
@@ -1609,6 +1689,68 @@
      "kind": "BOOL",
      "required": false,
      "description": "Disables the control."
+    }
+   ]
+  },
+  {
+   "name": "DatePicker",
+   "description": "A button that opens a calendar and shows the date picked.",
+   "context": "HTML",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "downstream_of": [],
+   "not_downstream_of": [],
+   "text_prop": null,
+   "props": [
+    {
+     "key": "bind",
+     "kind": "STRING",
+     "required": false,
+     "description": "Data-model path holding an ISO date string (YYYY-MM-DD). It writes a STRING: the local is a STRING, ENUM or DATE port."
+    },
+    {
+     "key": "className",
+     "kind": "STRING",
+     "required": false,
+     "description": "Extra Tailwind classes appended to the element."
+    },
+    {
+     "key": "defaultValue",
+     "kind": "ANY",
+     "required": false,
+     "description": "Initial ISO date."
+    },
+    {
+     "key": "disabled",
+     "kind": "BOOL",
+     "required": false,
+     "description": "Disables the control."
+    },
+    {
+     "key": "onChange",
+     "kind": "CALLBACK",
+     "required": false,
+     "description": "Runs on selection. Arguments may read event.value.",
+     "event": [
+      {
+       "key": "value",
+       "kind": "STRING",
+       "description": "The date picked, as an ISO date (YYYY-MM-DD)."
+      }
+     ]
+    },
+    {
+     "key": "placeholder",
+     "kind": "ANY",
+     "required": false,
+     "description": "Shown while no date is picked."
+    },
+    {
+     "key": "value",
+     "kind": "ANY",
+     "required": false,
+     "description": "Controlled ISO date."
     }
    ]
   },
