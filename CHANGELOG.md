@@ -1,3 +1,10 @@
+# [4.3.0](https://github.com/arkitektio/bsx/compare/v4.2.0...v4.3.0) (2026-11-15)
+
+
+### Features
+
+* **run:** host parts a blok places, task commands, and what a blok may do ([f346b1f](https://github.com/arkitektio/bsx/commit/f346b1f62753b9a21999420647aa5819aac19797))
+
 # [4.2.0](https://github.com/arkitektio/bsx/compare/v4.1.0...v4.2.0) (2026-11-14)
 
 
