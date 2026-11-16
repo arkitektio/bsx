@@ -118,12 +118,19 @@ export const useAssignForm = (props: {
   doNotAutoReset?: boolean;
   mode?: "onChange" | "onBlur" | "onSubmit" | "onTouched" | "all";
   reValidateMode?: "onChange" | "onBlur" | "onSubmit";
+  /**
+   * The argument keys a blok places itself (`<arg />`, `<args />`). They count
+   * as mounted while nothing draws them (a closed popover or accordion holds
+   * them): they are validated and sent, never dropped as hidden.
+   */
+  placed?: readonly string[];
 }): UseFormReturn<AssignValues> => {
   const args = props.ports;
   const dependencies = props.dependencies ?? NO_DEPENDENCIES;
   const hash = portHash(args || []);
   const overwritesKey = JSON.stringify(props.overwrites || {});
   const presetKey = JSON.stringify(props.presetDependencies || []);
+  const placedKey = [...(props.placed ?? [])].sort().join("\u0000");
 
   const buildDefaults = useCallback(
     () => ({
@@ -142,11 +149,12 @@ export const useAssignForm = (props: {
     });
     return createPortResolver(zodSchema, args || [], {
       portsPath: ["args"],
-      // Written by the dependency picker with setValue, never registered.
-      alwaysMounted: ["dependencies"],
+      // Written by the dependency picker with setValue, never registered; and
+      // what a blok places, which a closed overlay unmounts.
+      alwaysMounted: ["dependencies", ...(placedKey ? placedKey.split("\u0000").map((key) => `args.${key}`) : [])],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hash, dependencies]);
+  }, [hash, dependencies, placedKey]);
 
   const reportValidation = useReportValidation();
 
