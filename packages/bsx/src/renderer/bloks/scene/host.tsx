@@ -73,6 +73,17 @@ export const BlokSceneInertProvider = BlokSceneInertContext.Provider;
 export const useBlokSceneInert = (): boolean => React.useContext(BlokSceneInertContext);
 
 /**
+ * Whether a scene shows its own view controls (where to look from, frame,
+ * grid, turning, settings). On where the scene is mounted as a view of its
+ * own; a host showing it as a preview, a card or a thumbnail turns them off.
+ */
+const BlokSceneControlsContext = React.createContext(true);
+
+export const BlokSceneControlsProvider = BlokSceneControlsContext.Provider;
+
+export const useBlokSceneControls = (): boolean => React.useContext(BlokSceneControlsContext);
+
+/**
  * Whether the scene shows a moment instead of a running device. A host that
  * shows state from the past sets this: parts then stand where they were
  * measured, and nothing plays toward where it was going.

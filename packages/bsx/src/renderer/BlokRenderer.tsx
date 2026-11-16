@@ -4,7 +4,7 @@ import {cn} from '../vendor/core/util/utils';
 import {useBlokTailwind} from '../tailwind/useBlokTailwind';
 import BlokDebugState from './BlokDebugState';
 import {SceneModelScopeProvider, useSceneNotice} from './bloks/scene/context';
-import {BlokSceneFillProvider} from './bloks/scene/host';
+import {BlokSceneControlsProvider, BlokSceneFillProvider} from './bloks/scene/host';
 import {useBlokCatalog} from './catalog';
 import {invokeBlokFunction} from './functions/v2/handler';
 import {BlokComponentStateContext, type BlokComponentStateStore} from './persist';
@@ -68,6 +68,12 @@ type BlokRendererProps = {
    * inside its canvas: no element of its own, and its `Scene` adds to that one.
    */
   embedded?: boolean;
+  /**
+   * Whether a scene shows its own view controls (where to look from, frame,
+   * grid, settings). On by default; a host showing the blok as a preview turns
+   * them off. A thumbnail never shows them.
+   */
+  sceneControls?: boolean;
   /** Shows the floating runtime-state inspector. Off by default. */
   debug?: boolean;
   /**
@@ -117,6 +123,10 @@ const EmbeddedNodeError = ({componentId, title, detail}: BlokNodeErrorProps) => 
   <EmbeddedNotice title={title} detail={detail ? `${detail} (${componentId})` : componentId} />
 );
 
+/** Whether `root` is a `<Blok context="scene">`. */
+const isSceneBlok = (root: BlokComponentNode | undefined): boolean =>
+  root?.component === 'Blok' && (root.props ?? []).some(prop => prop.key === 'context' && prop.static_value === 'scene');
+
 /** What a root draws: a `<Blok>`'s one element (its first drawn child), any other root itself. */
 const drawnRoot = (tree: BlokTree, rootId: string): string | undefined => {
   const node = tree.nodes.get(rootId)?.node;
@@ -157,6 +167,7 @@ export default function BlokRenderer({
   chrome = 'default',
   sizing = 'fill',
   embedded = false,
+  sceneControls = true,
   debug = false,
   keptValues,
   keptLocals,
@@ -188,6 +199,10 @@ export default function BlokRenderer({
     () => givenSubscriptions ?? (roots.length === 1 ? treeSubscriptions(roots[0]) : NO_SUBSCRIPTIONS),
     [givenSubscriptions, roots],
   );
+
+  // A scene blok is its canvas: the host draws no frame around it, and it fills the box it is in.
+  const sceneRoot = useMemo(() => roots.length === 1 && isSceneBlok(roots[0] as BlokComponentNode), [roots]);
+  const frame = sceneRoot ? 'none' : chrome;
 
   const rootLocals = useMemo(() => (roots.length === 1 ? localChildren(roots[0] as BlokComponentNode) : []), [roots]);
 
@@ -313,9 +328,9 @@ export default function BlokRenderer({
   const containerClassName = cn(
     'a2ui-container relative',
     sizingClassName,
-    chrome === 'none'
+    frame === 'none'
       ? ''
-      : chrome === 'minimal'
+      : frame === 'minimal'
         ? 'rounded-xl border border-border/50 bg-background/90 p-1 shadow-sm'
         : 'rounded-2xl border border-border/60 bg-background/70 p-4 shadow-sm backdrop-blur-sm',
   );
@@ -370,17 +385,19 @@ export default function BlokRenderer({
     <BlokComponentStateContext.Provider value={componentState}>
     <BlokRuntimeProvider store={runtimeStore}>
       <BlokTreeProvider tree={tree}>
-        {children}
         {syncs}
-        <BlokSceneFillProvider value={chrome === 'none'}>
+        <BlokSceneControlsProvider value={sceneControls}>
+        <BlokSceneFillProvider value={frame === 'none'}>
         <div ref={containerRef} className={containerClassName}>
           {debug && <BlokDebugState surfaceId={surfaceId} />}
+          {/* What the host adds (a notice that the tree was cut): inside the box, so it scrolls with the blok instead of pushing it out. */}
+          {children}
 
           {documentErrors.length > 0 && (
             <div
               className={cn(
                 'rounded-xl border border-destructive/30 bg-background/80 p-4',
-                chrome === 'default' ? 'mb-4' : 'mb-2',
+                frame === 'default' ? 'mb-4' : 'mb-2',
               )}
             >
               <h3 className="text-sm font-semibold text-destructive">
@@ -412,6 +429,7 @@ export default function BlokRenderer({
           ))}
         </div>
         </BlokSceneFillProvider>
+        </BlokSceneControlsProvider>
       </BlokTreeProvider>
     </BlokRuntimeProvider>
     </BlokComponentStateContext.Provider>

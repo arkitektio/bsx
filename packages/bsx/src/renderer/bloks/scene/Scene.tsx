@@ -34,7 +34,7 @@ import {
   type SceneOverlay,
   type SceneView,
 } from './context';
-import {BlokSceneEmbedProvider, useBlokSceneEmbedded, useBlokSceneFill} from './host';
+import {BlokSceneEmbedProvider, useBlokSceneControls, useBlokSceneEmbedded, useBlokSceneFill} from './host';
 import { useKeepTabLive } from "../../../platform";
 import {usePersistedComponentState} from '../../persist';
 import {useBlokReady, useBlokSnapshotMode} from '../../../preview/snapshotMode';
@@ -758,6 +758,8 @@ export const SceneSurface = ({
   useKeepTabLive();
   // A preview reads the canvas after it painted: keep the drawing buffer.
   const snapshot = useBlokSnapshotMode();
+  // A thumbnail, or a host that shows the scene as a preview, gets no view controls.
+  const controls = useBlokSceneControls() && !snapshot;
 
   return (
     <SceneStoreProvider value={store}>
@@ -789,7 +791,7 @@ export const SceneSurface = ({
           </SceneStoreProvider>
         </Canvas>
         <SceneOverlays cards={cards} />
-        <SceneControls />
+        {controls ? <SceneControls /> : null}
         {overlay}
       </div>
     </SceneStoreProvider>

@@ -9,6 +9,28 @@ import {testCatalog} from './bloks/testing';
 afterEach(cleanup);
 
 describe('BlokRenderer', () => {
+  it('draws no frame around a scene blok, whatever chrome the host asks for', () => {
+    const blok = (context: string) => [
+      {
+        id: 'Blok[0]',
+        component: 'Blok',
+        props: [
+          {key: 'kind', static_value: 'custom'},
+          {key: 'context', static_value: context},
+        ],
+        children: [{id: 'Blok[0]/Button[0]', component: 'Button'}],
+      },
+    ];
+    const framed = (context: string) => {
+      const {container, unmount} = render(<BlokRenderer catalog={testCatalog()} chrome="minimal" uiComponents={blok(context)} />);
+      const border = container.querySelector('.a2ui-container')?.className.includes('border');
+      unmount();
+      return border;
+    };
+    expect(framed('panel')).toBe(true);
+    expect(framed('scene')).toBe(false);
+  });
+
   it('resolves a function of the vocabulary on the first render', () => {
     render(
       <BlokRenderer catalog={testCatalog()}
