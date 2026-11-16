@@ -1,3 +1,10 @@
+## [6.2.1](https://github.com/arkitektio/bsx/compare/v6.2.0...v6.2.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* an argument a blok places is sent while a closed overlay holds its field ([520a121](https://github.com/arkitektio/bsx/commit/520a1212f39f9df39c3c0ac440c5739f677a18ef))
+
 # [6.2.0](https://github.com/arkitektio/bsx/compare/v6.1.0...v6.2.0) (2026-11-16)
 
 
