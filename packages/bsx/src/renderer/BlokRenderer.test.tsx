@@ -5,6 +5,7 @@ import * as z from 'zod';
 import {createBlokCatalog, createBlokComponent} from './runtime';
 import BlokRenderer from './BlokRenderer';
 import {testCatalog} from './bloks/testing';
+import {useBlokSceneControls} from './bloks/scene/host';
 
 afterEach(cleanup);
 
@@ -29,6 +30,36 @@ describe('BlokRenderer', () => {
     };
     expect(framed('panel')).toBe(true);
     expect(framed('scene')).toBe(false);
+  });
+
+  it("leaves a scene's view controls to a blok that places what it wants", () => {
+    const Probe = () => <span data-testid="controls">{useBlokSceneControls() ? 'on' : 'off'}</span>;
+    const shown = (chrome?: string) => {
+      const {unmount} = render(
+        <BlokRenderer
+          catalog={testCatalog()}
+          uiComponents={[
+            {
+              id: 'Blok[0]',
+              component: 'Blok',
+              props: [
+                {key: 'kind', static_value: 'agent'},
+                {key: 'context', static_value: 'panel'},
+                ...(chrome ? [{key: 'chrome', static_value: chrome}] : []),
+              ],
+              children: [{id: 'Blok[0]/Button[0]', component: 'Button'}],
+            },
+          ]}
+        >
+          <Probe />
+        </BlokRenderer>,
+      );
+      const value = screen.getByTestId('controls').textContent;
+      unmount();
+      return value;
+    };
+    expect(shown()).toBe('on');
+    expect(shown('none')).toBe('off');
   });
 
   it('resolves a function of the vocabulary on the first render', () => {

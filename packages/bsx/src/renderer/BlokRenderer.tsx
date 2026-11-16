@@ -123,6 +123,10 @@ const EmbeddedNodeError = ({componentId, title, detail}: BlokNodeErrorProps) => 
   <EmbeddedNotice title={title} detail={detail ? `${detail} (${componentId})` : componentId} />
 );
 
+/** The `chrome` a `<Blok>` root asks for, if any. */
+const rootChrome = (root: BlokComponentNode | undefined): unknown =>
+  root?.component === 'Blok' ? root.props?.find(prop => prop.key === 'chrome')?.static_value : undefined;
+
 /** Whether `root` is a `<Blok context="scene">`. */
 const isSceneBlok = (root: BlokComponentNode | undefined): boolean =>
   root?.component === 'Blok' && (root.props ?? []).some(prop => prop.key === 'context' && prop.static_value === 'scene');
@@ -203,6 +207,8 @@ export default function BlokRenderer({
   // A scene blok is its canvas: the host draws no frame around it, and it fills the box it is in.
   const sceneRoot = useMemo(() => roots.length === 1 && isSceneBlok(roots[0] as BlokComponentNode), [roots]);
   const frame = sceneRoot ? 'none' : chrome;
+  // `<Blok chrome="none">` places what it wants: its scenes get no view controls either.
+  const ownsControls = useMemo(() => roots.length === 1 && rootChrome(roots[0] as BlokComponentNode) === 'none', [roots]);
 
   const rootLocals = useMemo(() => (roots.length === 1 ? localChildren(roots[0] as BlokComponentNode) : []), [roots]);
 
@@ -386,7 +392,7 @@ export default function BlokRenderer({
     <BlokRuntimeProvider store={runtimeStore}>
       <BlokTreeProvider tree={tree}>
         {syncs}
-        <BlokSceneControlsProvider value={sceneControls}>
+        <BlokSceneControlsProvider value={sceneControls && !ownsControls}>
         <BlokSceneFillProvider value={frame === 'none'}>
         <div ref={containerRef} className={containerClassName}>
           {debug && <BlokDebugState surfaceId={surfaceId} />}
