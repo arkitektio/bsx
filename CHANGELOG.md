@@ -1,3 +1,16 @@
+# [6.0.0](https://github.com/arkitektio/bsx/compare/v5.0.0...v6.0.0) (2026-11-16)
+
+
+* feat!: every blok is one self-contained <Blok kind context> ([11f993d](https://github.com/arkitektio/bsx/commit/11f993dcd04e2ef9cce86fd2bd0c2d89565012e1))
+
+
+### BREAKING CHANGES
+
+* the Html/AgentLogo/ActionLogo roots, the declaration inputs beside the tree
+and the HTML context are gone; BlokComponentContext is 'panel' | 'scene' | 'logo'.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [5.0.0](https://github.com/arkitektio/bsx/compare/v4.3.0...v5.0.0) (2026-11-15)
 
 
