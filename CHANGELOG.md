@@ -1,3 +1,10 @@
+# [6.2.0](https://github.com/arkitektio/bsx/compare/v6.1.0...v6.2.0) (2026-11-16)
+
+
+### Features
+
+* a blok with chrome="none" shows no view controls on its scenes ([9c1d102](https://github.com/arkitektio/bsx/commit/9c1d102bb16d97cb92ea4685b623938703b4233d))
+
 # [6.1.0](https://github.com/arkitektio/bsx/compare/v6.0.0...v6.1.0) (2026-11-16)
 
 
