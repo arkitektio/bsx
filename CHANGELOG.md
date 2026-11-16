@@ -1,3 +1,10 @@
+# [6.1.0](https://github.com/arkitektio/bsx/compare/v6.0.0...v6.1.0) (2026-11-16)
+
+
+### Features
+
+* a scene blok fills its box with no frame, and its view controls can be turned off ([4bfb58b](https://github.com/arkitektio/bsx/commit/4bfb58b90f4ebe24396b65bcaa7efd995a1faf7d))
+
 # [6.0.0](https://github.com/arkitektio/bsx/compare/v5.0.0...v6.0.0) (2026-11-16)
 
 
