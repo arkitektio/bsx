@@ -16,7 +16,7 @@ import {
   type BlokResolved,
 } from './resolution';
 import {isActionSchema} from './schemas';
-import {isWritableScopedPath, readScopedPath, resolveScopedPath, useBlokScope} from './scope';
+import {isWritableScopedPath, readScopedPath, resolveScopedPath, scopedWrite, useBlokScope} from './scope';
 import {defaultBlokView} from '../../spec/catalogs';
 import {useBlokNodeState} from './nodeState';
 import {combineStatus, READY, type BlokSourceStatus} from './status';
@@ -680,13 +680,15 @@ export const useBinding = (
       return undefined;
     }
 
-    const absolutePath = resolveScopedPath(path, scope);
-
     return {
       value: snapshot.values.get(path),
       // The past is read-only: a bound control shows what was, and writes nothing.
       setValue: (value: unknown) => {
-        if (!travelling) store.getState().setRuntimeValue(absolutePath, value);
+        if (travelling) return;
+        const state = store.getState();
+        const write = scopedWrite(state.dataModel, path, scope);
+        if (write.seed) state.setRuntimeValue(write.seed.path, write.seed.value);
+        store.getState().setRuntimeValue(write.path, value);
       },
       readOnly: travelling,
     };

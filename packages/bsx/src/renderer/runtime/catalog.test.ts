@@ -65,7 +65,7 @@ describe('describeBlokContract', () => {
         {
           name: 'Knob',
           description: 'A knob.',
-          context: 'HTML',
+          context: 'PANEL',
           children_context: null,
           inherits_context: false,
           accepts_children: false,
@@ -87,7 +87,7 @@ describe('describeBlokContract', () => {
         {
           name: 'Label',
           description: 'A label.',
-          context: 'HTML',
+          context: 'PANEL',
           children_context: null,
           inherits_context: false,
           accepts_children: false,

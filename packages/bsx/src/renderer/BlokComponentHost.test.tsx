@@ -7,21 +7,21 @@ import {BlokComponentHost} from './BlokComponentHost';
 
 afterEach(cleanup);
 
-/** `<Html><Card><Input bind={value} placeholder="scale" /><p>{limit}</p></Card></Html>`, as the server sends it. */
+/** `<fragment><Card><Input bind={value} placeholder="scale" /><p>{limit}</p></Card></fragment>`, as the server sends it. */
 const NODES = [
   {
-    id: 'Html[0]/Card[0]',
+    id: 'fragment[0]/Card[0]',
     component: 'Card',
     children: [
       {
-        id: 'Html[0]/Card[0]/Input[0]',
+        id: 'fragment[0]/Card[0]/Input[0]',
         component: 'Input',
         props: [
           {key: 'bind', dynamic_value: {path: 'value'}},
           {key: 'placeholder', static_value: 'scale'},
         ],
       },
-      {id: 'Html[0]/Card[0]/p[0]', component: 'p', props: [{key: 'text', dynamic_value: {path: 'limit'}}]},
+      {id: 'fragment[0]/Card[0]/p[0]', component: 'p', props: [{key: 'text', dynamic_value: {path: 'limit'}}]},
     ],
   },
 ];
@@ -31,7 +31,7 @@ describe('BlokComponentHost with a tree', () => {
     const onValue = vi.fn();
     render(
       <BlokComponentHost
-        component="Html"
+        component="fragment"
         props={[]}
         nodes={NODES}
         data={{value: 'a', limit: 'up to 9'}}

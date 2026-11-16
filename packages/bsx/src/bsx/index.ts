@@ -6,3 +6,4 @@ export * from './references';
 export * from './source';
 export * from './infer';
 export * from './partial';
+export * from './declared';

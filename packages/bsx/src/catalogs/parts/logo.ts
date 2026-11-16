@@ -5,14 +5,14 @@ import {loadVocabulary} from '../../spec/vocabulary';
 import {actionProp, describedString} from '../props';
 
 /**
- * The `logo` family of the blok language: the `AgentLogo` and `ActionLogo`
- * roots and the classic SVG elements as components.
+ * The `logo` family of the blok language: the `Logo` drawing and the classic
+ * SVG elements as components.
  *
- * A logo root sits in html like `Scene` does and opens the `logo` context, so a
- * `Path` or a `Circle` is only ever placed inside one. The root names the
- * blok's context: an `AgentLogo` root is a LOGO blok, an `ActionLogo` root an
- * ACTION_LOGO blok (it reads `task`, the viewer's last task of the action); any
- * html blok may draw either too.
+ * A `Logo` sits in a panel like `Scene` does and opens the `logo` context, so
+ * a `Path` or a `Circle` is only ever placed inside one. It is the one element
+ * of a logo blok (`<Blok kind="agent" context="logo"><Logo>`); an action's
+ * logo is `<Blok kind="action" context="logo">` and reads only `task`, the
+ * viewer's last task of the action. Any panel may draw a `Logo` too.
  *
  * A logo paints with the viewer's pens only (vocabulary `theme.logo_pens`:
  * `ink`, `brand`, ..., the status roles `success`, `warning`, `info`), drawn
@@ -39,11 +39,10 @@ export const LOGO_ANIMATIONS = ['spin', 'pulse', 'float', 'draw', 'march', 'blin
 const length = (description: string) =>
   z.union([z.number(), z.string()]).optional().describe(description);
 
-export const AGENT_LOGO_ROOT = 'AgentLogo';
-export const ACTION_LOGO_ROOT = 'ActionLogo';
-export const LOGO_ROOTS = [AGENT_LOGO_ROOT, ACTION_LOGO_ROOT];
+/** A logo's drawing: the one element of a logo blok. */
+export const LOGO_ROOT = 'Logo';
 
-const IN_SVG: BlokComponentPlacement = {context: 'logo', downstreamOf: LOGO_ROOTS};
+const IN_SVG: BlokComponentPlacement = {context: 'logo', downstreamOf: [LOGO_ROOT]};
 
 /* -------------------------------------------------------------------------- */
 /* Presentation: what every shape and group may set                           */
@@ -143,7 +142,7 @@ const rootSchema = (description: string) =>
 /** A drawing's root: an `<svg>` whose shapes paint with the pens. */
 const logoRoot = (description: string) => ({
   acceptsChildren: true,
-  placement: {childrenContext: 'logo', notDownstreamOf: LOGO_ROOTS} satisfies BlokComponentPlacement,
+  placement: {childrenContext: 'logo', notDownstreamOf: [LOGO_ROOT]} satisfies BlokComponentPlacement,
   schema: rootSchema(description),
 });
 
@@ -158,11 +157,8 @@ const gradientUnits = z
 
 /** The `logo` family: the root, seven shapes, text, and what shapes reference. */
 export const logoContracts = {
-  [AGENT_LOGO_ROOT]: logoRoot(
-    "The root of an agent's logo: a drawing in the viewer's pens. Its children are SVG shapes.",
-  ),
-  [ACTION_LOGO_ROOT]: logoRoot(
-    "The root of an action's logo: a drawing in the viewer's pens that reads task (the viewer's last task of the action, idle until they run it). Its children are SVG shapes.",
+  [LOGO_ROOT]: logoRoot(
+    "A logo's drawing, the one element of a logo blok: an SVG in the viewer's pens (an action's paints with the pens only). Its children are SVG shapes.",
   ),
   Path: shape('An SVG path.', shapeGeometry.Path),
   Circle: shape('An SVG circle.', shapeGeometry.Circle),

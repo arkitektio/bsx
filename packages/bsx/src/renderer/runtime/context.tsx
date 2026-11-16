@@ -4,6 +4,7 @@ import {useStore} from 'zustand';
 import {createStore} from 'zustand/vanilla';
 import {combineStatus, READY, type BlokSourceStatus} from './status';
 import {isRecord, splitPathSegments} from './utils';
+import {localNodeOfPath, localValuePath} from './locals';
 import type {
   BlokAgentMappingStateUpdates,
   BlokDispatchActionHandler,
@@ -131,6 +132,12 @@ const isUnderRoot = (path: string, roots: ReadonlySet<string>): boolean => {
   return root !== undefined && roots.has(root);
 };
 
+/** Whether a runtime value is a kept local's (one of `keptLocals`, in any foreach item). */
+const isKeptLocal = (path: string, keptLocals: ReadonlySet<string>): boolean => {
+  const node = localNodeOfPath(path);
+  return node !== null && keptLocals.has(node);
+};
+
 export const createBlokRuntimeStore = (config?: {
   initialDataModel?: unknown;
   agentMappingStateUpdates?: BlokAgentMappingStateUpdates;
@@ -140,13 +147,13 @@ export const createBlokRuntimeStore = (config?: {
   unavailableDependencies?: BlokUnavailableDependencies;
   lockedActions?: BlokLockedActions;
   /**
-   * Locals the host kept from an earlier opening, by top-level key: written
-   * as runtime values over the initial data model, so the first render shows
-   * them and clearing one shows its default again.
+   * Locals the host kept from an earlier opening, by runtime id (`runtimeIdOf`):
+   * written as runtime values at their paths (`localValuePath`), so the first
+   * render shows them and clearing one shows its default again.
    */
   keptValues?: Record<string, unknown>;
-  /** The top-level keys a reset of the runtime values leaves alone (`keptValues`' and later edits of them). */
-  keptRoots?: ReadonlySet<string>;
+  /** The `<local>` node ids whose values a reset of the runtime values leaves alone (`keptValues`' and later edits of them). */
+  keptLocals?: ReadonlySet<string>;
   /** Source statuses known before the first render (a preview's are all ready). */
   statuses?: Readonly<Record<string, BlokSourceStatus>>;
   travelAt?: string | null;
@@ -155,7 +162,7 @@ export const createBlokRuntimeStore = (config?: {
   controlTask?: (operation: BlokTaskControl) => unknown;
 }): BlokRuntimeStore => {
   const initialDataModel = config?.initialDataModel;
-  const keptValues = config?.keptValues ?? {};
+  const keptValues = Object.fromEntries(Object.entries(config?.keptValues ?? {}).map(([runtimeId, value]) => [localValuePath(runtimeId), value]));
   const initialAgentMappingStateUpdates = config?.agentMappingStateUpdates ?? {};
   const invokeFunction = config?.invokeFunction ?? defaultInvokeFunction;
   const dispatchAction = config?.dispatchAction ?? defaultDispatchAction;
@@ -164,7 +171,7 @@ export const createBlokRuntimeStore = (config?: {
     initialDataModel,
     dataModel: modelOf(initialDataModel, config?.travelAt ?? null, keptValues),
     runtimePathValues: {...keptValues},
-    keptRoots: config?.keptRoots ?? NONE_KEPT,
+    keptLocals: config?.keptLocals ?? NONE_KEPT,
     agentMappingStateUpdates: initialAgentMappingStateUpdates,
     invokeFunction,
     dispatchAction,
@@ -236,7 +243,7 @@ export const createBlokRuntimeStore = (config?: {
       set(currentState => {
         const paths = Object.keys(currentState.runtimePathValues);
         // What the host keeps between openings outlives a reset, as it outlives a reload.
-        const kept = paths.filter(path => isUnderRoot(path, currentState.keptRoots) || isUnderRoot(path, HOST_ROOTS));
+        const kept = paths.filter(path => isKeptLocal(path, currentState.keptLocals) || isUnderRoot(path, HOST_ROOTS));
         if (kept.length === paths.length) {
           return currentState;
         }
@@ -248,8 +255,8 @@ export const createBlokRuntimeStore = (config?: {
         };
       });
     },
-    setKeptRoots: nextKeptRoots => {
-      set({keptRoots: nextKeptRoots});
+    setKeptLocals: nextKeptLocals => {
+      set({keptLocals: nextKeptLocals});
     },
     setRuntimeValue: (path, value) => {
       set(currentState => {

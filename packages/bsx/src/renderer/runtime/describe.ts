@@ -5,7 +5,7 @@ import {isRequiredField} from './preflight';
 import {isActionSchema, isBindSchema, unwrapSchema} from './schemas';
 
 /**
- * A contract in the spec's terms: what a catalog file (`spec/catalogs/base@3.json`,
+ * A contract in the spec's terms: what a catalog file (`spec/catalogs/base@4.json`,
  * arkitekt-spec's `blok/catalogs/`) says of each component. Written from the
  * contract, never by hand: the zod schemas are the source of a component's
  * props and documentation, the JSON what they say in the spec's terms. The
@@ -27,8 +27,8 @@ export type SpecPropJson = {
 export type SpecComponentJson = {
   name: string;
   description: string | null;
-  context: 'HTML' | 'SCENE' | 'LOGO';
-  children_context: 'HTML' | 'SCENE' | 'LOGO' | null;
+  context: 'PANEL' | 'SCENE' | 'LOGO';
+  children_context: 'PANEL' | 'SCENE' | 'LOGO' | null;
   inherits_context: boolean;
   accepts_children: boolean;
   downstream_of: string[];
@@ -122,7 +122,7 @@ export const zodToSpecKind = (schema: z.ZodTypeAny): SpecValueKind => {
   }
 };
 
-const CONTEXT: Record<BlokComponentContext, SpecComponentJson['context']> = {html: 'HTML', scene: 'SCENE', logo: 'LOGO'};
+const CONTEXT: Record<BlokComponentContext, SpecComponentJson['context']> = {panel: 'PANEL', scene: 'SCENE', logo: 'LOGO'};
 
 const byKey = <T extends {key: string}>(left: T, right: T) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0);
 const byName = <T extends {name: string}>(left: T, right: T) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
@@ -165,7 +165,7 @@ export const describeBlokComponent = (name: string, component: BlokComponentCont
   return {
     name,
     description: component.schema.description ?? null,
-    context: CONTEXT[placement.context ?? 'html'],
+    context: CONTEXT[placement.context ?? 'panel'],
     children_context: placement.childrenContext ? CONTEXT[placement.childrenContext] : null,
     inherits_context: placement.inheritsContext ?? false,
     accepts_children: component.acceptsChildren ?? CHILDREN in shape,

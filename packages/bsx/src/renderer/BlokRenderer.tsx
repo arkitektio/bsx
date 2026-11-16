@@ -8,6 +8,8 @@ import {BlokSceneFillProvider} from './bloks/scene/host';
 import {useBlokCatalog} from './catalog';
 import {invokeBlokFunction} from './functions/v2/handler';
 import {BlokComponentStateContext, type BlokComponentStateStore} from './persist';
+import {drawnChildren} from './bloks/control';
+import {treeQueries, treeSubscriptions} from './declarations';
 import {
   BlokNode,
   BlokNodeErrorSurface,
@@ -15,10 +17,14 @@ import {
   BlokTreeProvider,
   createBlokRuntimeStore,
   dependencyStatusPath,
+  BlokLocalsScope,
+  localChildren,
+  normalizeBlokComponentTree,
   preflightBlokDocument,
   unboundDependencyStatus,
   unboundDependencyStatuses,
   type BlokCatalog,
+  type BlokComponentNode,
   type BlokNodeErrorProps,
   type BlokDispatchActionHandler,
   type BlokInvokeFunctionHandler,
@@ -65,19 +71,23 @@ type BlokRendererProps = {
   /** Shows the floating runtime-state inspector. Off by default. */
   debug?: boolean;
   /**
-   * Locals kept from an earlier opening, by top-level key, shown from the
-   * first render on (`./persist.ts`). Read once, when the renderer mounts.
+   * Locals kept from an earlier opening, by runtime id (`runtimeIdOf`), shown
+   * from the first render on (`./persist.ts`). Read once, when the renderer mounts.
    */
   keptValues?: Record<string, unknown>;
-  /** The top-level keys kept between openings: swapping the payload leaves their values alone. */
-  keptRoots?: ReadonlySet<string>;
+  /** The `<local>` node ids kept between openings: swapping the payload leaves their values alone. */
+  keptLocals?: ReadonlySet<string>;
   /** Source statuses known before the first render, by data-model path (`deps.robot.arm`: pending). */
   statuses?: Readonly<Record<string, BlokSourceStatus>>;
   /** The moment the blok shows while travelling (ISO 8601): commands and toasts are off, inputs read-only. */
   travelAt?: string | null;
   /** Who is looking: `viewer`. */
   viewer?: BlokViewer | null;
-  /** The blok's declared reads, and how they run; a preview runs none (it seeds `demo.queries`). */
+  /**
+   * The blok's reads, and how they run; a preview runs none (it seeds
+   * `demo.queries`). Left out, the tree's `<query>` and `<subscription>`
+   * children (`treeQueries`).
+   */
   queries?: readonly BlokQuery[];
   subscriptions?: readonly BlokSubscription[];
   readExecutor?: BlokReadExecutor;
@@ -107,14 +117,21 @@ const EmbeddedNodeError = ({componentId, title, detail}: BlokNodeErrorProps) => 
   <EmbeddedNotice title={title} detail={detail ? `${detail} (${componentId})` : componentId} />
 );
 
-/** The roots of a blok shown in a scene that is already open. Only a root that opens a scene can stand in one. */
+/** What a root draws: a `<Blok>`'s one element (its first drawn child), any other root itself. */
+const drawnRoot = (tree: BlokTree, rootId: string): string | undefined => {
+  const node = tree.nodes.get(rootId)?.node;
+  if (node?.component !== 'Blok') return node?.component;
+  return drawnChildren(node)[0]?.component;
+};
+
+/** The roots of a blok shown in a scene that is already open. Only a blok that opens a scene can stand in one. */
 const EmbeddedRoots = ({tree, rootIds, errors}: {tree: BlokTree; rootIds: string[]; errors: string[]}) => (
   <>
     {errors.map(error => (
       <EmbeddedNotice key={error} title="Blok payload could not be parsed" detail={error} />
     ))}
     {rootIds.map(rootId => {
-      const component = tree.nodes.get(rootId)?.component;
+      const component = drawnRoot(tree, rootId);
       const opensScene =
         !component || tree.catalog.components.get(component)?.placement?.childrenContext === 'scene';
       return opensScene ? (
@@ -142,12 +159,12 @@ export default function BlokRenderer({
   embedded = false,
   debug = false,
   keptValues,
-  keptRoots,
+  keptLocals,
   statuses,
   travelAt = null,
   viewer = null,
-  queries = NO_QUERIES,
-  subscriptions = NO_SUBSCRIPTIONS,
+  queries: givenQueries,
+  subscriptions: givenSubscriptions,
   readExecutor,
   answerTask,
   startRun,
@@ -161,6 +178,18 @@ export default function BlokRenderer({
     () => preflightBlokDocument(uiComponents, catalog),
     [catalog, uiComponents],
   );
+
+  const roots = useMemo(
+    () => normalizeBlokComponentTree(Array.isArray(uiComponents) ? uiComponents : uiComponents ? [uiComponents] : null).roots,
+    [uiComponents],
+  );
+  const queries = useMemo(() => givenQueries ?? (roots.length === 1 ? treeQueries(roots[0]) : NO_QUERIES), [givenQueries, roots]);
+  const subscriptions = useMemo(
+    () => givenSubscriptions ?? (roots.length === 1 ? treeSubscriptions(roots[0]) : NO_SUBSCRIPTIONS),
+    [givenSubscriptions, roots],
+  );
+
+  const rootLocals = useMemo(() => (roots.length === 1 ? localChildren(roots[0] as BlokComponentNode) : []), [roots]);
 
   const tree = useMemo<BlokTree>(
     () => ({
@@ -201,7 +230,7 @@ export default function BlokRenderer({
       unavailableDependencies,
       lockedActions,
       keptValues,
-      keptRoots,
+      keptLocals,
       statuses: unboundDependencies?.length ? {...statuses, ...unboundDependencyStatuses(unboundDependencies)} : statuses,
       travelAt,
       answerTask,
@@ -239,8 +268,8 @@ export default function BlokRenderer({
   }, [controlTask, runtimeStore]);
 
   useEffect(() => {
-    if (keptRoots) runtimeStore.getState().setKeptRoots(keptRoots);
-  }, [keptRoots, runtimeStore]);
+    if (keptLocals) runtimeStore.getState().setKeptLocals(keptLocals);
+  }, [keptLocals, runtimeStore]);
 
   useEffect(() => {
     runtimeStore.getState().setInitialDataModel(initialState);
@@ -303,11 +332,14 @@ export default function BlokRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   useBlokTailwind(preflight.nodes, embedded ? undefined : containerRef);
 
+  // A query's variables read the blok-level locals: the <Blok>'s own.
   const syncs = (
     <>
       <BlokViewerSync viewer={viewer} />
       {readExecutor && (queries.length > 0 || subscriptions.length > 0) ? (
-        <BlokReads queries={queries} subscriptions={subscriptions} executor={readExecutor} />
+        <BlokLocalsScope locals={rootLocals}>
+          <BlokReads queries={queries} subscriptions={subscriptions} executor={readExecutor} />
+        </BlokLocalsScope>
       ) : null}
     </>
   );

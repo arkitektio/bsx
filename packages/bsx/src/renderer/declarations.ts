@@ -1,7 +1,6 @@
-import {resolveBlokScope} from '../bsx/infer';
-import {emptyBlokScope, type BlokScopeLocal} from '../bsx/references';
-import {defaultBlokView} from '../spec/catalogs';
-import {LOCAL_ANY_KIND} from '../spec/vocabulary';
+import {declaredQueries as queriesOfTree, declaredSubscriptions as subscriptionsOfTree} from '../bsx/declared';
+import {resolveLocals} from '../bsx/infer';
+import {viewForTree} from '../bsx/references';
 import type {BlokLocal, BlokLocalChoice, BlokLocalPort} from './persist';
 import {
   idleTaskRecord,
@@ -18,9 +17,9 @@ import {
 } from './runtime';
 
 /**
- * What a v2 blok declares beside its tree, as a host gets it from the server
- * (`Blok`/`BlokRevision`: `vocab`, `resolvedLocals`, `demo`, `queries`,
- * `subscriptions`), and the data model a renderer starts from.
+ * What a host gets of a v2 blok beside its tree (`Blok`/`BlokRevision`:
+ * `vocab`, `resolvedLocals`, `demo`), what its tree declares (its `<query>`
+ * and `<subscription>` children), and the data model a renderer starts from.
  *
  * The roots a blok reads (vocabulary `roots.data`) are laid out as:
  *
@@ -29,19 +28,23 @@ import {
  *       args: {...}, task: TaskRecord, viewer: {...}, then: null | "...",
  *       queries: {<name>: {status, value, error, refetching, fetching_more}},
  *       subscriptions: {<name>: {status, value, error}},
- *       <local>: value, <into name>: TaskRecord,
+ *       <into name>: TaskRecord,
+ *       $locals: {<local's runtime id, encoded>: value},
  *     }
  *
- * `self` reads `deps.self`.
+ * `self` reads `deps.self`; a `<local>` is read by its name through its
+ * parent's scope (`runtime/locals`).
  */
 
 /**
  * A local as its tree resolves it (`resolvedLocals`): an arg port (`ArgPort`
  * fields) plus `persist`, its kind always said (inferred where the blok left
- * it out, ANY when nothing tells). A renderer never types a local with the
- * as-written `locals`, whose kind may be missing.
+ * it out, ANY when nothing tells), and `node`, the id of the `<local>` that
+ * declares it. A renderer types a local's values (a kept one too) by its node.
  */
 export type BlokDeclaredLocal = {
+  /** The id of the `<local>` node that declares it. */
+  node: string;
   key: string;
   kind: string;
   identifier?: string | null;
@@ -55,7 +58,7 @@ export type BlokDeclaredLocal = {
 };
 
 /** A child port of a local (a list's item, a dict's or model's fields). */
-export type BlokDeclaredLocalPort = Omit<BlokDeclaredLocal, 'persist'>;
+export type BlokDeclaredLocalPort = Omit<BlokDeclaredLocal, 'persist' | 'node'>;
 
 export type BlokDeclaredRead = {
   key: string;
@@ -70,13 +73,16 @@ export type BlokDeclaredRead = {
   history?: string | null;
 };
 
+/**
+ * What a host gets of a blok beside its tree (`Blok`/`BlokRevision`: `vocab`,
+ * `resolvedLocals`, `demo`). Its locals, queries and subscriptions are nodes
+ * of the tree; `resolvedLocals` is how the server typed the locals.
+ */
 export type BlokDeclarations = {
   vocab?: number | null;
-  /** The locals as the tree resolves them: what the renderer types them with. */
+  /** The `<local>` nodes as the tree resolves them, each with its `node`: what the renderer types them with. */
   resolvedLocals: readonly BlokDeclaredLocal[];
   demo?: unknown;
-  queries?: readonly BlokDeclaredRead[] | null;
-  subscriptions?: readonly BlokDeclaredRead[] | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -98,10 +104,18 @@ const localPort = (port: BlokDeclaredLocalPort): BlokLocalPort => ({
 });
 
 export const declaredLocals = (declarations: BlokDeclarations): BlokLocal[] =>
-  declarations.resolvedLocals.map(local => ({...localPort(local), persist: local.persist === true}));
+  declarations.resolvedLocals.map(local => ({...localPort(local), node: local.node, persist: local.persist === true}));
 
-export const declaredQueries = (declarations: BlokDeclarations): BlokQuery[] =>
-  (declarations.queries ?? []).map(query => ({
+/** The one root of a tree as the wire spells it (a list of roots, or one), or null. */
+const rootOf = (roots: ReadonlyArray<unknown> | unknown): BlokComponentNode | null => {
+  const list = Array.isArray(roots) ? roots : [roots];
+  const [root] = list;
+  return list.length === 1 && isRecord(root) && typeof root.component === 'string' ? (root as BlokComponentNode) : null;
+};
+
+/** The reads a blok declares: its `<Blok>`'s `<query>` children. */
+export const treeQueries = (roots: ReadonlyArray<unknown> | unknown): BlokQuery[] =>
+  queriesOfTree(rootOf(roots)).map(query => ({
     key: query.key,
     service: query.service,
     document: query.document,
@@ -110,8 +124,9 @@ export const declaredQueries = (declarations: BlokDeclarations): BlokQuery[] =>
     more: query.more ?? null,
   }));
 
-export const declaredSubscriptions = (declarations: BlokDeclarations): BlokSubscription[] =>
-  (declarations.subscriptions ?? []).map(subscription => ({
+/** The streams a blok declares: its `<Blok>`'s `<subscription>` children. */
+export const treeSubscriptions = (roots: ReadonlyArray<unknown> | unknown): BlokSubscription[] =>
+  subscriptionsOfTree(rootOf(roots)).map(subscription => ({
     key: subscription.key,
     service: subscription.service,
     document: subscription.document,
@@ -119,10 +134,6 @@ export const declaredSubscriptions = (declarations: BlokDeclarations): BlokSubsc
     keep: subscription.keep ?? null,
     history: subscription.history ?? null,
   }));
-
-/** Each declared local at its default. */
-export const localsModel = (locals: readonly BlokLocal[]): Record<string, unknown> =>
-  Object.fromEntries(locals.map(local => [local.key, local.default ?? null]));
 
 /** The names `into` gives a task call's record, in the tree. */
 export const intoNames = (roots: ReadonlyArray<unknown>): string[] => {
@@ -143,42 +154,41 @@ export const intoNames = (roots: ReadonlyArray<unknown>): string[] => {
 export const intoModel = (roots: ReadonlyArray<unknown>): Record<string, BlokTaskRecord> =>
   Object.fromEntries(intoNames(roots).map(name => [name, idleTaskRecord()]));
 
-/** What a renderer shows live before anything synced: locals, idle `into` records, pending reads. */
-export const liveModel = (
-  roots: ReadonlyArray<unknown>,
-  declarations: BlokDeclarations,
-): {data: Record<string, unknown>; statuses: Record<string, BlokSourceStatus>} => {
-  const reads = pendingReads(declaredQueries(declarations), declaredSubscriptions(declarations));
+/**
+ * What a renderer shows live before anything synced: idle `into` records and
+ * pending reads. Locals read their defaults until written (`runtime/locals`).
+ */
+export const liveModel = (roots: ReadonlyArray<unknown>): {data: Record<string, unknown>; statuses: Record<string, BlokSourceStatus>} => {
+  const reads = pendingReads(treeQueries(roots), treeSubscriptions(roots));
   return {
-    data: {...localsModel(declaredLocals(declarations)), ...intoModel(roots), ...reads.data},
+    data: {...intoModel(roots), ...reads.data},
     statuses: reads.statuses,
   };
 };
 
 /**
  * What a preview renders: the blok's `demo`, mirroring the roots
- * (`{deps, args, task, queries, subscriptions}`), with every declared read
- * answered by its demo value. Nothing is pending in a preview.
+ * (`{deps, args, task, queries, subscriptions}`), with every read the tree
+ * declares answered by its demo value. Nothing is pending in a preview.
  */
-export const demoModel = (roots: ReadonlyArray<unknown>, declarations: BlokDeclarations): Record<string, unknown> => {
+export const demoModel = (roots: ReadonlyArray<unknown>, declarations: Pick<BlokDeclarations, 'demo'>): Record<string, unknown> => {
   const demo = isRecord(declarations.demo) ? declarations.demo : {};
   const demoQueries = isRecord(demo.queries) ? demo.queries : {};
   const demoSubscriptions = isRecord(demo.subscriptions) ? demo.subscriptions : {};
   const queries = Object.fromEntries(
-    declaredQueries(declarations).map(query => [
+    treeQueries(roots).map(query => [
       query.key,
       {status: 'ready', value: demoQueries[query.key] ?? null, error: null, refetching: false, fetching_more: false} satisfies BlokQueryRecord,
     ]),
   );
   const subscriptions = Object.fromEntries(
-    declaredSubscriptions(declarations).map(subscription => [
+    treeSubscriptions(roots).map(subscription => [
       subscription.key,
       {status: 'ready', value: demoSubscriptions[subscription.key] ?? null, error: null} satisfies BlokSubscriptionRecord,
     ]),
   );
   const task = isRecord(demo.task) ? {...idleTaskRecord(), ...demo.task} : undefined;
   return {
-    ...localsModel(declaredLocals(declarations)),
     ...intoModel(roots),
     deps: isRecord(demo.deps) ? demo.deps : {},
     args: isRecord(demo.args) ? demo.args : {},
@@ -189,20 +199,17 @@ export const demoModel = (roots: ReadonlyArray<unknown>, declarations: BlokDecla
 };
 
 /**
- * What a service serves of a blok's declarations as JSON (kabinet's `locals`,
- * `queries`, ...: snake_case values). Its `locals` are as the app wrote them
- * (a kind may be left out), so they are resolved here against its tree.
+ * What a service serves of a blok as JSON (snake_case values): its tree, and
+ * the locals as it resolved them (`resolved_locals`, each with its `node`),
+ * when it did.
  */
 export type BlokDeclarationsJson = {
   vocab?: number | null;
   componentTree?: unknown;
-  locals?: unknown;
+  resolvedLocals?: unknown;
   demo?: unknown;
-  queries?: unknown;
-  subscriptions?: unknown;
 };
 
-const optionalNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
 const optionalString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 
 const jsonChoices = (raw: unknown): BlokLocalChoice[] | null =>
@@ -210,16 +217,12 @@ const jsonChoices = (raw: unknown): BlokLocalChoice[] | null =>
     ? raw.filter(isRecord).map(choice => ({value: choice.value ?? null, label: optionalString(choice.label), description: optionalString(choice.description)}))
     : null;
 
-/** A port from JSON; a child without a key or kind is dropped. */
+/** A port from JSON; one without a key or kind is dropped. */
 const jsonLocalPort = (port: Record<string, unknown>): BlokDeclaredLocalPort | null =>
-  typeof port.kind === 'string' ? jsonLocalWritten(port, port.kind) : null;
-
-/** A port from JSON with `kind` as given; null without a key. */
-const jsonLocalWritten = <Kind extends string | null>(port: Record<string, unknown>, kind: Kind): (Omit<BlokDeclaredLocalPort, 'kind'> & {kind: Kind}) | null =>
-  typeof port.key === 'string'
+  typeof port.key === 'string' && typeof port.kind === 'string'
     ? {
         key: port.key,
-        kind,
+        kind: port.kind,
         identifier: optionalString(port.identifier),
         nullable: port.nullable === true,
         default: port.default ?? null,
@@ -235,51 +238,27 @@ const jsonLocalWritten = <Kind extends string | null>(port: Record<string, unkno
       }
     : null;
 
-/** Locals from JSON as written (snake_case port fields plus `persist`, a kind maybe left out); one without a key is dropped. */
-const jsonLocals = (raw: unknown): BlokScopeLocal[] =>
+/** Resolved locals from JSON; one without a node, a key or a kind is dropped. */
+const jsonResolvedLocals = (raw: unknown): BlokDeclaredLocal[] =>
   (Array.isArray(raw) ? raw : []).filter(isRecord).flatMap(local => {
-    const port = jsonLocalWritten(local, typeof local.kind === 'string' ? local.kind : null);
-    return port ? [{...port, persist: local.persist === true}] : [];
+    const port = jsonLocalPort(local);
+    return port && typeof local.node === 'string' ? [{...port, node: local.node, persist: local.persist === true}] : [];
   });
 
-const jsonRoots = (raw: unknown): BlokComponentNode[] =>
-  (Array.isArray(raw) ? raw : [raw]).filter((node): node is BlokComponentNode => isRecord(node) && typeof node.component === 'string');
-
 /**
- * Locals as written, resolved against the tree the way the spec and the
- * server resolve them (`resolveBlokScope`: default, task argument, bind, else
- * ANY); a given kind is kept.
+ * The `<local>` nodes of a tree resolved the way the spec and the server
+ * resolve them (default, task argument, bind, else ANY), checked unmounted:
+ * what a host uses when the server sent no `resolvedLocals`.
  */
-export const resolveWrittenLocals = (roots: readonly BlokComponentNode[], locals: readonly BlokScopeLocal[]): BlokDeclaredLocal[] => {
-  if (!locals.length) return [];
-  const [root] = roots;
-  if (!root || roots.length !== 1) return locals.map(local => ({...local, kind: local.kind ?? LOCAL_ANY_KIND}));
-  return resolveBlokScope(root, {...emptyBlokScope(), locals}, defaultBlokView()).locals.map(local => ({...local}));
+export const resolveTreeLocals = (roots: ReadonlyArray<unknown> | unknown): BlokDeclaredLocal[] => {
+  const root = rootOf(roots);
+  if (!root) return [];
+  return [...resolveLocals(root, null, viewForTree(root))].map(([node, {local}]) => ({...local, node}) as BlokDeclaredLocal);
 };
 
-const jsonReads = (raw: unknown): BlokDeclaredRead[] =>
-  (Array.isArray(raw) ? raw : []).filter(isRecord).flatMap(read =>
-    typeof read.key === 'string' && typeof read.service === 'string' && typeof read.document === 'string'
-      ? [
-          {
-            key: read.key,
-            service: read.service,
-            document: read.document,
-            variables: read.variables,
-            poll: optionalNumber(read.poll),
-            more: optionalString(read.more),
-            keep: optionalNumber(read.keep),
-            history: optionalString(read.history),
-          },
-        ]
-      : [],
-  );
-
-/** A blok's declarations from JSON a service serves, keeping only well-formed entries. */
+/** A blok's declarations from JSON a service serves: its resolved locals as served, or resolved from its tree. */
 export const parseBlokDeclarations = (raw: BlokDeclarationsJson): BlokDeclarations => ({
   vocab: raw.vocab ?? null,
-  resolvedLocals: resolveWrittenLocals(jsonRoots(raw.componentTree), jsonLocals(raw.locals)),
+  resolvedLocals: raw.resolvedLocals !== undefined && raw.resolvedLocals !== null ? jsonResolvedLocals(raw.resolvedLocals) : resolveTreeLocals(raw.componentTree),
   demo: raw.demo ?? null,
-  queries: jsonReads(raw.queries),
-  subscriptions: jsonReads(raw.subscriptions),
 });

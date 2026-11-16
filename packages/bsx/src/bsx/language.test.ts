@@ -1,10 +1,11 @@
 import {describe, expect, it} from 'vitest';
 import {analyzeBsx} from './analyze';
 import {completeBsx, hoverBsx, scanCursor, signatureBsx, type BsxEnvironment} from './language';
-import {emptyBlokScope, type BlokCheckScope} from './references';
+import {type BlokCheckScope} from './references';
 
+/** Where the blok is mounted: its dependencies and args. What it is and owns is in its text. */
 const scope: BlokCheckScope = {
-  ...emptyBlokScope('custom'),
+  kinds: [],
   dependencies: [
     {
       key: 'stage',
@@ -12,22 +13,25 @@ const scope: BlokCheckScope = {
       state_dependencies: [{key: 'position', demand: {matches: [{key: 'x', kind: 'FLOAT'}, {key: 'y', kind: 'FLOAT'}]}}],
     },
   ],
-  locals: [
-    {key: 'speed', kind: 'INT', default: 1},
-    {key: 'form', kind: 'DICT', children: [{key: 'name', kind: 'STRING'}, {key: 'count', kind: 'INT'}]},
-  ],
-  queries: [
-    {key: 'positions', service: 'mikro', document: 'query { positions { id } }'},
-    {key: 'pages', service: 'mikro', document: 'query { pages { id } }', more: 'pages'},
-  ],
   args: ['image'],
 };
 
 const env = (overrides: Partial<BlokCheckScope> = {}): BsxEnvironment => ({scope: {...scope, ...overrides}});
 
-/** Completions at `|` in the source. */
-const at = (marked: string, environment = env()) => completeBsx(marked.replace('|', ''), marked.indexOf('|'), environment);
-const labels = (marked: string, environment = env()) => at(marked, environment).map(item => item.label);
+/** The `<Blok>` (a panel of `kind`) and its declarations, written before the text under test. */
+const prelude = (kind: string): string =>
+  `<Blok kind="${kind}" context="panel">` +
+  '<local name="speed" kind="INT" default={1} />' +
+  '<local name="form" kind="DICT" children={[{key: "name", kind: "STRING"}, {key: "count", kind: "INT"}]} />' +
+  '<query name="positions" service="mikro" document="query { positions { id } }" />' +
+  '<query name="pages" service="mikro" document="query { pages { id } }" more="pages" />';
+
+/** Completions at `|` in the source as it stands. */
+const atRaw = (marked: string, environment = env()) => completeBsx(marked.replace('|', ''), marked.indexOf('|'), environment);
+/** Completions at `|` in the source, inside a custom blok (or one of `kind`) that declares two locals and two queries. */
+const at = (marked: string, environment = env(), kind = 'custom') => atRaw(`${prelude(kind)}${marked}`, environment);
+const labels = (marked: string, environment = env(), kind = 'custom') => at(marked, environment, kind).map(item => item.label);
+const rawLabels = (marked: string) => atRaw(marked).map(item => item.label);
 
 describe('scanCursor', () => {
   it('knows where the cursor is', () => {
@@ -67,11 +71,18 @@ describe('completeBsx: components and props', () => {
     expect(labels('<Card><|')).not.toContain('Model');
     expect(labels('<Scene><Model><|')).toContain('OnClick');
     expect(labels('<Scene><|')).not.toContain('OnClick');
-    expect(labels('<|', env({context: 'SCENE'}))).toEqual(['Scene']);
-    expect(labels('<|', env({kind: 'action', context: 'SCENE'}))).toEqual(['Scene', 'Space']);
-    expect(labels('<|', env({context: 'LOGO'}))).toEqual(['AgentLogo']);
-    expect(labels('<|', env({context: 'ACTION_LOGO'}))).toEqual(['ActionLogo']);
-    expect(labels('<|', env({context: 'HTML'}))).toEqual(['Html']);
+    // A blok starts with its <Blok>; what its root holds is what its context takes.
+    expect(rawLabels('<|')).toEqual(['Blok']);
+    const scene = rawLabels('<Blok kind="agent" context="scene"><|');
+    expect(scene).toEqual(expect.arrayContaining(['Scene', 'local', 'query']));
+    expect(scene).not.toContain('Space');
+    expect(scene).not.toContain('Card');
+    expect(rawLabels('<Blok kind="action" context="scene"><|')).toEqual(expect.arrayContaining(['Scene', 'Space']));
+    expect(rawLabels('<Blok kind="agent" context="logo"><|')).toContain('Logo');
+    expect(rawLabels('<Blok kind="agent" context="logo"><|')).not.toContain('Card');
+    expect(rawLabels('<Blok kind="agent" context="panel"><|')).toEqual(expect.arrayContaining(['Card', 'local', 'query']));
+    // Queries are children of the <Blok>, nowhere deeper.
+    expect(rawLabels('<Blok kind="agent" context="panel"><Card><|')).not.toContain('query');
   });
 
   it('offers the props not yet set, required first, then id and when', () => {
@@ -101,7 +112,7 @@ describe('completeBsx: expressions', () => {
     expect(items).not.toContain('self');
     expect(items).not.toContain('task');
     expect(items).not.toContain('event');
-    expect(labels('<Text text={|', env({kind: 'agent'}))).toContain('self');
+    expect(labels('<Text text={|', env(), 'agent')).toContain('self');
   });
 
   it('walks agents: states, tasks, assets, fields, and actions only in callbacks', () => {
@@ -146,7 +157,7 @@ describe('completeBsx: expressions', () => {
     expect(labels('<Text text={str.|')).toEqual(expect.arrayContaining(['upper', 'template', 'classes']));
     expect(labels('<Text text={|')).not.toContain('ui');
     expect(labels('<Button onClick={ui.|')).toEqual(['copy']);
-    expect(labels('<Button onClick={task.|', env({kind: 'task'}))).toContain('answer');
+    expect(labels('<Button onClick={task.|', env(), 'task')).toContain('answer');
   });
 
   it('offers into after a task call', () => {
@@ -162,7 +173,7 @@ describe('hover and signatures', () => {
     const source = '<Text text={str.upper(deps.stage.id)} />';
     expect(hoverBsx(source, source.indexOf('upper') + 1, env())?.contents).toContain('str.upper(value)');
     expect(hoverBsx(source, source.indexOf('deps') + 1, env())?.contents).toContain('**deps**');
-    expect(hoverBsx('<Time value={then} relative />', 2, env())?.contents).toContain('base@3');
+    expect(hoverBsx('<Time value={then} relative />', 2, env())?.contents).toContain('base@4');
     const then = '<Time value={then} />';
     expect(hoverBsx(then, then.indexOf('then') + 1, env())?.contents).toContain('**then**');
   });
@@ -181,7 +192,7 @@ describe('analyzeBsx', () => {
   const analyze = (source: string, overrides: Partial<BlokCheckScope> = {}) => analyzeBsx(source, {scope: {...scope, ...overrides}});
 
   it('marks a finding at its prop, with its code', () => {
-    const source = '<Html><Text text={deps.stage.speed} /></Html>';
+    const source = '<Blok kind="custom" context="panel"><Text text={deps.stage.speed} /></Blok>';
     const {markers} = analyze(source);
     expect(markers).toHaveLength(1);
     expect(markers[0]).toMatchObject({code: 'deps.unknown_state', severity: 'error'});
@@ -189,12 +200,13 @@ describe('analyzeBsx', () => {
   });
 
   it('marks warnings as warnings', () => {
-    const {markers} = analyze('<Html><Badge className="bg-green-500" /></Html>');
+    const {markers} = analyze('<Blok kind="custom" context="panel"><Badge className="bg-green-500" /></Blok>');
     expect(markers).toMatchObject([{code: 'palette.raw_colour', severity: 'warning'}]);
   });
 
-  it('marks a root the context does not take', () => {
-    expect(analyze('<Card />', {context: 'SCENE'}).markers.map(marker => marker.code)).toContain('context.root');
+  it('marks a root that is no <Blok>, and a blok mounted where its kind does not go', () => {
+    expect(analyze('<Card />').markers.map(marker => marker.code)).toEqual(['blok.root']);
+    expect(analyze('<Blok kind="agent" context="panel"><Card /></Blok>', {kinds: ['action', 'assign']}).markers.map(marker => marker.code)).toEqual(['kind.placement']);
   });
 
   it('returns no tree for text that does not parse, and the refusal', () => {

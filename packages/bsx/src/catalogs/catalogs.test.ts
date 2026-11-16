@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {controlBlokComponents} from '../renderer/bloks/control';
 import {BASE_CATALOG_REF, describeBlokContract, type SpecComponentJson} from '../renderer/runtime';
-import baseCatalogJson from '../spec/catalogs/base@3.json';
+import baseCatalogJson from '../spec/catalogs/base@4.json';
 import {baseFamilies} from './index';
 import {parts} from './parts';
 
@@ -47,7 +47,8 @@ describe('the families of the base catalog', () => {
       const entry = shipped.get(component.name);
       expect(entry, component.name).toBeDefined();
       expect(entry?.group === 'language' || entry?.group === 'run', component.name).toBe(true);
-      const props = Object.keys(component.schema.shape).filter(key => key !== 'children').sort();
+      // `children` is a slot where a component takes children; a `<local>`'s is a prop (its child ports).
+      const props = Object.keys(component.schema.shape).filter(key => key !== 'children' || !component.acceptsChildren).sort();
       expect(props, component.name).toEqual((entry?.props ?? []).map(prop => prop.key).sort());
     }
   });

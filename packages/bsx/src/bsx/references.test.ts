@@ -1,27 +1,31 @@
 import {describe, expect, it} from 'vitest';
 import corpus from '../spec/bsx_v2.json';
-import {baseBlokView, blokView, type BlokView} from '../spec/catalogs';
-import {resolveBlokScope} from './infer';
+import {baseBlokView, blokViewFor, type BlokView} from '../spec/catalogs';
+import {blokCatalog} from './declared';
+import {resolveLocals} from './infer';
 import {parseBsx} from './parse';
-import {checkBlokTree, dependencyHint, emptyBlokScope, type BlokCheckScope} from './references';
+import {checkBlokTree, dependencyHint, mountedBlokScope, type BlokCheckScope} from './references';
+import type {BlokComponentNode} from '../renderer/runtime/types';
 
-type CorpusScope = BlokCheckScope & {catalog?: boolean};
+/** Where a corpus case is checked: the spec's `mount`, and whether a catalog is read at all. */
+type CorpusMount = Omit<BlokCheckScope, 'catalog'> & {catalog: boolean};
+
+const scopeOf = (mount: CorpusMount): BlokCheckScope => ({kinds: mount.kinds, dependencies: mount.dependencies, args: mount.args});
 type CheckedCase = {
   name: string;
   source: string;
-  scope: CorpusScope;
-  /** The locals after `resolve_scope`, each kinded: nothing else is resolved. */
-  resolved: {locals: unknown[]};
+  mount: CorpusMount;
+  /** Each `<local>` after `resolve_locals`, by node id, kinded: nothing else is resolved. */
+  resolved: {locals: Record<string, unknown>};
   codes: string[];
 };
 
-/** The view a case is checked with: none (the language alone), the base catalog's, or that of the catalog it is written for. */
-const caseView = (scope: CorpusScope): BlokView | null => {
-  if (scope.catalog === false) return null;
-  return scope.target == null ? baseBlokView() : blokView(scope.target);
+/** The view a case is checked with: none (the language alone), else that of the catalog its <Blok> names (the base's for none). */
+const caseView = (mount: CorpusMount, tree: BlokComponentNode): BlokView | null => {
+  if (mount.catalog === false) return null;
+  const catalog = blokCatalog(tree);
+  return catalog === null ? baseBlokView() : blokViewFor(catalog);
 };
-
-const caseScope = (scope: CorpusScope): BlokCheckScope => scope;
 
 /** The wire spells "nothing" as null or leaves it out (as bsx.test.ts compares trees). */
 const withoutNulls = (value: unknown): unknown => {
@@ -32,7 +36,6 @@ const withoutNulls = (value: unknown): unknown => {
   return value;
 };
 
-/** The fields the spec's models dump at their defaults; the resolver leaves them out. */
 const PYDANTIC_DEFAULTS: Readonly<Record<string, unknown>> = {
   optional: false,
   auto_resolvable: false,
@@ -58,7 +61,7 @@ const withoutDefaults = (value: unknown): unknown => {
 };
 
 const checked = (corpus.cases as ReadonlyArray<Record<string, unknown>>).filter(
-  (entry): entry is CheckedCase & Record<string, unknown> => 'scope' in entry && 'codes' in entry,
+  (entry): entry is CheckedCase & Record<string, unknown> => 'mount' in entry && 'codes' in entry,
 );
 
 describe('the validator against the corpus', () => {
@@ -68,8 +71,7 @@ describe('the validator against the corpus', () => {
 
   it.each(checked.map(entry => [entry.name, entry] as const))('%s', (_name, entry) => {
     const {tree} = parseBsx(entry.source);
-    const view = caseView(entry.scope);
-    const findings = checkBlokTree(tree, caseScope(entry.scope), view);
+    const findings = checkBlokTree(tree, scopeOf(entry.mount), caseView(entry.mount, tree));
     expect(findings.map(found => found.code).sort()).toEqual([...entry.codes].sort());
   });
 });
@@ -77,50 +79,48 @@ describe('the validator against the corpus', () => {
 describe('inference against the corpus', () => {
   it.each(checked.map(entry => [entry.name, entry] as const))('%s', (_name, entry) => {
     const {tree} = parseBsx(entry.source);
-    const resolved = resolveBlokScope(tree, caseScope(entry.scope), caseView(entry.scope));
+    const resolved = resolveLocals(tree, entry.mount.dependencies, caseView(entry.mount, tree));
     expect(Object.keys(entry.resolved)).toEqual(['locals']);
-    expect(withoutDefaults({locals: resolved.locals})).toEqual(withoutDefaults(entry.resolved));
-    // Dependencies are never inferred: they stay as declared.
-    expect(resolved.dependencies).toBe(caseScope(entry.scope).dependencies);
-  });
-
-  it('is idempotent', () => {
-    for (const entry of checked) {
-      const {tree} = parseBsx(entry.source);
-      const once = resolveBlokScope(tree, caseScope(entry.scope), null);
-      const twice = resolveBlokScope(tree, once, null);
-      expect(twice).toEqual(once);
-    }
+    const locals = Object.fromEntries([...resolved].map(([node, {local}]) => [node, local]));
+    expect(withoutDefaults(locals)).toEqual(withoutDefaults(entry.resolved.locals));
   });
 });
 
+/** A panel blok of `kind` around `body`. */
+const blok = (kind: string, body: string, attributes = '') => `<Blok kind="${kind}" context="panel"${attributes}>${body}</Blok>`;
+/** Mounted with no dependencies: every one it reads is undeclared. */
+const mounted = mountedBlokScope();
+
 describe('findings', () => {
   it('name the node and prop they are about, with a filled message', () => {
-    const {tree} = parseBsx('<Html><Card><Text text={deps.nope.x} /></Card></Html>');
-    const [found] = checkBlokTree(tree, emptyBlokScope('custom'));
-    expect(found).toMatchObject({code: 'deps.unknown', level: 'error', nodeId: 'Html[0]/Card[0]/Text[0]', propKey: 'text'});
+    const {tree} = parseBsx(blok('custom', '<Card><Text text={deps.nope.x} /></Card>'));
+    const [found] = checkBlokTree(tree, mounted);
+    expect(found).toMatchObject({code: 'deps.unknown', level: 'error', nodeId: 'Blok[0]/Card[0]/Text[0]', propKey: 'text'});
     expect(found.message).toBe(
       'deps.nope.x: \'nope\' is not a dependency of the blok (its dependencies: none). Fix: dependencies=[AgentDependencyInput(key="nope")].',
     );
   });
 
   it('hint the declaration a custom blok misses, for a read, a call and a query variable', () => {
-    const {tree} = parseBsx('<Html><Card><Text text={queries.positions.status} /><Button onClick={deps.stage.move(x: 1)} /></Card></Html>');
-    const scope: BlokCheckScope = {
-      ...emptyBlokScope('custom'),
-      dependencies: [{key: 'robot'}],
-      queries: [{key: 'positions', service: 'mikro', document: 'query { positions { id } }', variables: [{key: 'agent', value_path: 'deps.laser.id'}]}],
-    };
-    const found = checkBlokTree(tree, scope).filter(finding => finding.code === 'deps.unknown');
+    const {tree} = parseBsx(
+      blok(
+        'custom',
+        '<query name="positions" service="mikro" document="query { positions { id } }"><var key="agent" value={deps.laser.id} /></query><Card><Text text={queries.positions.status} /><Button onClick={deps.stage.move(x: 1)} /></Card>',
+      ),
+    );
+    const found = checkBlokTree(tree, mountedBlokScope([], [{key: 'robot'}])).filter(finding => finding.code === 'deps.unknown');
     expect(found.map(finding => finding.message).sort()).toEqual([
-      'onClick of <Button> (Html[0]/Card[0]/Button[0]): \'stage\' is not a dependency of the blok (its dependencies: robot). Fix: dependencies=[AgentDependencyInput(key="stage")].',
+      'onClick of <Button> (Blok[0]/Card[0]/Button[0]): \'stage\' is not a dependency of the blok (its dependencies: robot). Fix: dependencies=[AgentDependencyInput(key="stage")].',
       'deps.laser.id: \'laser\' is not a dependency of the blok (its dependencies: robot). Fix: dependencies=[AgentDependencyInput(key="laser")].',
     ].sort());
   });
 
+  it('take what the mount provides as written where the blok is mounted nowhere', () => {
+    expect(checkBlokTree(parseBsx(blok('custom', '<Text text={deps.nope.x} /><Button onClick={deps.stage.move(x: 1)} />')).tree)).toEqual([]);
+  });
+
   it('hint per kind what a blok reading an undeclared dependency does about it, as the spec does', () => {
-    const {tree} = parseBsx('<Html><Text text={deps.laser.power} /></Html>');
-    const message = (kind: BlokCheckScope['kind']): string => checkBlokTree(tree, emptyBlokScope(kind))[0]?.message ?? '';
+    const message = (kind: string): string => checkBlokTree(parseBsx(blok(kind, '<Text text={deps.laser.power} />')).tree, mounted)[0]?.message ?? '';
     expect(message('custom')).toContain('Fix: dependencies=[AgentDependencyInput(key="laser")].');
     expect(message('task')).toContain('Fix: dependencies=[AgentDependencyInput(key="laser")].');
     expect(message('action')).toContain('Fix: add a dependency parameter `laser` to the action.');
@@ -130,93 +130,94 @@ describe('findings', () => {
 
   it('scope a let to its loop and an into name to the whole tree', () => {
     const {tree} = parseBsx(
-      '<Html><Card><foreach items={args.xs} let="p" key={p.id}><Button onClick={self.go(to: p.id) into run} /></foreach><Text text={run.status} /></Card></Html>',
+      blok('agent', '<Card><foreach items={args.xs} let="p" key={p.id}><Button onClick={self.go(to: p.id) into run} /></foreach><Text text={run.status} /></Card>'),
     );
-    expect(checkBlokTree(tree, emptyBlokScope('agent'))).toEqual([]);
+    expect(checkBlokTree(tree, mounted)).toEqual([]);
+  });
+
+  it('scope a local to its parent\'s subtree', () => {
+    const {tree} = parseBsx(blok('agent', '<Card><local name="open" default={false} /><Switch bind={open} /></Card><Switch bind={open} />'));
+    // Outside its scope the name is neither a local to write nor a root to read (as the spec says).
+    expect(checkBlokTree(tree, mounted).map(found => [found.code, found.nodeId])).toEqual([['local.unknown', 'Blok[0]/Switch[0]'], ['roots.unknown', 'Blok[0]/Switch[0]']]);
   });
 
   it('fill the bind and argument kind messages', () => {
-    const {tree} = parseBsx('<Html><Card><Switch bind={count} /><Button onClick={self.go(to: count)} /></Card></Html>');
-    const scope: BlokCheckScope = {
-      ...emptyBlokScope('agent'),
-      dependencies: [{key: 'self', action_dependencies: [{key: 'go', demand: {arg_matches: [{key: 'to', kind: 'BOOL'}]}}]}],
-      locals: [{key: 'count', kind: 'INT', default: 1}],
-    };
+    const {tree} = parseBsx(blok('agent', '<local name="count" kind="INT" default={1} /><Card><Switch bind={count} /><Button onClick={self.go(to: count)} /></Card>'));
+    const scope = mountedBlokScope([], [{key: 'self', action_dependencies: [{key: 'go', demand: {arg_matches: [{key: 'to', kind: 'BOOL'}]}}]}]);
     const findings = checkBlokTree(tree, scope);
     expect(findings.map(found => found.code)).toEqual(['local.bind_kind', 'local.arg_kind']);
-    expect(findings[0]).toMatchObject({nodeId: 'Html[0]/Card[0]/Switch[0]', propKey: 'bind'});
+    expect(findings[0]).toMatchObject({nodeId: 'Blok[0]/Card[0]/Switch[0]', propKey: 'bind'});
     expect(findings[0].message).toBe('bind of <Switch> writes a BOOL, but count is a INT local (a BOOL control writes BOOL).');
     expect(findings[1].message).toBe('self.go: to takes a BOOL, but count is a INT local.');
   });
 
   it('bind error only inside an error slot', () => {
-    const {tree} = parseBsx('<Html><suspense><error><Alert>{error.message}</Alert></error><Text /></suspense></Html>');
-    expect(checkBlokTree(tree, emptyBlokScope('agent'))).toEqual([]);
+    const {tree} = parseBsx(blok('agent', '<suspense><error><Alert>{error.message}</Alert></error><Text /></suspense>'));
+    expect(checkBlokTree(tree, mounted)).toEqual([]);
   });
 });
 
+const codes = (source: string, scope: BlokCheckScope = mounted) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
+
 describe('what an assign blok places and reads of the run it prepares', () => {
-  const codes = (source: string, scope: BlokCheckScope) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
-  const assign = {...emptyBlokScope('assign'), args: ['image', 'exposure']};
+  const assign = mountedBlokScope([], [], ['image', 'exposure']);
 
   it('reads assign.given.<key>, assign.missing and assign.ready', () => {
-    const source =
-      '<Html><if when={assign.given.image}><Text text={args.image} /></if><arg key="exposure" /><args /><deps /><Button onClick={assign.start()} disabled={!assign.ready}>Run</Button></Html>';
+    const source = blok(
+      'assign',
+      '<if when={assign.given.image}><Text text={args.image} /></if><arg key="exposure" /><args /><deps /><Button onClick={assign.start()} disabled={!assign.ready}>Run</Button>',
+    );
     expect(codes(source, assign)).toEqual([]);
   });
 
   it('refuses a given flag for an argument the action has not, and a field assign has not', () => {
-    expect(codes('<Html><Text text={assign.given.nope} /></Html>', assign)).toEqual(['args.unknown']);
-    expect(codes('<Html><Text text={assign.nope} /></Html>', assign)).toEqual(['path.unknown']);
+    expect(codes(blok('assign', '<Text text={assign.given.nope} />'), assign)).toEqual(['args.unknown']);
+    expect(codes(blok('assign', '<Text text={assign.nope} />'), assign)).toEqual(['path.unknown']);
   });
 
   it('keeps <arg>, <deps>, <dep> and the assign root to an assign blok', () => {
-    const task = emptyBlokScope('task');
-    expect(codes('<Html><arg key="image" /></Html>', task)).toEqual(['catalog.kind']);
-    expect(codes('<Html><deps /><dep key="robot" /></Html>', task)).toEqual(['catalog.kind', 'catalog.kind']);
+    expect(codes(blok('task', '<arg key="image" />'))).toEqual(['catalog.kind']);
+    expect(codes(blok('task', '<deps /><dep key="robot" />'))).toEqual(['catalog.kind', 'catalog.kind']);
     // The language alone knows no kind of a component: that is the catalog's to say.
-    expect(checkBlokTree(parseBsx('<Html><arg key="image" /></Html>').tree, task, null)).toEqual([]);
-    expect(codes('<Html><Text text={assign.ready} /></Html>', task)).toEqual(['roots.not_in_kind']);
+    expect(checkBlokTree(parseBsx(blok('task', '<arg key="image" />')).tree, mounted, null)).toEqual([]);
+    expect(codes(blok('task', '<Text text={assign.ready} />'))).toEqual(['roots.not_in_kind']);
   });
 });
 
 describe('what a blok does to the task it is about', () => {
-  const codes = (source: string, scope: BlokCheckScope) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
-
   it('cancels, pauses, resumes, steps and interrupts it, and reads whether it may', () => {
-    const source =
-      '<Html><Button onClick={task.cancel()} disabled={!task.can.cancel}>Stop</Button><Button onClick={task.pause()}>Pause</Button><Button onClick={task.resume()}>Resume</Button><Button onClick={task.step()}>Step</Button><Button onClick={task.interrupt()}>Kill</Button><Text text={deps.robot.connected ? task.started_at : task.status} /></Html>';
-    const scope = {...emptyBlokScope('action'), dependencies: [{key: 'robot'}]} as BlokCheckScope;
-    expect(codes(source, scope)).toEqual([]);
+    const source = blok(
+      'action',
+      '<Button onClick={task.cancel()} disabled={!task.can.cancel}>Stop</Button><Button onClick={task.pause()}>Pause</Button><Button onClick={task.resume()}>Resume</Button><Button onClick={task.step()}>Step</Button><Button onClick={task.interrupt()}>Kill</Button><Text text={deps.robot.connected ? task.started_at : task.status} />',
+    );
+    expect(codes(source, mountedBlokScope([], [{key: 'robot'}]))).toEqual([]);
   });
 
   it('starts no run again: a rerun is the page\'s, never a blok\'s', () => {
-    expect(() => parseBsx('<Html><Button onClick={task.rerun()}>Again</Button></Html>')).toThrow(/calls nothing/);
+    expect(() => parseBsx(blok('action', '<Button onClick={task.rerun()}>Again</Button>'))).toThrow(/calls nothing/);
   });
 
   it('refuses them where there is no task', () => {
-    expect(codes('<Html><Button onClick={task.cancel()}>Stop</Button></Html>', emptyBlokScope('assign'))).toEqual(['roots.not_in_kind']);
+    expect(codes(blok('assign', '<Button onClick={task.cancel()}>Stop</Button>'))).toEqual(['roots.not_in_kind']);
   });
 });
 
 describe('what a blok places of its task, and what it leaves the host', () => {
-  const codes = (source: string, scope: BlokCheckScope) => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
-
   it('places the result, the status line and the time slider, and says how much chrome it wants', () => {
-    const source = '<Html chrome="none"><status /><ask /><returns only="image" /><timeline /><Text text={task.paused ? "waiting" : task.duration} /></Html>';
-    expect(codes(source, emptyBlokScope('action'))).toEqual([]);
+    const source = blok('action', '<status /><ask /><returns only="image" /><timeline /><Text text={task.paused ? "waiting" : task.duration} />', ' chrome="none"');
+    expect(codes(source)).toEqual([]);
   });
 
   it('warns where no chrome leaves the asks to a blok that places none, and where a part is claimed from inside a branch', () => {
-    expect(codes('<Html chrome="none"><status /></Html>', emptyBlokScope('action'))).toEqual(['chrome.no_ask']);
-    expect(codes('<Html><if when={task.running}><timeline /></if></Html>', emptyBlokScope('action'))).toEqual(['part.conditional']);
+    expect(codes(blok('action', '<status />', ' chrome="none"'))).toEqual(['chrome.no_ask']);
+    expect(codes(blok('action', '<if when={task.running}><timeline /></if>'))).toEqual(['part.conditional']);
   });
 
   it('keeps <returns> and <status> to a blok that has a task', () => {
-    expect(codes('<Html><returns /><status /></Html>', emptyBlokScope('assign'))).toEqual(['catalog.kind', 'catalog.kind']);
+    expect(codes(blok('assign', '<returns /><status />'))).toEqual(['catalog.kind', 'catalog.kind']);
   });
 
   it('reads what an assign blok knows of starting', () => {
-    expect(codes('<Html><Text text={assign.blocked} /><Button disabled={assign.starting} onClick={assign.start()}>Run</Button></Html>', emptyBlokScope('assign'))).toEqual([]);
+    expect(codes(blok('assign', '<Text text={assign.blocked} /><Button disabled={assign.starting} onClick={assign.start()}>Run</Button>'))).toEqual([]);
   });
 });

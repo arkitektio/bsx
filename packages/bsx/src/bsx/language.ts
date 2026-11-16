@@ -1,7 +1,10 @@
 import {defaultBlokView, innerContext, type BlokView, type SpecComponent, type SpecProp} from '../spec/catalogs';
-import {loadVocabulary, type BlokContextName, type VocabFunction, type VocabRecordField} from '../spec/vocabulary';
+import {BLOK_KINDS, kindIn, loadVocabulary, type BlokContextName, type BlokKind, type VocabFunction, type VocabRecordField} from '../spec/vocabulary';
+import {BLOK_COMPONENT, declaredQueries, declaredSubscriptions, QUERY_COMPONENT, SUBSCRIPTION_COMPONENT} from './declared';
+import {resolveLocals} from './infer';
 import {FOREACH_COMPONENT, FOREACH_LET_PROP, INTO_KEYWORD} from './parse';
-import {blokRootsOf, drawnIn, type BlokCheckScope, type BlokPortMatch, type BlokScopeDependency, type BlokScopeLocalPort} from './references';
+import {parseBsxPartial} from './partial';
+import {type BlokCheckScope, type BlokPortMatch, type BlokScopeDependency, type BlokScopeLocalPort, type ResolvedBlokLocal} from './references';
 import type {BsxRange} from './source';
 
 /**
@@ -12,8 +15,12 @@ import type {BsxRange} from './source';
  */
 
 export type BsxEnvironment = {
-  /** What the blok declares beside its tree: its kind, context, dependencies, locals, queries, ... */
-  scope: BlokCheckScope;
+  /**
+   * Where the blok is mounted (its dependencies, args, ...); absent: mounted
+   * nowhere. What the blok is (kind, context) and owns (locals, queries,
+   * subscriptions) is read off its text.
+   */
+  scope?: BlokCheckScope | null;
   /** The catalogs that draw it; the Orkestrator's when left out. */
   view?: BlokView;
 };
@@ -52,6 +59,29 @@ const NAME_CHAR = /[A-Za-z0-9_:.-]/;
 const isSpace = (char: string | undefined) => char !== undefined && /\s/.test(char);
 
 const viewOf = (env: BsxEnvironment): BlokView => env.view ?? defaultBlokView();
+
+/** What the open `<Blok>` says of itself (its kind and context); an agent panel while it says nothing. */
+const headerAt = (stack: readonly OpenElement[]): {kind: BlokKind; context: BlokContextName} => {
+  const root = stack[0]?.tag === BLOK_COMPONENT ? stack[0].attributes : null;
+  const unquote = (value: string | undefined) => (value ?? '').replace(/^["']|["']$/g, '');
+  const kind = unquote(root?.get('kind'));
+  const context = loadVocabulary().blok.contexts[unquote(root?.get('context'))];
+  return {kind: (BLOK_KINDS as readonly string[]).includes(kind) ? (kind as BlokKind) : 'agent', context: context ?? 'PANEL'};
+};
+
+const dependenciesOf = (env: BsxEnvironment): readonly BlokScopeDependency[] => env.scope?.dependencies ?? [];
+
+/** What the text declares, as far as it parses: its locals (resolved), queries and subscriptions. */
+const declaredIn = (env: BsxEnvironment, text: string) => {
+  const tree = parseBsxPartial(text, env.view).tree ?? null;
+  const locals = new Map<string, ResolvedBlokLocal>();
+  if (tree) {
+    for (const {local} of resolveLocals(tree, env.scope?.dependencies ?? null, viewOf(env)).values()) {
+      if (!locals.has(local.key)) locals.set(local.key, local);
+    }
+  }
+  return {locals, queries: declaredQueries(tree), subscriptions: declaredSubscriptions(tree)};
+};
 
 /** The index of the `}` closing the brace at `start`, or -1 when it is not closed before `limit`. */
 const closingBrace = (text: string, start: number, limit: number): number => {
@@ -246,10 +276,23 @@ const describeFunction = (fn: VocabFunction): string =>
 
 const contextAt = (env: BsxEnvironment, stack: readonly OpenElement[]): BlokContextName => {
   const view = viewOf(env);
-  return stack.reduce<BlokContextName>(
-    (context, element) => innerContext(view.components.get(element.tag), context),
-    drawnIn(env.scope) as BlokContextName,
-  );
+  // The <Blok> says the context its content is in.
+  const inner = stack[0]?.tag === BLOK_COMPONENT ? stack.slice(1) : stack;
+  return inner.reduce<BlokContextName>((context, element) => innerContext(view.components.get(element.tag), context), headerAt(stack).context);
+};
+
+/** What starts a blok: its `<Blok>`. */
+const blokCompletion = (from: number): BsxCompletion => {
+  const vocabulary = loadVocabulary();
+  return {
+    label: vocabulary.blok.component,
+    insertText: `${vocabulary.blok.component} kind="\${1|${Object.keys(vocabulary.kinds).join(',')}|}" context="\${2|${Object.keys(vocabulary.blok.contexts).join(',')}|}">\n\t$0\n</${vocabulary.blok.component}>`,
+    snippet: true,
+    kind: 'component',
+    detail: 'the blok: its kind and context',
+    documentation: vocabulary.blok.attributes ? Object.entries(vocabulary.blok.attributes).map(([key, text]) => `**${key}**: ${text}`).join('\n\n') : undefined,
+    from,
+  };
 };
 
 const fitsUnder = (component: SpecComponent, ancestors: readonly string[], context: BlokContextName): boolean => {
@@ -287,19 +330,21 @@ const completeTag = (env: BsxEnvironment, cursor: Extract<BsxCursor, {kind: 'tag
   const view = viewOf(env);
   const {stack, from} = cursor;
   const components = [...view.components.values()];
-  if (stack.length === 0) {
-    const context = drawnIn(env.scope) as BlokContextName;
-    // A Space places the run's dependencies: it starts only an action's own blok, which has a run.
-    const roots = blokRootsOf(env.scope.context).filter(root => root !== 'Space' || env.scope.kind === 'action');
-    const candidates = roots.length ? components.filter(component => roots.includes(component.name)) : components.filter(component => fitsUnder(component, [], context));
-    return candidates.map(component => componentCompletion(component, from));
-  }
+  if (stack.length === 0) return [blokCompletion(from)];
   const parent = view.components.get(stack[stack.length - 1].tag);
   if (parent && !parent.acceptsChildren) return [];
   const ancestors = stack.map(element => element.tag);
+  const header = headerAt(stack);
+  const atRoot = stack.length === 1 && stack[0].tag === BLOK_COMPONENT;
+  const declarations = new Set(Object.keys(loadVocabulary().blok.declarations));
+  // A scene or a logo holds one element of its own (a Space only in an action's blok, which has a run).
+  const content = atRoot ? loadVocabulary().blok.content[header.context]?.filter(name => name !== 'Space' || header.kind === 'action') : undefined;
   const context = contextAt(env, stack);
   return components
-    .filter(component => fitsUnder(component, ancestors, context))
+    .filter(component => component.name !== BLOK_COMPONENT)
+    // Queries and subscriptions are children of the <Blok>.
+    .filter(component => atRoot || (component.name !== QUERY_COMPONENT && component.name !== SUBSCRIPTION_COMPONENT))
+    .filter(component => (content ? content.includes(component.name) || declarations.has(component.name) : fitsUnder(component, ancestors, context)))
     .map(component => ({
       ...componentCompletion(component, from),
       // What can only sit here (a part of its parent) comes first.
@@ -447,13 +492,15 @@ const foreachLets = (stack: readonly OpenElement[]): string[] =>
     .filter(Boolean);
 
 const dependencyOf = (env: BsxEnvironment, key: string): BlokScopeDependency | undefined =>
-  env.scope.dependencies.find(dependency => dependency.key === key);
+  dependenciesOf(env).find(dependency => dependency.key === key);
 
 const completeExpression = (env: BsxEnvironment, text: string, expression: string, end: number, place: ExpressionPlace): BsxCompletion[] => {
   if (inString(expression)) return [];
   const vocabulary = loadVocabulary();
   const view = viewOf(env);
-  const roots = vocabulary.kinds[env.scope.kind].roots;
+  const header = headerAt(place.stack);
+  const roots = kindIn(vocabulary.kinds[header.kind], header.context).roots;
+  const declared = declaredIn(env, text);
   const calls = place.callback !== null;
   const depth = (expression.replace(/"[^"]*"|'[^']*'/g, '').match(/\(/g) ?? []).length - (expression.replace(/"[^"]*"|'[^']*'/g, '').match(/\)/g) ?? []).length;
   // Only the callback's own one thing may be a call; arguments are values.
@@ -546,7 +593,7 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
     for (const root of roots) items.push(item(root, 'keyword', 'root', vocabulary.dataRoots[root]));
     if (calls) items.push(item('event', 'keyword', 'what the component hands its callback', vocabulary.dataRoots.event));
     if (place.inErrorSlot) items.push(item('error', 'keyword', 'the error that made the boundary show', vocabulary.scopedRoots.error));
-    for (const local of env.scope.locals) items.push(item(local.key, 'path', 'local'));
+    for (const local of declared.locals.keys()) items.push(item(local, 'path', 'local'));
     for (const name of into) items.push(item(name, 'path', "a call's record"));
     for (const name of lets) items.push(item(name, 'path', 'foreach item'));
     for (const namespace of vocabulary.functionNamespaces) {
@@ -573,7 +620,7 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
     const action = dependency?.action_dependencies?.find(candidate => candidate.key === call?.[2]);
     return taskRecord(rest, action?.demand?.return_matches);
   }
-  const local = env.scope.locals.find(candidate => candidate.key === first);
+  const local = declared.locals.get(first);
   if (local) {
     // A local is a port: complete the fields its port declares (a list's item is keyed `...`).
     let port: Pick<BlokScopeLocalPort, 'children'> | undefined = local;
@@ -595,10 +642,10 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
     case 'self':
       return agent(dependencyOf(env, 'self'), rest);
     case 'deps':
-      if (rest.length === 0) return env.scope.dependencies.filter(dependency => dependency.key !== 'self').map(dependency => item(dependency.key, 'dependency', 'dependency'));
+      if (rest.length === 0) return dependenciesOf(env).filter(dependency => dependency.key !== 'self').map(dependency => item(dependency.key, 'dependency', 'dependency'));
       return agent(dependencyOf(env, rest[0]), rest.slice(1));
     case 'args':
-      return rest.length === 0 ? (env.scope.args ?? []).map(arg => item(arg, 'path', 'arg')) : [];
+      return rest.length === 0 ? (env.scope?.args ?? []).map(arg => item(arg, 'path', 'arg')) : [];
     case 'task':
       return taskRecord(rest, null);
     case 'viewer': {
@@ -606,14 +653,14 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
       return fields ? fieldItems(fields, 'viewer') : [];
     }
     case 'queries':
-      if (rest.length === 0) return env.scope.queries.map(query => item(query.key, 'path', `query · ${query.service ?? ''}`));
+      if (rest.length === 0) return declared.queries.map(query => item(query.key, 'path', `query · ${query.service ?? ''}`));
       if (rest.length === 1) {
         return [
           ...fieldItems(recordFields('query'), 'query record'),
           ...(topCall
             ? [
                 item('refetch', 'function', 'read it again (stale-while-revalidate)', undefined, 'refetch()'),
-                ...(env.scope.queries.find(query => query.key === rest[0])?.more
+                ...(declared.queries.find(query => query.key === rest[0])?.more
                   ? [item('fetch_more', 'function', 'read the next page and append it', undefined, 'fetch_more($1)', true)]
                   : []),
               ]
@@ -622,7 +669,7 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
       }
       return [];
     case 'subscriptions':
-      if (rest.length === 0) return env.scope.subscriptions.map(subscription => item(subscription.key, 'path', `subscription · ${subscription.service ?? ''}`));
+      if (rest.length === 0) return declared.subscriptions.map(subscription => item(subscription.key, 'path', `subscription · ${subscription.service ?? ''}`));
       return rest.length === 1 ? fieldItems(recordFields('subscription'), 'subscription record') : [];
     default:
       return [];

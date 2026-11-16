@@ -21,7 +21,7 @@ Every module is reachable by its path too (`@arkitektio/bsx/renderer/runtime/tas
 A blok is drawn with one **catalog**: a versioned set of components, named by the address it is
 published at.
 
-- **The base catalog** (`https://arkitekt.live/catalogs/base/v3`) is what every renderer draws,
+- **The base catalog** (`https://arkitekt.live/catalogs/base/v4`) is what every renderer draws,
   whole, in the contexts it draws (html, scene, logo). arkitekt-spec owns it. A blok that names no
   catalog is written for it and renders everywhere.
 - **An app catalog** extends another (in the end the base) with what one frontend draws beyond it:
@@ -84,7 +84,7 @@ node holds the prop already and renders as it did.
 ## The spec JSON
 
 `src/spec/` is written by arkitekt-spec's `scripts/sync_standard_catalog.py`: `vocabulary.json`,
-`catalogs/base@3.json`, the snapshot `catalogs/orkestrator@1.json` and the parity corpus
+`catalogs/base@4.json`, the snapshot `catalogs/orkestrator@1.json` and the parity corpus
 `bsx_v2.json`. Never edit them here.
 
 What a component of a family takes is written in its contract here, and the spec's base catalog is

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import * as z from 'zod';
 import {
+  BlokItemKeyProvider,
   BlokScopeProvider,
   BlokSuspenseContext,
   createBlokComponent,
@@ -16,6 +17,7 @@ import {
   type BlokComponentNode,
   type BlokSourceStatus,
   type BlokScope,
+  type BlokObjectSchema,
   type BlokSuspenseReporter,
 } from '../runtime';
 import {useBlokRunHost} from './run/host';
@@ -53,6 +55,8 @@ const renderDeclaredChildren = (component: BlokComponentNode, buildChild: (id: s
 /* -------------------------------------------------------------------------- */
 
 const ForeachIteration = (props: {
+  /** The item's key, as its runtime ids carry it (`7`, `#2`). */
+  itemKey: string;
   scopeName: string;
   /** Absolute path of this item, when the items came from a data binding. */
   itemPath?: string;
@@ -61,7 +65,7 @@ const ForeachIteration = (props: {
   childIds: string[];
   buildChild: (id: string, basePath?: string) => React.ReactNode;
 }) => {
-  const {buildChild, childIds, item, itemPath, scopeName} = props;
+  const {buildChild, childIds, item, itemKey, itemPath, scopeName} = props;
 
   // A path-backed item aliases to its path, so a bound control inside the loop
   // writes the real backing list. Without a path the item is handed down by value.
@@ -69,11 +73,13 @@ const ForeachIteration = (props: {
   const values = React.useMemo(() => (itemPath ? undefined : {[scopeName]: item}), [item, itemPath, scopeName]);
 
   return (
-    <BlokScopeProvider aliases={aliases} values={values}>
-      {childIds.map(childId => (
-        <React.Fragment key={childId}>{buildChild(childId)}</React.Fragment>
-      ))}
-    </BlokScopeProvider>
+    <BlokItemKeyProvider itemKey={itemKey}>
+      <BlokScopeProvider aliases={aliases} values={values}>
+        {childIds.map(childId => (
+          <React.Fragment key={childId}>{buildChild(childId)}</React.Fragment>
+        ))}
+      </BlokScopeProvider>
+    </BlokItemKeyProvider>
   );
 };
 
@@ -155,6 +161,7 @@ export const Foreach = createBlokComponent(
           return (
             <ForeachIteration
               key={ids[index]}
+              itemKey={ids[index].slice(component.id.length + 1)}
               scopeName={scopeName}
               itemPath={itemPath(index)}
               item={item}
@@ -253,24 +260,116 @@ export const Fragment = createBlokComponent(
   ({buildChild, component}) => renderDeclaredChildren(component, buildChild),
 );
 
-/** What the host adds around a blok; read by the host off the root, the blok itself draws the same either way. */
+/** What the host adds around a blok; read by the host off its `<Blok>`, the blok itself draws the same either way. */
 export const chromeSchema = z
   .enum(['auto', 'none'])
   .optional()
   .describe(
-    "What the host draws around the blok of its own: `auto` (the default) adds what the blok does not place (the time slider, the open ask, the rest of the argument form, its buttons); `none` adds nothing, the blok places what it wants.",
+    "What the host draws around the blok of its own (panel and scene): `auto` (the default) adds what the blok does not place (the time slider, the open ask, the rest of the argument form, its buttons); `none` adds nothing, the blok places what it wants.",
   );
 
-export const Html = createBlokComponent(
+const BLOK_COMPONENT = 'Blok';
+const DECLARATIONS: ReadonlySet<string> = new Set(['local', 'query', 'subscription', 'var']);
+
+/** The children of a node that draw: its declarations (`local`, `query`, `subscription`, `var`) left out. */
+export const drawnChildren = (component: BlokComponentNode): BlokComponentNode[] =>
+  (component.children ?? []).filter(child => !DECLARATIONS.has(child.component));
+
+/**
+ * The one element every blok is (vocabulary `blok`). In a panel it lays its
+ * children out as a fragment does; in a scene or a logo it draws its one
+ * element (a `Scene` or `Space`, a `Logo`). Its declarations draw nothing.
+ */
+export const Blok = createBlokComponent(
   {
-    name: 'Html',
+    name: BLOK_COMPONENT,
     acceptsChildren: true,
-    placement: {childrenContext: 'html', notDownstreamOf: ['Html']},
+    placement: {notDownstreamOf: [BLOK_COMPONENT]},
     schema: z
-      .object({chrome: chromeSchema})
-      .describe("The root of an html blok (a panel, a dashboard, a popout's page): lays its children out as a fragment does, and names the blok's context."),
+      .object({
+        kind: z.enum(['agent', 'custom', 'task', 'action', 'assign']).describe('What the blok is: what it reads, and where it may be mounted.'),
+        context: z
+          .enum(['panel', 'scene', 'logo'])
+          .describe('What draws it: a panel (a flat rectangle the host lays out), a scene (a 3D view) or a logo (an SVG drawing).'),
+        catalog: z
+          .string()
+          .optional()
+          .describe('The catalog it is written for (the address it is published at, or the name of one registered in the organization); the base catalog when left out.'),
+        chrome: chromeSchema,
+      })
+      .describe(
+        "Every blok is one: it says its kind (what it reads, where it may be mounted), its context (what host draws it), the catalog it is written for and the host's chrome. A panel lays its children out as a fragment does; a scene holds one Scene or Space, a logo one Logo, besides its declarations.",
+      ),
   },
-  ({buildChild, component}) => renderDeclaredChildren(component, buildChild),
+  ({buildChild, component}) => {
+    const context = component.props?.find(prop => prop.key === 'context')?.static_value;
+    const drawn = drawnChildren(component);
+    return renderNodes(context === 'scene' || context === 'logo' ? drawn.slice(0, 1) : drawn, buildChild);
+  },
+);
+
+const declaration = <T extends BlokObjectSchema>(name: string, schema: T, acceptsChildren = false) =>
+  createBlokComponent({name, acceptsChildren, placement: {inheritsContext: true}, schema}, () => null);
+
+/** `<local name="x" default={...} persist />`: draws nothing; its parent provides it to its children (`runtime/locals`). */
+export const Local = declaration(
+  'local',
+  z
+    .object({
+      name: z.string().describe("The name the subtree reads it by, bare (never a reserved root)."),
+      default: z.unknown().optional().describe('The value it starts with: a literal.'),
+      kind: z.string().optional().describe('Its port kind (INT, FLOAT, STRING, BOOL, ENUM, DATE, QUANTITY, LIST, DICT, MODEL, STRUCTURE, ...) or ANY; inferred when left out.'),
+      identifier: z.string().optional().describe("A structure local's identifier (@mikro/image)."),
+      nullable: z.boolean().optional().describe('Whether it may be null.'),
+      choices: z.unknown().optional().describe("An ENUM local's choices: [{value, label}, ...]."),
+      children: z.unknown().optional().describe("A LIST, DICT or MODEL local's child ports, as ports."),
+      label: z.string().optional().describe('What a form shows it as.'),
+      description: z.string().optional().describe('What it is for.'),
+      persist: z.boolean().optional().describe('Remember the last input on this device (never on a server).'),
+      like: z.string().optional().describe("Take the port of an action's argument: self.<action>.<arg> or deps.<key>.<action>.<arg>."),
+    })
+    .describe("Declares a local: form state controls write through bind, read bare in its parent's subtree; inside a foreach, one per item. It comes first among its parent's children and draws nothing."),
+);
+
+/** `<query name service document>`: draws nothing; the host runs it (`declaredQueries`). */
+export const Query = declaration(
+  'query',
+  z
+    .object({
+      name: z.string().describe('Its name: read as queries.<name>.'),
+      service: z.string().describe('The service it runs on, by key (mikro).'),
+      document: z.string().describe('One GraphQL query operation, never a mutation.'),
+      poll: z.number().optional().describe('Also re-run every this many seconds.'),
+      more: z.string().optional().describe('The list field of its result new pages append to (queries.<name>.fetch_more).'),
+    })
+    .describe('Declares a read, queries.<name>: one GraphQL query on a service, re-run when its variables (its <var> children) change. A child of <Blok>; draws nothing.'),
+  true,
+);
+
+/** `<subscription name service document>`: draws nothing; the host runs it (`declaredSubscriptions`). */
+export const Subscription = declaration(
+  'subscription',
+  z
+    .object({
+      name: z.string().describe('Its name: read as subscriptions.<name>.'),
+      service: z.string().describe('The service it runs on, by key.'),
+      document: z.string().describe('One GraphQL subscription operation.'),
+      keep: z.number().optional().describe('Keep the last this many payloads as a list; the latest only when absent.'),
+      history: z.string().optional().describe('A declared query to replay from while travelling.'),
+    })
+    .describe('Declares a stream, subscriptions.<name>: one GraphQL subscription on a service, re-subscribed when its variables (its <var> children) change. A child of <Blok>; draws nothing.'),
+  true,
+);
+
+/** `<var key value>`: one variable of its query or subscription. */
+export const Var = declaration(
+  'var',
+  z
+    .object({
+      key: z.string().describe("The variable's name in the document."),
+      value: z.unknown().optional().describe('Its value.'),
+    })
+    .describe('One variable of its query or subscription: an expression over args, blok-level locals and agents, or a literal.'),
 );
 
 /* -------------------------------------------------------------------------- */
@@ -358,7 +457,7 @@ const DomHidden = ({hidden, children}: {hidden: boolean; children?: React.ReactN
 /** Outside html (a scene, a logo) nothing can hold a box: hidden is not drawn. In html, the platform's (a native view), or a DOM `div`. */
 const Hidden = ({hidden, children}: {hidden: boolean; children: React.ReactNode}) => {
   const draw = useBlokDrawContext();
-  if (draw !== 'html') return hidden ? null : <>{children}</>;
+  if (draw !== 'panel') return hidden ? null : <>{children}</>;
   const Primitive = blokPlatform().primitives.Hidden ?? DomHidden;
   return <Primitive hidden={hidden}>{children}</Primitive>;
 };
@@ -560,7 +659,11 @@ export const controlBlokComponents = [
   If,
   Else,
   Fragment,
-  Html,
+  Blok,
+  Local,
+  Query,
+  Subscription,
+  Var,
   Match,
   Case,
   Default,

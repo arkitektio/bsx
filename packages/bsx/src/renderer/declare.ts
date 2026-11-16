@@ -36,15 +36,15 @@ export type BlokUi = {
   claims: readonly string[];
 };
 
-const CONTEXTS: readonly BlokContextName[] = ['HTML', 'SCENE', 'LOGO'];
+const CONTEXTS: readonly BlokContextName[] = ['PANEL', 'SCENE', 'LOGO'];
 
 /**
  * The context a base component counts towards: its own, and for one that
- * bridges html and another context (`Scene` opens a scene inside html), the
- * other one: a renderer that draws no 3D still draws html whole.
+ * bridges a panel and another context (`Scene` opens a scene inside a panel),
+ * the other one: a renderer that draws no 3D still draws panels whole.
  */
 const contextOf = (component: {context: BlokContextName; childrenContext: BlokContextName | null}): BlokContextName =>
-  component.context !== 'HTML' ? component.context : (component.childrenContext ?? 'HTML');
+  component.context !== 'PANEL' ? component.context : (component.childrenContext ?? 'PANEL');
 
 /** The contexts in which `catalog` draws every component of the base catalog. */
 export const baseContextsOf = (catalog: BlokCatalog): BlokContextName[] => {

@@ -10,7 +10,7 @@ import {renderBlokDocument, testCatalog} from '../testing';
 import tree from './logo.fixture.json';
 
 /**
- * `logo.fixture.json` is a v2 logo blok as it is stored: a gradient and a clip
+ * `logo.fixture.json` is a v2 logo blok as it is stored (`<Blok kind="agent" context="logo"><Logo>`): a gradient and a clip
  * path referenced by id, every shape, text, and a keyed `foreach` over state
  * drawing one lamp per item, all painted with the viewer's pens.
  */
@@ -44,7 +44,8 @@ describe('a v2 logo blok', () => {
         'Path',
         'Polygon',
         'Polyline',
-        'AgentLogo',
+        'Blok',
+        'Logo',
         'Rect',
         'Stop',
         'SvgText',
@@ -106,7 +107,7 @@ describe('a v2 logo blok', () => {
     renderBlokDocument(testCatalog(), [
       {
         id: 'logo',
-        component: 'AgentLogo',
+        component: 'Logo',
         children: [
           {id: 'ok', component: 'Circle', props: [{key: 'r', static_value: '2'}]},
           {id: 'broken', component: 'Circle', props: [{key: 'r', util_call: {operation: 'no_such_function'}}]},
@@ -135,7 +136,7 @@ describe('paint', () => {
       circle('colour', {fill: '#fbbf24'}),
       circle('empty', {fill: 'none'}),
     ];
-    renderBlokDocument(testCatalog(), [{id: 'logo', component: 'AgentLogo', children: shapes}]);
+    renderBlokDocument(testCatalog(), [{id: 'logo', component: 'Logo', children: shapes}]);
 
     const svg = document.querySelector('svg')!;
     const fills = [...svg.querySelectorAll('circle')].map(shape => shape.getAttribute('fill'));
@@ -149,7 +150,7 @@ describe('paint', () => {
       circle('green', {fill: 'spectrum-green', stroke: 'spectrum-violet'}),
       circle('soft', {fill: 'spectrum-green-soft'}),
     ];
-    renderBlokDocument(testCatalog(), [{id: 'logo', component: 'AgentLogo', children: shapes}]);
+    renderBlokDocument(testCatalog(), [{id: 'logo', component: 'Logo', children: shapes}]);
 
     const [green, soft] = [...document.querySelectorAll('svg circle')];
     expect(green.getAttribute('fill')).toBe('var(--logo-spectrum-green)');
@@ -159,7 +160,17 @@ describe('paint', () => {
 
   it('keeps an action logo a tree this catalog knows, its shapes placed under it', () => {
     const preflight = preflightBlokDocument(
-      normalizeBlokComponentTree([{id: 'action', component: 'ActionLogo', children: [circle('c', {fill: 'brand'})]}]).roots,
+      normalizeBlokComponentTree([
+        {
+          id: 'Blok[0]',
+          component: 'Blok',
+          props: [
+            {key: 'kind', static_value: 'action'},
+            {key: 'context', static_value: 'logo'},
+          ],
+          children: [{id: 'action', component: 'Logo', children: [circle('c', {fill: 'brand'})]}],
+        },
+      ]).roots,
       testCatalog(),
     );
     expect(preflight.errors).toEqual([]);
@@ -171,7 +182,7 @@ describe('animate', () => {
     renderBlokDocument(testCatalog(), [
       {
         id: 'action',
-        component: 'ActionLogo',
+        component: 'Logo',
         children: [
           circle('pulse', {animate: 'pulse', animateDelay: '0.3'}),
           {id: 'trace', component: 'Path', props: [{key: 'd', static_value: 'M0 0h4'}, {key: 'animate', static_value: 'draw'}]},

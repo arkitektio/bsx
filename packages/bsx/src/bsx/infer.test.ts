@@ -1,13 +1,16 @@
 import {describe, expect, it} from 'vitest';
 import {blokView, defaultBlokView, parseSpecCatalog} from '../spec/catalogs';
-import {defaultType, portIsValid, resolveBlokScope, resolveLocal} from './infer';
+import {defaultType, portIsValid, resolveLocal, resolveLocals} from './infer';
 import {parseBsx} from './parse';
 import {printBsx} from './print';
-import {checkBlokTree, emptyBlokScope, literalHint, type BlokCheckScope} from './references';
+import {checkBlokTree, literalHint, mountedBlokScope, type BlokCheckScope, type BlokScopeDependency} from './references';
 
-const codes = (source: string, scope: BlokCheckScope): string[] => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
+const codes = (source: string, scope: BlokCheckScope = mountedBlokScope()): string[] => checkBlokTree(parseBsx(source).tree, scope).map(found => found.code);
 
-const moveTo: BlokCheckScope['dependencies'][number] = {
+/** A panel blok of `kind` around `body`. */
+const blok = (kind: string, body: string) => `<Blok kind="${kind}" context="panel">${body}</Blok>`;
+
+const moveTo: BlokScopeDependency = {
   key: 'self',
   action_dependencies: [
     {
@@ -35,14 +38,22 @@ describe('local kind inference', () => {
   });
 
   it('follows the precedence default, then task argument, then bind', () => {
-    const scope = (local: BlokCheckScope['locals'][number]): BlokCheckScope => ({...emptyBlokScope('agent'), dependencies: [moveTo], locals: [local]});
-    const resolved = (source: string, local: BlokCheckScope['locals'][number]) =>
-      resolveBlokScope(parseBsx(source).tree, scope(local), defaultBlokView()).locals[0];
-    const both = '<Html><Card><Slider bind={p} /><Button onClick={self.move_to(position: p)} /></Card></Html>';
-    expect(resolved(both, {key: 'p'}).kind).toBe('INT');
-    expect(resolved(both, {key: 'p', default: 'x'}).kind).toBe('STRING');
-    expect(resolved('<Html><Slider bind={p} /></Html>', {key: 'p'}).kind).toBe('FLOAT');
-    expect(resolved('<Html><Text text={p} /></Html>', {key: 'p'}).kind).toBe('ANY');
+    const resolved = (body: string, local: string) =>
+      [...resolveLocals(parseBsx(blok('agent', `${local}${body}`)).tree, [moveTo], defaultBlokView()).values()][0].local;
+    const both = '<Card><Slider bind={p} /><Button onClick={self.move_to(position: p)} /></Card>';
+    expect(resolved(both, '<local name="p" />').kind).toBe('INT');
+    expect(resolved(both, '<local name="p" default="x" />').kind).toBe('STRING');
+    expect(resolved('<Slider bind={p} />', '<local name="p" />').kind).toBe('FLOAT');
+    expect(resolved('<Text text={p} />', '<local name="p" />').kind).toBe('ANY');
+  });
+
+  it('counts only the uses inside the local\'s scope', () => {
+    const tree = parseBsx(blok('agent', '<Card><local name="p" /><Text text={p} /></Card><Card><local name="p" /><Slider bind={p} /></Card>')).tree;
+    const kinds = [...resolveLocals(tree, [moveTo], defaultBlokView())].map(([node, {local}]) => [node, local.kind]);
+    expect(kinds).toEqual([
+      ['Blok[0]/Card[0]/local[0]', 'ANY'],
+      ['Blok[0]/Card[1]/local[0]', 'FLOAT'],
+    ]);
   });
 
   it('infers only a kind left out: a given one, ANY included, is kept', () => {
@@ -58,20 +69,20 @@ describe('local kind inference', () => {
   });
 
   it('lets an ANY local skip the argument, bind and default checks', () => {
-    const scope: BlokCheckScope = {...emptyBlokScope('agent'), dependencies: [moveTo], locals: [{key: 'p', kind: 'ANY', default: 'x'}]};
-    expect(codes('<Html><Card><Switch bind={p} /><Button onClick={self.move_to(position: p)} /><Text text={p.a.b} /></Card></Html>', scope)).toEqual([]);
+    const scope = mountedBlokScope([], [moveTo]);
+    expect(
+      codes(blok('agent', '<local name="p" kind="ANY" default="x" /><Card><Switch bind={p} /><Button onClick={self.move_to(position: p)} /><Text text={p.a.b} /></Card>'), scope),
+    ).toEqual([]);
   });
 
   it('checks the remaining sites against the kind found', () => {
-    const scope: BlokCheckScope = {...emptyBlokScope('agent'), dependencies: [moveTo], locals: [{key: 'p'}]};
-    expect(codes('<Html><Card><Switch bind={p} /><Button onClick={self.move_to(position: p)} /></Card></Html>', scope)).toEqual(['local.bind_kind']);
+    const scope = mountedBlokScope([], [moveTo]);
+    expect(codes(blok('agent', '<local name="p" /><Card><Switch bind={p} /><Button onClick={self.move_to(position: p)} /></Card>'), scope)).toEqual(['local.bind_kind']);
   });
 
   it('never infers a dependency: a custom blok reading an undeclared one is refused', () => {
-    const tree = parseBsx('<Html><Card><Text text={deps.zeta.x} /><Button onClick={deps.alpha.go()} /><Text text={deps.mid.y} /></Card></Html>').tree;
-    const scope: BlokCheckScope = {...emptyBlokScope('custom'), dependencies: [{key: 'mid', state_dependencies: []}]};
-    expect(resolveBlokScope(tree, scope, null).dependencies).toBe(scope.dependencies);
-    const found = checkBlokTree(tree, scope, null);
+    const tree = parseBsx(blok('custom', '<Card><Text text={deps.zeta.x} /><Button onClick={deps.alpha.go()} /><Text text={deps.mid.y} /></Card>')).tree;
+    const found = checkBlokTree(tree, mountedBlokScope([], [{key: 'mid', state_dependencies: []}]), null);
     expect(found.map(finding => finding.code)).toEqual(['deps.unknown', 'deps.unknown', 'deps.unknown_state']);
     expect(found[0].message).toContain('Fix: dependencies=[AgentDependencyInput(key="zeta")].');
     expect(found[1].message).toContain('Fix: dependencies=[AgentDependencyInput(key="alpha")].');
@@ -80,15 +91,14 @@ describe('local kind inference', () => {
 
 describe('new warnings', () => {
   it('warns a keyless foreach over objects, not over scalars', () => {
-    const scope = emptyBlokScope('agent');
-    expect(codes('<Html><foreach items={[{a: 1}]} let="x"><Text>{x.a}</Text></foreach></Html>', scope)).toEqual(['foreach.position_key']);
-    expect(codes('<Html><foreach items={[1, 2]} let="x"><Text>{x}</Text></foreach></Html>', scope)).toEqual([]);
-    expect(codes('<Html><foreach items={args.xs} let="x"><Text>{x}</Text></foreach></Html>', scope)).toEqual([]);
+    expect(codes(blok('agent', '<foreach items={[{a: 1}]} let="x"><Text>{x.a}</Text></foreach>'))).toEqual(['foreach.position_key']);
+    expect(codes(blok('agent', '<foreach items={[1, 2]} let="x"><Text>{x}</Text></foreach>'))).toEqual([]);
+    expect(codes(blok('agent', '<foreach items={args.xs} let="x"><Text>{x}</Text></foreach>'))).toEqual([]);
   });
 
   it('warns reading an unnamed return', () => {
-    expect(codes('<Html><Text text={task.returns.return0} /></Html>', emptyBlokScope('task'))).toEqual(['returns.unnamed']);
-    expect(codes('<Html><Text text={task.returns.image} /></Html>', emptyBlokScope('task'))).toEqual([]);
+    expect(codes(blok('task', '<Text text={task.returns.return0} />'))).toEqual(['returns.unnamed']);
+    expect(codes(blok('task', '<Text text={task.returns.image} />'))).toEqual([]);
   });
 
   it('hints the literal a string meant', () => {
@@ -106,17 +116,17 @@ describe('new warnings', () => {
 
 describe('a catalog only adds', () => {
   it('refuses one that redefines a component of the base catalog, the language included', () => {
-    const redefining = (name: string) => parseSpecCatalog({name: 'mine', components: [{name, context: 'HTML', props: [{key: 'bind', kind: 'STRING'}]}]}, 'mine');
-    expect(() => blokView(redefining('Slider'))).toThrow(/redefines <Slider> of base@3: a catalog only adds/);
+    const redefining = (name: string) => parseSpecCatalog({name: 'mine', components: [{name, context: 'PANEL', props: [{key: 'bind', kind: 'STRING'}]}]}, 'mine');
+    expect(() => blokView(redefining('Slider'))).toThrow(/redefines <Slider> of base@4: a catalog only adds/);
     expect(() => blokView(redefining('foreach'))).toThrow(/redefines <foreach>/);
   });
 
   it('draws what it adds on top of the base', () => {
-    const view = blokView(parseSpecCatalog({name: 'mine', components: [{name: 'Gauge', context: 'HTML', props: []}]}, 'mine'));
+    const view = blokView(parseSpecCatalog({name: 'mine', components: [{name: 'Gauge', context: 'PANEL', props: []}]}, 'mine'));
     expect(view.components.get('Gauge')?.catalog).toBe('mine');
-    expect(view.components.get('Slider')?.catalog).toBe('base@3');
-    expect(view.label).toBe('base@3 + mine');
-    const found = checkBlokTree(parseBsx('<Html><Card><Gauge /></Card></Html>').tree, emptyBlokScope('agent'), view);
+    expect(view.components.get('Slider')?.catalog).toBe('base@4');
+    expect(view.label).toBe('base@4 + mine');
+    const found = checkBlokTree(parseBsx(blok('agent', '<Card><Gauge /></Card>')).tree, mountedBlokScope(), view);
     expect(found).toEqual([]);
   });
 });

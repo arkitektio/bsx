@@ -32,3 +32,4 @@ export {
   isString,
   splitPathSegments,
 } from './utils';
+export * from './locals';

@@ -1,9 +1,9 @@
 import type {BlokComponentNode} from '../renderer/runtime/types';
-import {defaultBlokView, type BlokView} from '../spec/catalogs';
+import {type BlokView} from '../spec/catalogs';
 import {diagnosticHint, type BlokFinding} from '../spec/vocabulary';
 import {parseBsxSafe, type BsxSourceMap} from './parse';
-import {resolveBlokScope} from './infer';
-import {checkBlokTree, type BlokCheckScope, type ResolvedBlokScope} from './references';
+import {resolveLocals, type ResolvedLocal} from './infer';
+import {checkBlokTree, unmountedBlokScope, viewForTree, type BlokCheckScope} from './references';
 import type {BsxRange} from './source';
 
 export type BsxMarker = {message: string; range: BsxRange; severity: 'error' | 'warning'; code?: string};
@@ -16,8 +16,8 @@ export type BsxAnalysis = {
   /** The validator's findings (none when the text does not parse). */
   findings: BlokFinding[];
   markers: BsxMarker[];
-  /** The scope as the tree resolves it (each local's kind; dependencies stay as declared); null when the text does not parse. */
-  resolved: ResolvedBlokScope | null;
+  /** Each `<local>` of the tree with its kind resolved, by node id; null when the text does not parse. */
+  resolved: ReadonlyMap<string, ResolvedLocal> | null;
 };
 
 /** Where a finding about `nodeId` (and `propKey`) is in the source; `fallback` when the source map has no such node. */
@@ -32,15 +32,16 @@ export const rangeForFinding = (sources: BsxSourceMap, nodeId: string | undefine
 /**
  * Everything the editor marks in a blok's source: where it does not parse
  * (the parser's first refusal, with its code); else every finding of the v2
- * validator (`checkBlokTree`) against what the blok declares, errors and
- * warnings, each at the node and prop it is about.
+ * validator (`checkBlokTree`), mounted as `scope` says (unmounted when it
+ * says nothing), errors and warnings, each at the node and prop it is about.
+ * Without a view, the one of the catalog its `<Blok catalog>` names.
  */
 /** A marker's text: the message, then how to fix it on a line of its own. */
 const withHint = (message: string, hint: string | null): string => (hint ? `${message}\n${hint}` : message);
 
-export const analyzeBsx = (source: string, options: {scope: BlokCheckScope; view?: BlokView}): BsxAnalysis => {
-  const view = options.view ?? defaultBlokView();
-  const parsed = parseBsxSafe(source, view);
+export const analyzeBsx = (source: string, options: {scope?: BlokCheckScope | null; view?: BlokView} = {}): BsxAnalysis => {
+  const scope = options.scope ?? unmountedBlokScope();
+  const parsed = parseBsxSafe(source, options.view);
   if (!parsed.ok) {
     return {
       tree: null,
@@ -51,8 +52,9 @@ export const analyzeBsx = (source: string, options: {scope: BlokCheckScope; view
     };
   }
   const {tree, sources} = parsed;
+  const view = options.view ?? viewForTree(tree);
   const whole = sources.get(tree.id)?.tagRange ?? {start: 0, end: 1};
-  const findings = checkBlokTree(tree, options.scope, view);
+  const findings = checkBlokTree(tree, scope, view);
   const markers = findings.map(
     (found): BsxMarker => ({
       message: withHint(found.message, found.hint ?? null),
@@ -61,5 +63,5 @@ export const analyzeBsx = (source: string, options: {scope: BlokCheckScope; view
       code: found.code,
     }),
   );
-  return {tree, sources, findings, markers, resolved: resolveBlokScope(tree, options.scope, view)};
+  return {tree, sources, findings, markers, resolved: resolveLocals(tree, scope.dependencies, view)};
 };

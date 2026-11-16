@@ -2,12 +2,14 @@ import * as React from 'react';
 import type * as THREE from 'three';
 import {onClickSchema, popoutSchema, type sceneContracts} from '../../../catalogs/parts/scene';
 import {
+  BlokItemKeysBridge,
   BlokRuntimeProvider,
   BlokScopeProvider,
   BlokTreeProvider,
   useBlok,
   useBlokRuntimeStoreApi,
   useBlokScope,
+  useBlokItemKeys,
   useBlokTree,
   useEventAction,
   useValue,
@@ -129,21 +131,24 @@ export const PopoutRender: BlokRender<Contracts['Popout']> = ({component, buildC
     // So are the blok's runtime and tree: in a scene shared by several bloks
     // that half is outside each of them.
     const scope = useBlokScope();
+    const itemKeys = useBlokItemKeys();
     const runtime = useBlokRuntimeStoreApi();
     const tree = useBlokTree();
     const content = React.useMemo(
       () => (
         <BlokRuntimeProvider store={runtime}>
           <BlokTreeProvider tree={tree}>
-            <BlokScopeProvider aliases={scope.aliases} values={scope.values} basePath={scope.basePath}>
-              {(component.children ?? []).map(child => (
-                <React.Fragment key={child.id}>{buildChild(child.id)}</React.Fragment>
-              ))}
-            </BlokScopeProvider>
+            <BlokItemKeysBridge keys={itemKeys}>
+              <BlokScopeProvider aliases={scope.aliases} values={scope.values} basePath={scope.basePath} defaults={scope.defaults}>
+                {(component.children ?? []).map(child => (
+                  <React.Fragment key={child.id}>{buildChild(child.id)}</React.Fragment>
+                ))}
+              </BlokScopeProvider>
+            </BlokItemKeysBridge>
           </BlokTreeProvider>
         </BlokRuntimeProvider>
       ),
-      [buildChild, component, runtime, scope, tree],
+      [buildChild, component, itemKeys, runtime, scope, tree],
     );
     useSceneOverlay({
       visible: Boolean(node) && visible,

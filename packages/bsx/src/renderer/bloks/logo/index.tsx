@@ -146,7 +146,7 @@ const SvgNodeError = ({componentId, title, detail}: BlokNodeErrorProps) => (
 );
 
 /** A drawing's root: an `<svg>` whose shapes paint with the pens. */
-const LogoRootRender: BlokRender<Contracts['AgentLogo']> = args => {
+const LogoRootRender: BlokRender<Contracts['Logo']> = args => {
   const blok = useBlok(args.component, args.schema);
   const viewBox = useValue(blok.viewBox);
   const width = useValue(blok.width);
@@ -267,8 +267,7 @@ const ClipPathRender: BlokRender<Contracts['ClipPath']> = args => {
 
 /** The `logo` family: the root, seven shapes, text, and what shapes reference. */
 export const logoRenders = {
-  AgentLogo: LogoRootRender,
-  ActionLogo: LogoRootRender,
+  Logo: LogoRootRender,
   Path: shapeRender('path', shapeGeometry.Path),
   Circle: shapeRender('circle', shapeGeometry.Circle),
   Ellipse: shapeRender('ellipse', shapeGeometry.Ellipse),

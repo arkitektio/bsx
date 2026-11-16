@@ -256,6 +256,9 @@ class Printer {
       if (node.component === FOREACH_COMPONENT && key === FOREACH_LET_PROP && prop.static_value === prop.declares_value) {
         return `${key}=${quoted(prop.declares_value)}`;
       }
+      if (node.component === 'local' && key === 'name' && prop.static_value === prop.declares_value) {
+        return `${key}=${quoted(prop.declares_value)}`;
+      }
       return refuse(`<${node.component}> (${node.id}): ${key} declares '${prop.declares_value}', which BSX cannot spell`);
     }
     if (prop.util_call) {

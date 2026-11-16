@@ -5,7 +5,7 @@ import type {
   BlokComponentProp,
   BlokUtilCall,
 } from '../renderer/runtime/types';
-import {defaultBlokView, type BlokView} from '../spec/catalogs';
+import {blokViewFor, defaultBlokView, type BlokView} from '../spec/catalogs';
 import {isExplicitId, loadVocabulary, type BlokContextName} from '../spec/vocabulary';
 import {
   blokError,
@@ -62,6 +62,9 @@ export const FOREACH_COMPONENT = 'foreach';
 export const FOREACH_LET_PROP = 'let';
 export const FOREACH_ITEMS_PROP = 'items';
 export const FOREACH_KEY_PROP = 'key';
+const LOCAL_COMPONENT = 'local';
+const LOCAL_NAME_PROP = 'name';
+const CATALOG_ATTRIBUTE = 'catalog';
 export const INTO_KEYWORD = 'into';
 export const EVENT_ROOT = 'event';
 export const REFETCH_FUNCTION = 'query.refetch';
@@ -538,6 +541,17 @@ class Lowering {
 
   private prop(component: string, attribute: MarkupAttribute): BlokComponentProp {
     const value = attribute.value;
+    if (component === LOCAL_COMPONENT && attribute.name === LOCAL_NAME_PROP) {
+      // A local declares its name, as a foreach's let does.
+      if (typeof value !== 'string' || !isLocalName(value)) {
+        throw this.fail('local.attribute', attribute.offset, {
+          name: typeof value === 'string' ? value : '{...}',
+          key: LOCAL_NAME_PROP,
+          problem: 'is not a name: write name="x", a plain identifier',
+        });
+      }
+      return {key: attribute.name, static_value: value, declares_value: value};
+    }
     if (value === true) return {key: attribute.name, static_value: true};
     if (typeof value === 'string') {
       if (attribute.name === FOREACH_LET_PROP && component === FOREACH_COMPONENT) {
@@ -775,14 +789,31 @@ class Lowering {
 const utf8Length = (source: string): number => new TextEncoder().encode(source).length;
 
 /** Parse a v2 BSX source into the tree a blok stores, and where each node is. Throws a `BsxSyntaxError`. */
-export const parseBsx = (source: string, view: BlokView = defaultBlokView()): {tree: BlokComponentNode; sources: BsxSourceMap} => {
+/** The view of the catalog a source's `<Blok catalog=...>` names: the app's own when it names none (`blokViewFor`). */
+const rootView = (root: MarkupElement): BlokView => {
+  const catalog = root.attributes.find(attribute => attribute.name === CATALOG_ATTRIBUTE)?.value;
+  return typeof catalog === 'string' ? blokViewFor(catalog) : defaultBlokView();
+};
+
+/** The catalog a BSX source's `<Blok catalog=...>` names, read off its markup alone; null for none. Throws a `BsxSyntaxError`. */
+export const sourceCatalog = (source: string): string | null => {
+  const locator = new Locator(source);
+  const catalog = new Markup(source, locator).document().attributes.find(attribute => attribute.name === CATALOG_ATTRIBUTE)?.value;
+  return typeof catalog === 'string' ? catalog : null;
+};
+
+/**
+ * Parse a v2 BSX source into the tree a blok stores, and where each node is.
+ * Without a view, the one of the catalog its `<Blok catalog>` names. Throws a `BsxSyntaxError`.
+ */
+export const parseBsx = (source: string, view?: BlokView): {tree: BlokComponentNode; sources: BsxSourceMap} => {
   const locator = new Locator(source);
   if (utf8Length(source) > MAX_SOURCE_BYTES) {
     throw blokError(locator, 'bsx.syntax', 0, {detail: `a blok's source is at most ${MAX_SOURCE_BYTES} bytes`});
   }
   const markup = new Markup(source, locator);
   const root = markup.document();
-  const lowering = new Lowering(view, locator, markup);
+  const lowering = new Lowering(view ?? rootView(root), locator, markup);
   const tree = lowering.node(root, `${root.name}[0]`, null);
   return {tree, sources: lowering.sources};
 };

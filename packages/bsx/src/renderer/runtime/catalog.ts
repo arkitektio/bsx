@@ -8,7 +8,7 @@ import type {BlokComponentContract, BlokComponentDefinition, BlokRenderArgs} fro
  * each takes: name, schema, placement. It draws nothing. There are two sorts:
  *
  * - A *family* of the base catalog (`ui`, `html`, `shadcn`, `structure`,
- *   `scene`, `logo`): `partOf` names the catalog it is part of (`base@3`). The
+ *   `scene`, `logo`): `partOf` names the catalog it is part of (`base@4`). The
  *   base catalog is the spec's, and every renderer draws it whole; the families
  *   are how this package holds its contracts, one toolkit at a time.
  * - A UI's *own* catalog (the Orkestrator's MikroScene parts): what it draws
@@ -20,9 +20,9 @@ import type {BlokComponentContract, BlokComponentDefinition, BlokRenderArgs} fro
  */
 
 /** The base catalog, as components of it are tagged (`origin`). */
-export const BASE_CATALOG_REF = 'base@3';
+export const BASE_CATALOG_REF = 'base@4';
 /** The address the base catalog is published at: what a blok is written for when it names none. */
-export const BASE_CATALOG_ADDRESS = 'https://arkitekt.live/catalogs/base/v3';
+export const BASE_CATALOG_ADDRESS = 'https://arkitekt.live/catalogs/base/v4';
 
 export type BlokComponentContracts = Record<string, BlokComponentContract<any>>;
 
@@ -32,7 +32,7 @@ export type BlokCatalogContract<TComponents extends BlokComponentContracts = Blo
   version: number | null;
   description: string;
   components: TComponents;
-  /** For a family: the catalog it is part of (`base@3`). Null on a catalog of its own. */
+  /** For a family: the catalog it is part of (`base@4`). Null on a catalog of its own. */
   partOf: string | null;
   /** For a published catalog: the address it is published at, which is what a blok names it by. */
   id: string | null;

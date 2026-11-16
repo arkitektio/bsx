@@ -9,7 +9,7 @@ import { createBlokCatalog, createBlokComponent } from "./runtime";
 
 const part = (name: string) => createBlokComponent({ name, schema: z.object({}) }, () => null);
 /** A component of the base catalog, as `implementBlokCatalog` tags one of its families'. */
-const base = (name: string) => ({ ...part(name), origin: "base@3" });
+const base = (name: string) => ({ ...part(name), origin: "base@4" });
 
 describe("addBlokComponents", () => {
   it("adds a module's components and takes them back out", () => {

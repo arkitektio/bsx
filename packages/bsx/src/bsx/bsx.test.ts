@@ -81,10 +81,10 @@ describe('positions', () => {
   });
 
   it('keeps where every node and prop is', () => {
-    const {sources} = parseBsx('<Html><Card>\n  <Button label="Go" />\n</Card></Html>');
-    const button = sources.get('Html[0]/Card[0]/Button[0]');
-    expect(button?.tagRange).toEqual({start: 16, end: 22});
-    expect(button?.props.get('label')?.valueRange).toEqual({start: 30, end: 32});
+    const {sources} = parseBsx('<Blok kind="agent" context="panel"><Card>\n  <Button label="Go" />\n</Card></Blok>');
+    const button = sources.get('Blok[0]/Card[0]/Button[0]');
+    expect(button?.tagRange).toEqual({start: 45, end: 51});
+    expect(button?.props.get('label')?.valueRange).toEqual({start: 59, end: 61});
   });
 
   it('refuses a source over 256 KiB of UTF-8', () => {

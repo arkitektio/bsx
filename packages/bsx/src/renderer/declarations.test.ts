@@ -1,72 +1,59 @@
 import {describe, expect, it} from 'vitest';
-import {declaredLocals, demoModel, parseBlokDeclarations} from './declarations';
+import {parseBsx} from '../bsx/parse';
+import {declaredLocals, demoModel, parseBlokDeclarations, resolveTreeLocals, treeQueries, treeSubscriptions} from './declarations';
+
+const tree = (source: string) => [parseBsx(source).tree];
 
 describe('parseBlokDeclarations', () => {
-  it('reads the declarations a service serves as JSON', () => {
+  it('reads the locals a service resolved, each by its <local> node', () => {
     const declarations = parseBlokDeclarations({
       vocab: 2,
-      locals: [
-        {key: 'iterations', kind: 'INT', default: 3, persist: true},
-        {key: 'mode', kind: 'ENUM', choices: [{value: 'fast', label: 'Fast'}], default: 'fast'},
-        {key: 'form', kind: 'DICT', children: [{key: 'name', kind: 'STRING'}]},
-        {key: 'kindless'},
+      resolvedLocals: [
+        {node: 'Blok[0]/local[0]', key: 'iterations', kind: 'INT', default: 3, persist: true},
+        {node: 'Blok[0]/local[1]', key: 'mode', kind: 'ENUM', choices: [{value: 'fast', label: 'Fast'}], default: 'fast'},
+        {node: 'Blok[0]/Card[0]/local[0]', key: 'form', kind: 'DICT', children: [{key: 'name', kind: 'STRING'}]},
+        {key: 'nodeless', kind: 'INT'},
+        {node: 'Blok[0]/local[2]', key: 'kindless'},
       ],
-      demo: {args: {scene: 1}, queries: {stats: {mean: 2}}},
-      queries: [{key: 'stats', service: 'mikro', document: 'query Stats { stats }', variables: {table_id: 1}, poll: 5, more: 'stats.rows'}],
+      demo: {args: {scene: 1}},
     });
     const port = {identifier: null, nullable: false, default: null, children: null, choices: null, label: null, description: null};
-    // A local is a port plus persist; one left without a kind (and no tree to tell) is ANY.
     expect(declaredLocals(declarations)).toEqual([
-      {...port, key: 'iterations', kind: 'INT', default: 3, persist: true},
-      {...port, key: 'mode', kind: 'ENUM', default: 'fast', choices: [{value: 'fast', label: 'Fast', description: null}], persist: false},
-      {...port, key: 'form', kind: 'DICT', children: [{...port, key: 'name', kind: 'STRING'}], persist: false},
-      {...port, key: 'kindless', kind: 'ANY', persist: false},
+      {...port, node: 'Blok[0]/local[0]', key: 'iterations', kind: 'INT', default: 3, persist: true},
+      {...port, node: 'Blok[0]/local[1]', key: 'mode', kind: 'ENUM', default: 'fast', choices: [{value: 'fast', label: 'Fast', description: null}], persist: false},
+      {...port, node: 'Blok[0]/Card[0]/local[0]', key: 'form', kind: 'DICT', children: [{...port, key: 'name', kind: 'STRING'}], persist: false},
     ]);
-    expect(declarations.queries).toEqual([
-      {key: 'stats', service: 'mikro', document: 'query Stats { stats }', variables: {table_id: 1}, poll: 5, more: 'stats.rows', keep: null, history: null},
-    ]);
-    expect(declarations.subscriptions).toEqual([]);
   });
 
-  it('drops malformed entries and non-list values', () => {
-    const declarations = parseBlokDeclarations({locals: [{default: 1}, 'x', null], queries: {key: 'q'}, subscriptions: [{key: 's', service: 'mikro'}]});
-    expect(declarations.resolvedLocals).toEqual([]);
-    expect(declarations.queries).toEqual([]);
-    expect(declarations.subscriptions).toEqual([]);
-  });
-
-  it('resolves locals served as written against the tree, as the server does', () => {
+  it('resolves the tree\'s locals when the service sent none, as the server does', () => {
     const declarations = parseBlokDeclarations({
-      componentTree: [
-        {
-          id: 'Card[0]',
-          component: 'Card',
-          children: [
-            {id: 'Card[0]/Switch[0]', component: 'Switch', props: [{key: 'bind', dynamic_value: {path: 'on'}}]},
-            {id: 'Card[0]/Text[0]', component: 'Text', props: [{key: 'text', dynamic_value: {path: 'note'}}]},
-          ],
-        },
-      ],
-      locals: [{key: 'on'}, {key: 'count', default: 2}, {key: 'note'}, {key: 'given', kind: 'STRING', default: 1}],
+      componentTree: tree(
+        '<Blok kind="custom" context="panel"><local name="on" /><local name="count" default={2} /><Card><local name="note" /><Switch bind={on} /><Text text={note} /></Card></Blok>',
+      ),
     });
-    expect(declarations.resolvedLocals.map(local => [local.key, local.kind])).toEqual([
-      ['on', 'BOOL'],
-      ['count', 'INT'],
-      ['note', 'ANY'],
-      ['given', 'STRING'],
+    expect(declarations.resolvedLocals.map(local => [local.node, local.key, local.kind])).toEqual([
+      ['Blok[0]/local[0]', 'on', 'BOOL'],
+      ['Blok[0]/local[1]', 'count', 'INT'],
+      ['Blok[0]/Card[0]/local[0]', 'note', 'ANY'],
     ]);
+    expect(resolveTreeLocals([])).toEqual([]);
+  });
+});
+
+describe('the reads a tree declares', () => {
+  it('reads its <query> and <subscription> children, with their <var> variables', () => {
+    const roots = tree(
+      '<Blok kind="custom" context="panel"><query name="stats" service="mikro" document="query Stats($t: ID) { stats(t: $t) }" poll={5} more="stats.rows"><var key="t" value={args.table} /></query><subscription name="live" service="mikro" document="subscription { live }" keep={3} /><Text /></Blok>',
+    );
+    expect(treeQueries(roots)).toEqual([
+      {key: 'stats', service: 'mikro', document: 'query Stats($t: ID) { stats(t: $t) }', variables: [{key: 't', value_path: 'args.table'}], poll: 5, more: 'stats.rows'},
+    ]);
+    expect(treeSubscriptions(roots)).toEqual([{key: 'live', service: 'mikro', document: 'subscription { live }', variables: [], keep: 3, history: null}]);
   });
 
-  it('gives a preview its locals at their defaults and its reads answered by the demo', () => {
-    const model = demoModel(
-      [],
-      parseBlokDeclarations({
-        locals: [{key: 'iterations', kind: 'INT', default: 3}],
-        demo: {queries: {stats: {mean: 2}}},
-        queries: [{key: 'stats', service: 'mikro', document: 'query Stats { stats }'}],
-      }),
-    );
-    expect(model.iterations).toBe(3);
+  it('gives a preview its reads answered by the demo', () => {
+    const roots = tree('<Blok kind="custom" context="panel"><query name="stats" service="mikro" document="query Stats { stats }" /><Text /></Blok>');
+    const model = demoModel(roots, {demo: {queries: {stats: {mean: 2}}}});
     expect(model.queries).toEqual({stats: {status: 'ready', value: {mean: 2}, error: null, refetching: false, fetching_more: false}});
   });
 });

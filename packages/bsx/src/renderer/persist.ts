@@ -3,13 +3,16 @@ import type {KeyedStore, KeyedStoreOptions} from '../cache/keyedStore';
 import {blokPlatform} from '../platform';
 import {valueFitsPort} from '../spec/locals';
 import {isExplicitId} from '../spec/vocabulary';
-import type {BlokRuntimeStore} from './runtime';
+import {nodeOfRuntimeId} from '../bsx/declared';
+import {LOCALS_ROOT, localNodeOfPath, runtimeIdOfPath, type BlokRuntimeStore} from './runtime';
 
 /**
  * What a blok keeps between openings, on this device only (blok language v2):
  *
- * - **form inputs**: a local declared `Local(default, persist=True)` (a port
- *   plus `persist`) remembers the viewer's last input;
+ * - **form inputs**: a local declared `<local name="x" default={...} persist />`
+ *   remembers the viewer's last input, by its runtime id: the `<local>`'s node
+ *   id, plus `@<item key>` per enclosing foreach (one value per item). An
+ *   explicit `id=` on the `<local>` keeps it across edits of the tree;
  * - **component state**: a component that offers it as its own BOOL prop
  *   (`<Scene id="main" persist>`, `<Transform id="arm-pose" persist>`) keeps
  *   its interaction state (the camera, the pose) by its id. The language
@@ -17,10 +20,10 @@ import type {BlokRuntimeStore} from './runtime';
  *
  * Nothing reaches a server, so keeping cannot become a channel between
  * clients. Values live in IndexedDB keyed by (hub, user, materialized blok)
- * for the locals and (hub, user, materialized blok, component id) for each
- * component, and are written a moment after the last change. A local the
- * blok no longer persists, or a value that no longer fits its port, is
- * dropped when the blok opens.
+ * for the locals (one record, values by runtime id) and (hub, user,
+ * materialized blok, component id) for each component, and are written a
+ * moment after the last change. A local the blok no longer persists, or a
+ * value that no longer fits its port, is dropped when the blok opens.
  */
 
 /** A choice a local's port offers (`ChoiceInput`). */
@@ -44,10 +47,14 @@ export type BlokLocalPort = {
   description?: string | null;
 };
 
-/** A local (vocabulary `locals`): an arg port plus `persist`, remembering the last input on this device. */
-export type BlokLocal = BlokLocalPort & {persist?: boolean | null};
+/**
+ * A `<local>` (vocabulary `locals`): an arg port plus `persist`, remembering
+ * the last input on this device, and `node`, the id of the `<local>` node
+ * that declares it.
+ */
+export type BlokLocal = BlokLocalPort & {node: string; persist?: boolean | null};
 
-/** What is kept for one materialization's locals: values by local key. */
+/** What is kept for one materialization's locals: values by the local's runtime id (`runtimeIdOf`). */
 export type KeptLocals = Record<string, unknown>;
 
 /** Whose a kept record is: the hub and user it was set under, and the materialization. */
@@ -68,10 +75,11 @@ const lazyKeyedStore = <T,>(options: KeyedStoreOptions<T>): KeyedStore<T> => {
 const isKeptLocals = (value: unknown): value is KeptLocals =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+/** Version 2: kept values by runtime id (version 1 kept them by top-level key, and is dropped). */
 export const keptLocalsStore: KeyedStore<KeptLocals> = lazyKeyedStore<KeptLocals>({
   db: 'orkestrator-blok-locals',
   store: 'locals',
-  version: 1,
+  version: 2,
   isValue: isKeptLocals,
   label: 'kept blok local',
 });
@@ -107,11 +115,14 @@ export const fitsLocal = (kept: unknown, local: BlokLocal): boolean => {
   return valueFitsPort(kept, local);
 };
 
+/** What of `record` still stands: the values of persisted locals (by their node) that still fit their port. */
 export const keptValuesOf = (record: KeptLocals | null, locals: readonly BlokLocal[]): {values: KeptLocals; dropped: boolean} => {
   const values: KeptLocals = {};
   if (!record) return {values, dropped: false};
-  for (const local of locals) {
-    if (local.persist && local.key in record && fitsLocal(record[local.key], local)) values[local.key] = record[local.key];
+  const persisted = new Map(locals.filter(local => local.persist).map(local => [local.node, local] as const));
+  for (const [runtimeId, value] of Object.entries(record)) {
+    const local = persisted.get(nodeOfRuntimeId(runtimeId));
+    if (local && fitsLocal(value, local)) values[runtimeId] = value;
   }
   return {values, dropped: Object.keys(values).length !== Object.keys(record).length};
 };
@@ -123,9 +134,9 @@ const same = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === 
  * seed the renderer with, and what writes changes back.
  */
 export type BlokPersistence = {
-  /** The locals kept on this device (those declared with `persist`). */
-  keys: ReadonlySet<string>;
-  /** The kept locals to seed the runtime with, before the first render. */
+  /** The `<local>` node ids kept on this device (those declared with `persist`): `BlokRenderer`'s `keptLocals`. */
+  locals: ReadonlySet<string>;
+  /** The kept values to seed the runtime with, before the first render, by runtime id: `BlokRenderer`'s `keptValues`. */
   initial: KeptLocals;
   /** Follows `store`: a change of a kept local is written after `delay`. Returns the detach, which flushes. */
   attach: (store: BlokRuntimeStore) => () => void;
@@ -173,9 +184,21 @@ export const componentStateStore = (
   };
 };
 
+/** The values of the kept locals in `dataModel`, by runtime id: every item's, in a foreach. */
+const keptIn = (dataModel: unknown, locals: ReadonlySet<string>): Map<string, unknown> => {
+  const found = new Map<string, unknown>();
+  const values = (dataModel as Record<string, unknown> | null)?.[LOCALS_ROOT];
+  if (typeof values !== 'object' || values === null) return found;
+  for (const [segment, value] of Object.entries(values as Record<string, unknown>)) {
+    const runtimeId = runtimeIdOfPath(`${LOCALS_ROOT}/${segment}`);
+    if (runtimeId !== null && locals.has(nodeOfRuntimeId(runtimeId))) found.set(runtimeId, value);
+  }
+  return found;
+};
+
 export const openBlokPersistence = async (options: {
   scope: BlokPersistScope;
-  /** The blok's declared locals; those with `persist` are kept. */
+  /** The blok's resolved locals (by node); those with `persist` are kept. */
   locals: readonly BlokLocal[];
   store?: KeyedStore<KeptLocals>;
   componentStore?: KeyedStore<KeptComponentState>;
@@ -186,9 +209,9 @@ export const openBlokPersistence = async (options: {
   const delay = options.delay ?? 400;
   const id = keptLocalsId(options.scope);
   const persisted = options.locals.filter(local => local.persist);
-  const keys = new Set(persisted.map(local => local.key));
-  const defaults = new Map(options.locals.map(local => [local.key, local.default ?? null] as const));
-  const record = keys.size > 0 ? await store.load(id, LOCALS_RECORD) : null;
+  const locals = new Set(persisted.map(local => local.node));
+  const defaults = new Map(options.locals.map(local => [local.node, local.default ?? null] as const));
+  const record = locals.size > 0 ? await store.load(id, LOCALS_RECORD) : null;
   const {values: initial, dropped} = keptValuesOf(record, persisted);
   if (dropped) {
     await (Object.keys(initial).length > 0 ? store.save(id, LOCALS_RECORD, initial) : store.forget(id));
@@ -210,27 +233,27 @@ export const openBlokPersistence = async (options: {
   };
 
   return {
-    keys,
+    locals,
     initial,
     attach: target => {
       runtime = target;
-      const valueOf = (key: string) => (target.getState().dataModel as Record<string, unknown> | null)?.[key];
-      const seen = new Map([...keys].map(key => [key, valueOf(key)] as const));
+      let seen = keptIn(target.getState().dataModel, locals);
       const unsubscribe = target.subscribe(state => {
+        const now = keptIn(state.dataModel, locals);
         let changed = false;
-        for (const key of keys) {
-          const value = (state.dataModel as Record<string, unknown> | null)?.[key];
-          if (same(value, seen.get(key))) continue;
-          seen.set(key, value);
-          // Back at the default is nothing to keep.
-          if (same(value, defaults.get(key))) {
-            if (!(key in kept)) continue;
-            delete kept[key];
+        for (const runtimeId of new Set([...seen.keys(), ...now.keys()])) {
+          const value = now.get(runtimeId);
+          if (same(value, seen.get(runtimeId))) continue;
+          // Back at the default (or cleared) is nothing to keep.
+          if (value === undefined || same(value, defaults.get(nodeOfRuntimeId(runtimeId)))) {
+            if (!(runtimeId in kept)) continue;
+            delete kept[runtimeId];
           } else {
-            kept[key] = value;
+            kept[runtimeId] = value;
           }
           changed = true;
         }
+        seen = now;
         if (changed) schedule();
       });
       return () => {
@@ -244,8 +267,8 @@ export const openBlokPersistence = async (options: {
       const state = runtime?.getState();
       if (state) {
         for (const path of Object.keys(state.runtimePathValues)) {
-          const [root] = path.split(/[/.]/);
-          if (keys.has(root)) state.clearRuntimeValue(path);
+          const node = localNodeOfPath(path);
+          if (node !== null && locals.has(node)) state.clearRuntimeValue(path);
         }
       }
       await write();

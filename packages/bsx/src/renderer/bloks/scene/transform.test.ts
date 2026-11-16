@@ -1,18 +1,17 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { analyzeBsx } from "../../../bsx/analyze";
-import { emptyBlokScope } from "../../../bsx/references";
+import { mountedBlokScope } from "../../../bsx/references";
 
-const analyze = (source: string) =>
-  analyzeBsx(source, {
-    scope: { ...emptyBlokScope("agent", "SCENE"), locals: [{ key: "pose", default: null, persist: true }] },
-  });
+/** A scene blok that declares the local `pose`, around `body` (a `<Scene>`). */
+const analyze = (body: string) =>
+  analyzeBsx(`<Blok kind="agent" context="scene"><local name="pose" persist />${body}</Blok>`, { scope: mountedBlokScope() });
 
 describe("Transform", () => {
   it("places what it holds in a scene, bound to a local the gizmo writes", () => {
     const { tree, markers } = analyze('<Scene><Transform bind={pose} mode="rotate"><Transform /></Transform></Scene>');
     expect(markers).toEqual([]);
-    expect(tree?.children?.[0]?.component).toBe("Transform");
+    expect(tree?.children?.[1]?.children?.[0]?.component).toBe("Transform");
   });
 
   it("keeps its own pose by id when it persists", () => {
@@ -21,6 +20,8 @@ describe("Transform", () => {
   });
 
   it("stands only in a scene", () => {
-    expect(analyzeBsx('<Html><Transform bind={pose} /></Html>', { scope: { ...emptyBlokScope("agent", "HTML"), locals: [{ key: "pose" }] } }).markers.length).toBeGreaterThan(0);
+    expect(
+      analyzeBsx('<Blok kind="agent" context="panel"><local name="pose" /><Transform bind={pose} /></Blok>', { scope: mountedBlokScope() }).markers.length,
+    ).toBeGreaterThan(0);
   });
 });

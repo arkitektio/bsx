@@ -31,6 +31,12 @@ const mount = (canSave: boolean, room = 'room:lab') =>
     </BlokSpaceHostProvider>,
   );
 
+
+/** The props of an action's panel `<Blok>`. */
+const PANEL = [
+  {key: 'kind', static_value: 'action'},
+  {key: 'context', static_value: 'panel'},
+];
 describe('a space shown on its own', () => {
   it('opens a scene of its own, with Arrange where the host keeps poses', () => {
     mount(true);
@@ -52,7 +58,7 @@ describe('a space shown on its own', () => {
 
 describe('the argument form an assign blok places', () => {
   it('draws what the host gives for <args />, and nothing without a host', () => {
-    const tree = [{id: 'root', component: 'Html', children: [{id: 'form', component: 'args'}]}];
+    const tree = [{id: 'root', component: 'Blok', props: PANEL, children: [{id: 'form', component: 'args'}]}];
     const run: BlokRunHost = {agentsFor: () => [], renderAsk: () => null, renderArgs: () => <div data-testid="args-form" />};
     const hosted = render(
       <BlokRunHostProvider value={run}>
@@ -68,7 +74,7 @@ describe('the argument form an assign blok places', () => {
 
 describe('the time slider a task blok places', () => {
   it('draws what the host gives for <timeline />, and nothing without a host', () => {
-    const tree = [{id: 'root', component: 'Html', children: [{id: 'slider', component: 'timeline'}]}];
+    const tree = [{id: 'root', component: 'Blok', props: PANEL, children: [{id: 'slider', component: 'timeline'}]}];
     const run: BlokRunHost = {agentsFor: () => [], renderAsk: () => null, renderTimeline: () => <div data-testid="timeline" />};
     const hosted = render(
       <BlokRunHostProvider value={run}>
@@ -87,7 +93,8 @@ describe('what an assign blok places one by one', () => {
     const tree = [
       {
         id: 'root',
-        component: 'Html',
+        component: 'Blok',
+        props: PANEL,
         children: [
           {id: 'one', component: 'arg', props: [{key: 'key', static_value: 'exposure'}]},
           {id: 'rest', component: 'args', props: [{key: 'omit', static_value: 'gain offset'}, {key: 'given', static_value: 'show'}]},
@@ -122,7 +129,8 @@ describe('what a task blok places of its run', () => {
     const tree = [
       {
         id: 'root',
-        component: 'Html',
+        component: 'Blok',
+        props: PANEL,
         children: [
           {id: 'status', component: 'status'},
           {id: 'result', component: 'returns', props: [{key: 'only', static_value: ['image']}]},

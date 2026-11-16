@@ -7,8 +7,6 @@ export const logoCatalog = defineBlokCatalog({
   partOf: BASE_CATALOG_REF,
   description: "SVG drawing for logos and action logos; the palette is restricted to the logo pens.",
   components: {
-    ActionLogo: parts.ActionLogo,
-    AgentLogo: parts.AgentLogo,
     Circle: parts.Circle,
     ClipPath: parts.ClipPath,
     Defs: parts.Defs,
@@ -16,6 +14,7 @@ export const logoCatalog = defineBlokCatalog({
     G: parts.G,
     Line: parts.Line,
     LinearGradient: parts.LinearGradient,
+    Logo: parts.Logo,
     Path: parts.Path,
     Polygon: parts.Polygon,
     Polyline: parts.Polyline,

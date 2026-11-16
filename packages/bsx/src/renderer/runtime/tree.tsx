@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {BlokComponentRenderer, BlokNodeError} from './components';
 import type {BlokCatalog} from './functions';
+import {BlokLocalsScope, localChildren} from './locals';
 import {BlokScopeProvider} from './scope';
 import type {BlokComponentNode} from './types';
 
@@ -64,13 +65,24 @@ const BlokNodeInner = ({id, basePath}: BlokNodeProps) => {
 
   const nextTrail = React.useMemo(() => [...trail, id], [trail, id]);
 
+  // The node's `<local>` children are in scope in all of its children: each
+  // child is built inside them, so a child a foreach builds per item (inside
+  // the item's scope) gets the item's own values.
+  const node = tree.nodes.get(id)?.node;
+  const locals = React.useMemo(() => (node ? localChildren(node) : []), [node]);
+
   // `buildChild` never closes over the trail or the tree — a child reads both
   // from context — so its identity is stable for the life of the node.
   const buildChild = React.useCallback(
-    (childId: string, childBasePath?: string) => (
-      <BlokNode id={childId} basePath={childBasePath} />
-    ),
-    [],
+    (childId: string, childBasePath?: string) =>
+      locals.length ? (
+        <BlokLocalsScope locals={locals}>
+          <BlokNode id={childId} basePath={childBasePath} />
+        </BlokLocalsScope>
+      ) : (
+        <BlokNode id={childId} basePath={childBasePath} />
+      ),
+    [locals],
   );
 
   if (trail.includes(id)) {

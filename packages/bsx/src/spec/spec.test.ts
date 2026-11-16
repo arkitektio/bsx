@@ -15,7 +15,7 @@ import {
   registerBlokCatalog,
   setAppBlokCatalog,
 } from './catalogs';
-import {argFits, bindFits, bindKindsOf, diagnosticMessage, isExplicitId, loadVocabulary} from './vocabulary';
+import {argFits, bindFits, bindKindsOf, diagnosticMessage, isExplicitId, kindIn, loadVocabulary} from './vocabulary';
 
 describe('the synced vocabulary', () => {
   it('is version 2, with the one reserved list', () => {
@@ -26,7 +26,10 @@ describe('the synced vocabulary', () => {
     expect(vocabulary.functions.get('str.template')?.keys).toEqual(['template', 'values']);
     expect(vocabulary.functions.get('logic.choose')?.requiredKeys).toEqual(['cond', 'then']);
     expect(vocabulary.functions.get('ui.copy')?.effect).toBe(true);
-    expect(vocabulary.kinds.action_logo.roots).toEqual(['task']);
+    // An action's logo reads only the task it is drawn against, and declares nothing.
+    expect(kindIn(vocabulary.kinds.action, 'LOGO')).toMatchObject({roots: ['task'], locals: false});
+    expect(kindIn(vocabulary.kinds.action, 'PANEL')).toBe(vocabulary.kinds.action);
+    expect(vocabulary.blok).toMatchObject({component: 'Blok', contexts: {panel: 'PANEL', scene: 'SCENE', logo: 'LOGO'}, content: {SCENE: ['Scene', 'Space'], LOGO: ['Logo']}});
   });
 
   it('has then, never now, and the query effects (revision 2)', () => {
@@ -37,7 +40,7 @@ describe('the synced vocabulary', () => {
     expect(vocabulary.reserved.has('query')).toBe(true);
     expect(vocabulary.reserved.has('now')).toBe(false);
     expect(vocabulary.kinds.agent.roots).toContain('then');
-    expect(vocabulary.kinds.action_logo.roots).not.toContain('then');
+    expect(kindIn(vocabulary.kinds.action, 'LOGO').roots).not.toContain('then');
     expect(vocabulary.functions.get('query.refetch')).toMatchObject({effect: true, keys: ['query']});
     expect(vocabulary.functions.get('query.fetch_more')).toMatchObject({effect: true, keys: ['query', 'variables'], requiredKeys: ['query']});
     expect(vocabulary.functions.get('time.diff')?.keys).toEqual(['start', 'end']);
@@ -46,9 +49,9 @@ describe('the synced vocabulary', () => {
     expect(vocabulary.callKinds).not.toContain('query_refetch');
     expect(vocabulary.records.query.fields.map(field => field.key)).toContain('fetching_more');
     expect(Object.keys(vocabulary.theme.dataAttributes).sort()).toEqual(['busy', 'stale']);
-    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 1]);
-    expect(vocabulary.baseCatalog).toBe('https://arkitekt.live/catalogs/base/v3');
-    expect(Object.values(vocabulary.bundledCatalogs)).toEqual(['catalogs/base@3.json', 'catalogs/orkestrator@1.json']);
+    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 2]);
+    expect(vocabulary.baseCatalog).toBe('https://arkitekt.live/catalogs/base/v4');
+    expect(Object.values(vocabulary.bundledCatalogs)).toEqual(['catalogs/base@4.json', 'catalogs/orkestrator@1.json']);
     expect(vocabulary.hostParts).toEqual(['args', 'arg', 'deps', 'dep', 'ask', 'returns', 'status', 'timeline']);
     expect(vocabulary.unportableVariants.has('before')).toBe(true);
     expect(vocabulary.unportableVariants.has('hover')).toBe(false);
@@ -89,7 +92,7 @@ describe('the catalogs', () => {
 
   it('ship as the vocabulary names them, the base catalog first', () => {
     const base = baseCatalog();
-    expect([base.id, base.name, base.version, base.extends]).toEqual(['https://arkitekt.live/catalogs/base/v3', 'base', 3, null]);
+    expect([base.id, base.name, base.version, base.extends]).toEqual(['https://arkitekt.live/catalogs/base/v4', 'base', 4, null]);
     const orkestrator = orkestratorCatalog();
     expect([orkestrator.id, orkestrator.extends]).toEqual([ORKESTRATOR_CATALOG_ID, base.id]);
     expect(catalogChain(ORKESTRATOR_CATALOG_ID).map(catalog => catalog.name)).toEqual(['base', 'orkestrator']);
@@ -97,11 +100,11 @@ describe('the catalogs', () => {
 
   it('give a view of one catalog, which knows what is another\'s', () => {
     const base = baseBlokView();
-    expect(base.label).toBe('base@3');
+    expect(base.label).toBe('base@4');
     expect(base.components.has('MikroScene')).toBe(false);
     expect(base.foreign.get('MikroScene')).toBe(ORKESTRATOR_CATALOG_ID);
     const orkestrator = blokView(ORKESTRATOR_CATALOG_ID);
-    expect(orkestrator.label).toBe('base@3 + orkestrator@1');
+    expect(orkestrator.label).toBe('base@4 + orkestrator@1');
     expect(orkestrator.components.get('MikroScene')?.service).toBe('mikro');
     expect(orkestrator.components.has('Button')).toBe(true);
     expect(orkestrator.components.get('args')?.kinds).toEqual(['assign']);
@@ -117,17 +120,17 @@ describe('the catalogs', () => {
     const view = blokViewFor(lab.id);
     expect(view.complete).toBe(true);
     expect(['Spectrum', 'MikroScene', 'Button'].every(name => view.components.has(name))).toBe(true);
-    expect(minorNeeded({component: 'Html', children: [{component: 'Spectrum', props: [{key: 'bands'}]}]}, view)).toBe(2);
-    expect(minorNeeded({component: 'Html', children: [{component: 'Spectrum'}]}, view)).toBe(0);
-    expect(blokViewFor(null).label).toBe('base@3');
+    expect(minorNeeded({component: 'Blok', children: [{component: 'Spectrum', props: [{key: 'bands'}]}]}, view)).toBe(2);
+    expect(minorNeeded({component: 'Blok', children: [{component: 'Spectrum'}]}, view)).toBe(0);
+    expect(blokViewFor(null).label).toBe('base@4');
   });
 
   it('are the app\'s own view once it says what it draws', () => {
-    expect(defaultBlokView().label).toBe('base@3');
+    expect(defaultBlokView().label).toBe('base@4');
     setAppBlokCatalog(ORKESTRATOR_CATALOG_ID);
     expect(defaultBlokView().components.has('MikroScene')).toBe(true);
     setAppBlokCatalog(parseSpecCatalog({name: 'mine', components: [{name: 'Gauge', props: []}]}, 'mine'));
-    expect(defaultBlokView().label).toBe('base@3 + mine');
+    expect(defaultBlokView().label).toBe('base@4 + mine');
   });
 
   it('take the app\'s own catalog over the snapshot that ships under its id, and never replace the base', () => {
@@ -139,13 +142,13 @@ describe('the catalogs', () => {
     expect(defaultBlokView().components.has('Fresh')).toBe(true);
     expect(blokViewFor(ORKESTRATOR_CATALOG_ID).components.has('Fresh')).toBe(true);
     expect(baseBlokView().foreign.get('Fresh')).toBe(ORKESTRATOR_CATALOG_ID);
-    registerBlokCatalog(parseSpecCatalog({id: baseCatalog().id, name: 'base', version: 3, components: []}, 'base'));
+    registerBlokCatalog(parseSpecCatalog({id: baseCatalog().id, name: 'base', version: 4, components: []}, 'base'));
     expect(baseBlokView().components.has('Button')).toBe(true);
   });
 
   it('refuse a catalog that redefines what it extends, or names no catalog address', () => {
     const redefining = parseSpecCatalog({id: 'https://acme.example/catalogs/x/v1', name: 'x', version: 1, components: [{name: 'Button', props: []}]}, 'x');
-    expect(() => registerBlokCatalog(redefining)).toThrow(/redefines <Button> of base@3/);
+    expect(() => registerBlokCatalog(redefining)).toThrow(/redefines <Button> of base@4/);
     expect(() => parseSpecCatalog({id: 'http://acme.example/catalogs/x/v1', name: 'x', components: []}, 'x')).toThrow(/not the address of a catalog/);
     expect(isCatalogTarget('ui@1')).toBe(false);
     expect(isCatalogTarget(ORKESTRATOR_CATALOG_ID) && isCatalogTarget('mine')).toBe(true);

@@ -8,10 +8,11 @@ import vocabularyJson from './vocabulary.json';
  * diagnostics is read from this one file, never restated.
  */
 
-export type BlokKind = 'agent' | 'custom' | 'task' | 'action' | 'assign' | 'action_logo';
-export const BLOK_KINDS: readonly BlokKind[] = ['agent', 'custom', 'task', 'action', 'assign', 'action_logo'];
+export type BlokKind = 'agent' | 'custom' | 'task' | 'action' | 'assign';
+export const BLOK_KINDS: readonly BlokKind[] = ['agent', 'custom', 'task', 'action', 'assign'];
 
-export type BlokContextName = 'HTML' | 'SCENE' | 'LOGO';
+export type BlokContextName = 'PANEL' | 'SCENE' | 'LOGO';
+export const BLOK_CONTEXTS: readonly BlokContextName[] = ['PANEL', 'SCENE', 'LOGO'];
 
 export type VocabParam = {key: string; kind: string; required: boolean};
 
@@ -57,6 +58,27 @@ export type VocabKind = {
   roots: readonly string[];
   locals: boolean;
   contexts: readonly BlokContextName[];
+  /** Per context, the narrower row the kind reads there (an action's logo reads only `task`, and has no locals). */
+  within: Readonly<Partial<Record<BlokContextName, VocabKind>>>;
+};
+
+/** The row of `kind` in `context`: its own, or the narrower one it has there (vocabulary `kinds.<kind>.in`). */
+export const kindIn = (kind: VocabKind, context: string): VocabKind => kind.within[context as BlokContextName] ?? kind;
+
+/** The one element every blok is (vocabulary `blok`): `<Blok kind context catalog chrome>`. */
+export type VocabBlokElement = {
+  /** `Blok`. */
+  component: string;
+  /** What each attribute of the element says. */
+  attributes: Readonly<Record<string, string>>;
+  /** The `context` attribute's spelling → the context (`panel` → `PANEL`). */
+  contexts: Readonly<Record<string, BlokContextName>>;
+  /** Per context, the components its one element may be; a context not listed (PANEL) holds anything. */
+  content: Readonly<Partial<Record<BlokContextName, readonly string[]>>>;
+  /** The contexts `chrome` is said in. */
+  chrome: readonly BlokContextName[];
+  /** The components that declare what a blok owns and draw nothing (`local`, `query`, `subscription`, `var`), with what each says. */
+  declarations: Readonly<Record<string, string>>;
 };
 
 export type VocabContext = {text: boolean; description: string};
@@ -164,8 +186,8 @@ export type BlokVocabulary = {
   };
   kinds: Readonly<Record<BlokKind, VocabKind>>;
   contexts: Readonly<Record<BlokContextName, VocabContext>>;
-  /** A blok's root component → the blok context it names (`Html` → `HTML`). */
-  blokRoots: Readonly<Record<string, string>>;
+  /** The one element every blok is: `<Blok kind context catalog chrome>`. */
+  blok: VocabBlokElement;
   records: Readonly<Record<string, VocabRecord>>;
   statuses: Readonly<Record<string, string>>;
   alwaysReady: readonly string[];
@@ -241,8 +263,9 @@ const stringMap = (value: unknown, where: string): Record<string, string> =>
       .map(([key, item]) => [key, string(item, `${where}.${key}`)]),
   );
 
-const isContext = (value: string): value is BlokContextName =>
-  value === 'HTML' || value === 'SCENE' || value === 'LOGO';
+export const isBlokContext = (value: string): value is BlokContextName =>
+  value === 'PANEL' || value === 'SCENE' || value === 'LOGO';
+const isContext = isBlokContext;
 
 const recordFields = (value: unknown, where: string): VocabRecordField[] =>
   list(value, where).map((raw, index) => {
@@ -291,13 +314,31 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
   const kinds = {} as Record<BlokKind, VocabKind>;
   for (const kind of BLOK_KINDS) {
     const entry = object(kindsRaw[kind], `kinds.${kind}`);
+    const roots = strings(entry.roots, `kinds.${kind}.roots`);
+    const within: Partial<Record<BlokContextName, VocabKind>> = {};
+    for (const [context, value] of Object.entries(entry.in === undefined ? {} : object(entry.in, `kinds.${kind}.in`))) {
+      if (!isContext(context)) throw new Error(`vocabulary.json: kinds.${kind}.in names an unknown context ${context}`);
+      const narrower = object(value, `kinds.${kind}.in.${context}`);
+      const narrowerRoots = strings(narrower.roots, `kinds.${kind}.in.${context}.roots`);
+      if (narrowerRoots.some(root => !roots.includes(root))) throw new Error(`vocabulary.json: kind ${kind} reads more in ${context} than it reads`);
+      within[context] = {
+        description: '',
+        roots: narrowerRoots,
+        locals: narrower.locals === true,
+        contexts: [context],
+        within: {},
+      };
+    }
     kinds[kind] = {
       description: typeof entry.description === 'string' ? entry.description : '',
-      roots: strings(entry.roots, `kinds.${kind}.roots`),
+      roots,
       locals: entry.locals === true,
       contexts: strings(entry.contexts, `kinds.${kind}.contexts`).filter(isContext),
+      within,
     };
   }
+  const unknownKinds = Object.keys(kindsRaw).filter(kind => kind !== 'description' && !(BLOK_KINDS as readonly string[]).includes(kind));
+  if (unknownKinds.length) throw new Error(`vocabulary.json: kinds this package does not know: ${unknownKinds.join(', ')}`);
 
   const contextsRaw = object(root.contexts, 'contexts');
   const contexts = {} as Record<BlokContextName, VocabContext>;
@@ -310,7 +351,25 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
     };
   }
 
-  const blokRoots = stringMap(object(root.blok_roots, 'blok_roots').roots, 'blok_roots.roots');
+  const blokRaw = object(root.blok, 'blok');
+  const blokContexts: Record<string, BlokContextName> = {};
+  for (const [spelled, context] of Object.entries(stringMap(blokRaw.contexts, 'blok.contexts'))) {
+    if (!isContext(context)) throw new Error(`vocabulary.json: blok.contexts.${spelled} is no context`);
+    blokContexts[spelled] = context;
+  }
+  const blokContent: Partial<Record<BlokContextName, readonly string[]>> = {};
+  for (const [context, components] of Object.entries(kindTable(blokRaw.content, 'blok.content'))) {
+    if (!isContext(context)) throw new Error(`vocabulary.json: blok.content names an unknown context ${context}`);
+    blokContent[context] = components;
+  }
+  const blok: VocabBlokElement = {
+    component: string(blokRaw.component, 'blok.component'),
+    attributes: stringMap(blokRaw.attributes, 'blok.attributes'),
+    contexts: blokContexts,
+    content: blokContent,
+    chrome: strings(blokRaw.chrome, 'blok.chrome').filter(isContext),
+    declarations: stringMap(blokRaw.declarations, 'blok.declarations'),
+  };
 
   const recordsRaw = object(root.records, 'records');
   const records: Record<string, VocabRecord> = {};
@@ -378,7 +437,7 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
     },
     kinds,
     contexts,
-    blokRoots,
+    blok,
     records,
     statuses: stringMap(asyncRaw.statuses, 'async.statuses'),
     alwaysReady: strings(asyncRaw.always_ready, 'async.always_ready'),

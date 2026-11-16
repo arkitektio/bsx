@@ -15,8 +15,8 @@ export type BlokRenderArgs<TSchema extends BlokObjectSchema = BlokObjectSchema> 
   schema: TSchema;
 };
 
-/** The renderer a component lives in. A blok's tree starts in `html`. */
-export type BlokComponentContext = 'html' | 'scene' | 'logo';
+/** The renderer a component lives in. A blok's tree starts in `panel`. */
+export type BlokComponentContext = 'panel' | 'scene' | 'logo';
 
 /**
  * Where a component may sit in a tree. Published with the catalog, so the
@@ -88,7 +88,7 @@ export type BlokComponentDefinition = BlokComponentApi & {
   name: string;
   schema: BlokObjectSchema;
   render: React.ComponentType<BlokRenderArgs>;
-  /** The catalog it is of (`base@3` for a component of one of its families, `newswitch`); unset for one built on its own. */
+  /** The catalog it is of (`base@4` for a component of one of its families, `newswitch`); unset for one built on its own. */
   origin?: string;
 };
 
@@ -197,8 +197,8 @@ export class BlokNodeBoundary extends React.Component<
 /* Statuses, guards and boundaries                                            */
 /* -------------------------------------------------------------------------- */
 
-/** The renderer a node draws in: what decides how a pending node shows (a skeleton only in html). */
-export const BlokDrawContext = React.createContext<BlokComponentContext>('html');
+/** The renderer a node draws in: what decides how a pending node shows (a skeleton only in a panel). */
+export const BlokDrawContext = React.createContext<BlokComponentContext>('panel');
 
 export const useBlokDrawContext = (): BlokComponentContext => React.useContext(BlokDrawContext);
 
@@ -288,7 +288,7 @@ const NodeGuard = (props: {
   if (status.status === 'pending' || status.status === 'failed') {
     // Inside a boundary its fallback or error shows; on its own a node shows
     // its own skeleton or inline error, so a blok never blanks entirely.
-    if (caught || definition.placement?.inheritsContext || drawContext !== 'html') return null;
+    if (caught || definition.placement?.inheritsContext || drawContext !== 'panel') return null;
     if (status.status === 'failed') {
       return <BlokNodeError componentId={component.id} title="Could not load" detail={status.error ?? undefined} />;
     }
@@ -309,7 +309,7 @@ const BlokComponentRendererInner = (props: {
   const locked = useNodeLocked(props.props);
   const parentContext = React.useContext(BlokDrawContext);
   const placement = props.definition.placement ?? {};
-  const own = placement.inheritsContext ? parentContext : (placement.context ?? 'html');
+  const own = placement.inheritsContext ? parentContext : (placement.context ?? 'panel');
   const forChildren = placement.inheritsContext ? parentContext : (placement.childrenContext ?? own);
 
   const rendered = (
@@ -335,7 +335,7 @@ const BlokComponentRendererInner = (props: {
   // A node whose action a held lock keeps from running is marked for the `locked:`
   // variant. The marker takes no box (`display: contents`), so the layout stays; a
   // scene or a logo cannot hold an element, and is not marked.
-  if (!locked || own !== 'html') return rendered;
+  if (!locked || own !== 'panel') return rendered;
   const Locked = blokPlatform().primitives.Locked ?? DomLocked;
   return <Locked reason={locked}>{rendered}</Locked>;
 };

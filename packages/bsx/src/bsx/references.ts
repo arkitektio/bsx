@@ -5,24 +5,47 @@ import type {
   BlokComponentProp,
   BlokUtilCall,
 } from '../renderer/runtime/types';
-import {defaultBlokView, type BlokView, type SpecComponent} from '../spec/catalogs';
+import {blokViewFor, defaultBlokView, type BlokView, type SpecComponent} from '../spec/catalogs';
 import {TEXT_NODE} from './parse';
 import {valueFitsPort} from '../spec/locals';
-import {LOCAL_ANY, resolveBlokScope} from './infer';
+import {LOCAL_ANY, localDeclared, resolveLocals, type ResolvedLocal} from './infer';
+import {
+  blokCatalog,
+  blokHeader,
+  content,
+  declarationProblem,
+  declaredQueries,
+  declaredSubscriptions,
+  headerProblem,
+  isDeclaration,
+  iterWithParents,
+  LIKE_PROP,
+  LOCAL_COMPONENT,
+  localName,
+  localProblem,
+  QUERY_COMPONENT,
+  SUBSCRIPTION_COMPONENT,
+  VAR_COMPONENT,
+  type BlokHeader,
+  type DeclaredQuery,
+  type DeclaredSubscription,
+} from './declared';
 import {
   argFits,
   finding,
+  kindIn,
   loadVocabulary,
   type BlokFinding,
   type BlokKind,
   type BlokVocabulary,
   type DiagnosticFields,
+  type VocabKind,
   type VocabRecordField,
 } from '../spec/vocabulary';
 
 /**
- * The v2 validator: a blok's tree against what it declares, its kind, and the
- * catalogs that draw it. The port of arkitekt-spec's
+ * The v2 validator: a blok's tree (its `<Blok>` header and its declarations),
+ * where it is mounted, and the catalogs that draw it. The port of arkitekt-spec's
  * `declare/blok/validate.py` (with `walk.py`), held to the `checked` cases of
  * the corpus (`core/blok/spec/bsx_v2.json`). The server runs the same rules on
  * save; here they mark the source while the author types.
@@ -33,7 +56,7 @@ import {
  */
 
 /* -------------------------------------------------------------------------- */
-/* The scope: the corpus' `scope` shape                                       */
+/* The scope: where a blok is mounted (the corpus' `mount`)                  */
 /* -------------------------------------------------------------------------- */
 
 /** A port match, as the server's `PortMatchInput` spells it (snake_case, nulls allowed). */
@@ -79,34 +102,15 @@ export type BlokScopeLocalPort = {
 };
 
 /**
- * A local (vocabulary `locals`): an arg port plus `persist`. Its kind is a
- * port kind or `ANY`; left out (absent or null), it is inferred from the tree
- * (`resolveBlokScope`), and a given kind, `ANY` included, is kept.
+ * A local (vocabulary `locals`), as its `<local>` node declares it: an arg
+ * port plus `persist`. Its kind is a port kind or `ANY`; left out (absent or
+ * null), it is inferred from the tree (`resolveLocals`), and a given kind,
+ * `ANY` included, is kept.
  */
 export type BlokScopeLocal = Omit<BlokScopeLocalPort, 'kind'> & {kind?: string | null; persist?: boolean | null};
 
 /** A local after inference: its kind always said. */
 export type ResolvedBlokLocal = BlokScopeLocalPort & {persist?: boolean | null};
-
-export type BlokScopeQuery = {
-  key: string;
-  service?: string | null;
-  document?: string | null;
-  /** The variables, as stored arguments (`parseBsxArgument`). */
-  variables?: readonly BlokActionArgument[] | null;
-  poll?: number | null;
-  /** The list field `fetch_more` appends to; a query without it cannot fetch more. */
-  more?: string | null;
-};
-
-export type BlokScopeSubscription = {
-  key: string;
-  service?: string | null;
-  document?: string | null;
-  variables?: readonly BlokActionArgument[] | null;
-  keep?: number | null;
-  history?: string | null;
-};
 
 /** A class at its variant colons, those inside brackets left alone (`[&>*]:p-2`). */
 const splitClass = (token: string): string[] => {
@@ -145,19 +149,28 @@ export const unportableClass = (token: string, vocabulary: BlokVocabulary): stri
   return null;
 };
 
-/** What a blok declares beside its tree; the corpus' `scope` verbatim. */
+/**
+ * Where a blok is mounted: what its mount provides, which its reads and calls
+ * resolve against (the spec's `BlokScope`, the corpus' `mount`, the record
+ * `arkitekt check --json` hands the editor tooling). What the blok is (its kind
+ * and context) and what it owns (its locals, queries and subscriptions) are
+ * read off its tree, never from here.
+ */
 export type BlokCheckScope = {
-  kind: BlokKind;
-  /** `HTML`, `SCENE`, `OVERLAY`, `LOGO`, or `ACTION_LOGO` (drawn as a logo). */
-  context: string;
-  dependencies: readonly BlokScopeDependency[];
-  locals: readonly BlokScopeLocal[];
-  queries: readonly BlokScopeQuery[];
-  subscriptions: readonly BlokScopeSubscription[];
+  /** The kinds the mount takes (`app.blok`: agent; an action's `bloks=`: action or assign); empty or absent takes any. */
+  kinds?: readonly string[] | null;
+  /** What the mount is, for a message (`bloks= of process_slides`). */
+  mount?: string | null;
+  /**
+   * What `self` and `deps.<key>` resolve against; a `self` entry types `self`,
+   * which is open without one. Null: not mounted, every agent is taken as
+   * written (`deps.<key>`, `Placed`/`Route` keys and `like` are not checked).
+   */
+  dependencies: readonly BlokScopeDependency[] | null;
   /** The keys `args.<key>` may read; null reads any. */
   args: readonly string[] | null;
-  /** The id of the catalog the blok is written for; null (or absent): the base catalog. The corpus' `target`. */
-  target?: string | null;
+  /** The catalog the blok's `<Blok>` names, as the mount saw it; informational (the tree says it). */
+  catalog?: string | null;
   /** Per declared query, the shape of its value when its service's schema is known. */
   query_values?: Readonly<Record<string, BlokPortMatch>>;
   /** The assets `self.assets.<name>` may name; null (or absent) names any. */
@@ -166,37 +179,22 @@ export type BlokCheckScope = {
   demo?: {deps?: unknown; args?: unknown; task?: unknown} | null;
 };
 
-/** A scope after inference: every local kinded (dependencies are never inferred). */
-export type ResolvedBlokScope = Omit<BlokCheckScope, 'locals'> & {locals: readonly ResolvedBlokLocal[]};
+/** A blok checked on its own, mounted nowhere: what an editor checks from the source alone. */
+export const unmountedBlokScope = (): BlokCheckScope => ({kinds: [], dependencies: null, args: null});
 
-export const emptyBlokScope = (kind: BlokKind = 'agent', context = 'HTML'): BlokCheckScope => ({
-  kind,
-  context,
-  dependencies: [],
-  locals: [],
-  queries: [],
-  subscriptions: [],
-  args: null,
-});
+/** A blok mounted where `kinds` go, with `dependencies` (none by default): every agent it reads must be one of them. */
+export const mountedBlokScope = (
+  kinds: readonly string[] = [],
+  dependencies: readonly BlokScopeDependency[] = [],
+  args: readonly string[] | null = null,
+): BlokCheckScope => ({kinds, dependencies, args});
 
-const ACTION_LOGO = 'ACTION_LOGO';
 const LOGO = 'LOGO';
 const SCENE = 'SCENE';
+const PANEL = 'PANEL';
 
-/** The context a scope's components are drawn in: an action logo's is a logo's. */
-export const drawnIn = (scope: BlokCheckScope): string => (scope.context === ACTION_LOGO ? LOGO : scope.context);
-
-/** The root components a blok of ``context`` may start with (`HTML` → `Html`; `SCENE` → `Scene`, `Space`): a blok's root names its context. */
-export const blokRootsOf = (context: string): string[] =>
-  Object.entries(loadVocabulary().blokRoots)
-    .filter(([, named]) => named === context)
-    .map(([root]) => root);
-
-/** The root a new blok of ``context`` starts with: the first it may start with (`SCENE` → `Scene`). */
-export const blokRootOf = (context: string): string | null => blokRootsOf(context)[0] ?? null;
-
-/** The blok context a root component names (`Space` → `SCENE`), or null when it names none. */
-export const blokContextOf = (component: string): string | null => loadVocabulary().blokRoots[component] ?? null;
+/** A context as a `<Blok context>` spells it (`PANEL` → `panel`). */
+export const spelledContext = (context: string): string => context.toLowerCase();
 
 /* -------------------------------------------------------------------------- */
 /* Matches                                                                    */
@@ -209,7 +207,6 @@ const DEPENDENCY_KEY_PROPS = new Set(['Placed.dep', 'Route.through']);
 const RUN_KINDS: readonly string[] = ['action', 'assign'];
 const ASSIGN_KIND = 'assign';
 const ASK_COMPONENT = 'ask';
-const CHROME_PROP = 'chrome';
 const CHROME_NONE = 'none';
 /** The language's elements whose children do not always show: a host part inside one still claims its slot. */
 const CONDITIONAL_COMPONENTS: ReadonlySet<string> = new Set(['if', 'else', 'match', 'case', 'default', 'foreach', 'suspense', 'fallback', 'error']);
@@ -324,21 +321,31 @@ export const foreachLet = (node: BlokComponentNode): string | null => {
   return node.props?.find(prop => prop.key === FOREACH_LET && prop.declares_value)?.declares_value ?? null;
 };
 
-const iterNodes = (node: BlokComponentNode): BlokComponentNode[] => [node, ...(node.children ?? []).flatMap(iterNodes)];
 
-/** Every path a list of arguments reads (a query's variables), depth first. */
-const argumentPaths = (args: readonly BlokActionArgument[]): string[] => {
-  const paths: string[] = [];
-  const visit = (argument: BlokActionArgument) => {
-    if (argument.value_path != null) paths.push(argument.value_path);
-    for (const call of [argument.util_call, argument.agent_call]) call?.arguments?.forEach(visit);
-    [...(argument.value_list ?? []), ...(argument.value_dict ?? [])].forEach(visit);
-  };
-  args.forEach(visit);
-  return paths;
+/** A `<local>` in scope: its node and the port it resolved to. */
+type LocalBinding = {local: true; node: string; name: string; port: ResolvedBlokLocal};
+type Binding = Match | LocalBinding;
+const isLocalBinding = (binding: Binding | undefined): binding is LocalBinding =>
+  binding !== null && binding !== undefined && (binding as LocalBinding).local === true;
+
+type Scope = ReadonlyMap<string, Binding>;
+
+/** What a name in scope is, for `roots.shadow`. */
+const bindingWhat = (name: string, binding: Binding | undefined, into: ReadonlySet<string>): string => {
+  if (isLocalBinding(binding)) return `the local ${binding.node}`;
+  if (into.has(name)) return "a call's record";
+  return 'a let';
 };
 
-type Scope = ReadonlyMap<string, Match>;
+const LOCAL_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const FIELD_PATH = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+
+/** The kind of a GraphQL document's first operation: `query` (also for `{ ... }`), `mutation`, `subscription`, `fragment`. */
+export const operationKeyword = (document: string): string => {
+  const text = document.replace(/#[^\n]*/g, '').trimStart();
+  if (text.startsWith('{')) return 'query';
+  return /^[A-Za-z_]+/.exec(text)?.[0] ?? '';
+};
 
 /* -------------------------------------------------------------------------- */
 /* The checker                                                                */
@@ -363,7 +370,7 @@ const DIGITS = /^[0-9]+$/;
  * - an agent blok has none: ``agent bloks read only `self` ``.
  */
 export const dependencyHint = (key: string, kind: BlokKind): string => {
-  if (kind === 'action' || kind === 'assign' || kind === 'action_logo') return `add a dependency parameter \`${key}\` to the action`;
+  if (kind === 'action' || kind === 'assign') return `add a dependency parameter \`${key}\` to the action`;
   if (kind === 'agent') return 'agent bloks read only `self`';
   return `dependencies=[AgentDependencyInput(key="${key}")]`;
 };
@@ -438,32 +445,39 @@ const argumentWhat = (argument: BlokActionArgument): string => {
 class Checker {
   readonly findings: BlokFinding[] = [];
   private readonly vocabulary = loadVocabulary();
-  private readonly kind;
+  /** The kind's row in the blok's context (an action's logo reads only `task`). */
+  private readonly kind: VocabKind;
+  private readonly kindName: BlokKind;
+  private readonly context: string;
+  private readonly mounted: boolean;
   private readonly dependencies: Map<string, BlokScopeDependency>;
-  private readonly locals: Map<string, ResolvedBlokLocal>;
-  private readonly queries: Map<string, BlokScopeQuery>;
-  private readonly subscriptions: Map<string, BlokScopeSubscription>;
+  /** Per `<local>` node id, its port with its kind resolved. */
+  private readonly resolved: ReadonlyMap<string, ResolvedLocal>;
+  private queries = new Map<string, DeclaredQuery>();
+  private subscriptions = new Map<string, DeclaredSubscription>();
+  /** The node ids of the locals a control binds. */
   private readonly boundLocals = new Set<string>();
   private readonly into = new Set<string>();
   private asks = false;
   /** The id of the root that says `chrome="none"`, when it does. */
-  private chromeless: string | null = null;
+  private readonly chromeless: string | null;
   private readonly colour: RegExp;
 
-  readonly scope: ResolvedBlokScope;
+  readonly header: BlokHeader;
+  readonly scope: BlokCheckScope;
   readonly view: BlokView | null;
 
-  constructor(
-    scope: ResolvedBlokScope,
-    view: BlokView | null,
-  ) {
+  constructor(header: BlokHeader, scope: BlokCheckScope, view: BlokView | null, resolved: ReadonlyMap<string, ResolvedLocal>) {
+    this.header = header;
     this.scope = scope;
     this.view = view;
-    this.kind = this.vocabulary.kinds[scope.kind];
-    this.dependencies = new Map(scope.dependencies.map(dependency => [dependency.key, dependency]));
-    this.locals = new Map(scope.locals.map(local => [local.key, local]));
-    this.queries = new Map(scope.queries.map(query => [query.key, query]));
-    this.subscriptions = new Map(scope.subscriptions.map(subscription => [subscription.key, subscription]));
+    this.kindName = header.kind;
+    this.context = header.context;
+    this.kind = kindIn(this.vocabulary.kinds[header.kind], header.context);
+    this.mounted = scope.dependencies !== null;
+    this.dependencies = new Map((scope.dependencies ?? []).map(dependency => [dependency.key, dependency]));
+    this.resolved = resolved;
+    this.chromeless = header.chrome === CHROME_NONE ? header.node : null;
     this.colour = colourPattern(this.vocabulary);
   }
 
@@ -476,51 +490,136 @@ class Checker {
   }
 
   private notInKind(nodeId: string | null, path: string, root: string, propKey?: string): void {
-    this.add('roots.not_in_kind', nodeId, {path, n: article(this.scope.kind), kind: this.scope.kind, root, roots: this.rootsText()}, propKey);
+    this.add('roots.not_in_kind', nodeId, {path, n: article(this.kindName), kind: this.kindName, root, roots: this.rootsText()}, propKey);
   }
 
   /* -- declarations -- */
 
   checkDeclarations(tree: BlokComponentNode): void {
-    const {vocabulary, scope} = this;
-    const drawn = drawnIn(scope);
-    const wrongLogo = (scope.context === ACTION_LOGO) !== (scope.kind === 'action_logo');
-    if (wrongLogo || !(this.kind.contexts as readonly string[]).includes(drawn)) {
-      this.add('context.kind', null, {n: article(scope.kind), kind: scope.kind, contexts: this.kind.contexts.join(', '), context: scope.context});
+    const {vocabulary, header} = this;
+    const kind = this.kindName;
+    const row = vocabulary.kinds[kind];
+    const contextName = spelledContext(header.context);
+    if (!row.contexts.includes(header.context)) {
+      this.add('context.kind', tree.id, {n: article(kind), kind, contexts: row.contexts.map(spelledContext).join(', '), context: contextName});
     }
-    // A context may have several roots (a SCENE blok is a <Scene> or a <Space>).
-    const roots = blokRootsOf(scope.context);
-    if (roots.length && !roots.includes(tree.component)) {
-      this.add('context.root', tree.id, {context: scope.context.toLowerCase(), root: roots.join('> or <'), component: tree.component});
+    const kinds = this.scope.kinds ?? [];
+    if (kinds.length && !kinds.includes(kind)) {
+      this.add('kind.placement', tree.id, {n: article(kind), kind, m: article(kinds[0]), expected: kinds.join(' or '), where: this.scope.mount || 'here'});
     }
-    if (scope.locals.length && !this.kind.locals) this.notInKind(null, 'locals', 'locals');
-    for (const local of scope.locals) {
-      if (vocabulary.reserved.has(local.key)) this.add('roots.reserved', `locals.${local.key}`, {name: local.key});
-      this.checkLocalDefault(local);
+    if (header.chrome !== null && !vocabulary.blok.chrome.includes(header.context)) this.add('chrome.context', tree.id, {context: contextName});
+    const allowed = vocabulary.blok.content[header.context];
+    if (allowed) {
+      const drawn = content(tree);
+      if (drawn.length !== 1 || !allowed.includes(drawn[0].component)) {
+        const found = drawn.map(node => (node.component === TEXT_NODE ? 'text' : `<${node.component}>`)).join(', ') || 'nothing';
+        this.add('blok.content', tree.id, {context: contextName, expected: allowed.map(name => `one <${name}>`).join(' or '), found});
+      }
     }
+    this.checkLocalPositions(tree);
+    this.checkQueries(tree);
     for (const [name, sites] of intoSites(tree)) {
       this.into.add(name);
       if (vocabulary.reserved.has(name)) this.add('roots.reserved', sites[0].site, {name});
-      if (this.locals.has(name)) this.add('roots.shadow', sites[0].site, {name, first: 'a local', second: `the record of ${sites[0].site}`});
       if (sites.length > 1) this.add('into.twice', sites[1].site, {name, first: sites[0].site, second: sites[1].site});
     }
-    for (const node of iterNodes(tree)) {
-      const declared = foreachLet(node);
-      if (declared === null) continue;
-      if (vocabulary.reserved.has(declared)) this.add('roots.reserved', node.id, {name: declared});
-      else if (this.locals.has(declared) || this.into.has(declared)) {
-        this.add('roots.shadow', node.id, {
-          name: declared,
-          first: this.locals.has(declared) ? 'a local' : "a call's record",
-          second: `the let of <foreach> (${node.id})`,
-        });
+  }
+
+  /**
+   * Each `<local>` reads, comes first among its parent's children, inside an
+   * element that takes children, in a kind that has locals; a persisted one
+   * inside a keyless foreach is a warning.
+   */
+  private checkLocalPositions(tree: BlokComponentNode): void {
+    for (const [node, ancestors] of iterWithParents(tree)) {
+      const parent = ancestors.length ? ancestors[ancestors.length - 1] : null;
+      if (node.component === VAR_COMPONENT && (parent === null || (parent.component !== QUERY_COMPONENT && parent.component !== SUBSCRIPTION_COMPONENT))) {
+        this.add('query.declaration', node.id, {component: 'var', problem: 'belongs inside a <query> or <subscription>'});
+      }
+      if (node.component !== LOCAL_COMPONENT) continue;
+      const name = localName(node) ?? '?';
+      const problem = localProblem(node);
+      if (problem !== null) {
+        this.findings.push(problem);
+        continue;
+      }
+      if (!this.kind.locals) this.notInKind(node.id, `<local name='${name}'>`, 'locals');
+      if (this.vocabulary.reserved.has(name)) this.add('roots.reserved', node.id, {name});
+      if (parent === null) {
+        this.add('local.position', node.id, {name, problem: "is a blok's root; a blok is a <Blok>"});
+        continue;
+      }
+      const siblings = parent.children ?? [];
+      const other = siblings.slice(0, siblings.indexOf(node)).find(sibling => sibling.component !== LOCAL_COMPONENT);
+      if (other) {
+        const shown = other.component === TEXT_NODE ? 'text' : `<${other.component}>`;
+        this.add('local.position', node.id, {name, problem: `comes after ${shown} (${other.id}); locals come first among their parent's children`});
+      }
+      if ([QUERY_COMPONENT, SUBSCRIPTION_COMPONENT, LOCAL_COMPONENT, VAR_COMPONENT].includes(parent.component)) {
+        this.add('local.position', node.id, {name, problem: `is inside <${parent.component}>, which declares, and draws nothing`});
+      } else if (this.view) {
+        const spec = this.view.components.get(parent.component);
+        if (spec && !spec.acceptsChildren) this.add('local.position', node.id, {name, problem: `is inside <${parent.component}>, which takes no children`});
+      }
+      const resolved = this.resolved.get(node.id);
+      if (!resolved) continue;
+      if (resolved.likeProblem !== null) {
+        const like = node.props?.find(prop => prop.key === LIKE_PROP)?.static_value ?? null;
+        this.add('local.like', node.id, {name, like, problem: resolved.likeProblem});
+      }
+      this.checkLocalDefault(node.id, resolved.local);
+      if (resolved.local.persist) {
+        const loop = [...ancestors].reverse().find(ancestor => ancestor.component === FOREACH);
+        if (loop && !(loop.props ?? []).some(prop => prop.key === FOREACH_KEY)) this.add('local.persist_id', node.id, {name});
       }
     }
-    for (const query of scope.queries) {
-      for (const path of argumentPaths(query.variables ?? [])) this.resolve(path, null, new Map(), `query ${query.key}`);
+  }
+
+  /** Queries and subscriptions are children of the `<Blok>`, each declared once and readable. */
+  private checkQueries(tree: BlokComponentNode): void {
+    const first = new Map<string, string>();
+    for (const [node, ancestors] of iterWithParents(tree)) {
+      if (node.component !== QUERY_COMPONENT && node.component !== SUBSCRIPTION_COMPONENT) continue;
+      const named = node.props?.find(prop => prop.key === 'name')?.static_value;
+      const name = typeof named === 'string' ? named : '?';
+      if (ancestors.length !== 1) {
+        const at = ancestors.length ? ancestors[ancestors.length - 1].id : 'the root';
+        this.add('query.position', node.id, {component: node.component, name, at});
+      }
+      const problem = declarationProblem(node);
+      if (problem !== null) {
+        this.findings.push(problem);
+        continue;
+      }
+      const key = `${node.component}\u0000${name}`;
+      const seen = first.get(key);
+      if (seen !== undefined) this.add('query.duplicate', node.id, {what: node.component, name, first: seen, second: node.id});
+      else first.set(key, node.id);
     }
-    for (const subscription of scope.subscriptions) {
-      for (const path of argumentPaths(subscription.variables ?? [])) this.resolve(path, null, new Map(), `subscription ${subscription.key}`);
+    this.queries = new Map(declaredQueries(tree).map(query => [query.key, query]));
+    this.subscriptions = new Map(declaredSubscriptions(tree).map(subscription => [subscription.key, subscription]));
+    const declared: Array<[string, DeclaredQuery | DeclaredSubscription]> = [
+      ...[...this.queries.values()].map(query => ['query', query] as [string, DeclaredQuery]),
+      ...[...this.subscriptions.values()].map(subscription => ['subscription', subscription] as [string, DeclaredSubscription]),
+    ];
+    for (const [what, each] of declared) {
+      const at = `${what === 'query' ? 'queries' : 'subscriptions'}.${each.key}`;
+      if (!LOCAL_NAME.test(each.key)) this.add('manifest.name', at, {what, key: each.key});
+      if (this.vocabulary.reserved.has(each.key)) this.add('roots.reserved', at, {name: each.key});
+      const operation = operationKeyword(each.document);
+      if (operation === 'mutation') {
+        this.add('query.read_only', at, {kind: what, name: each.key, problem: 'is a mutation: a blok reads, and writes only through a task'});
+      } else if (operation !== what) {
+        this.add('query.kind', at, {kind: what, name: each.key, operation: operation || 'document without an operation'});
+      }
+    }
+    for (const query of this.queries.values()) {
+      if (query.more != null && !FIELD_PATH.test(query.more)) {
+        this.add('query.more', `queries.${query.key}`, {name: query.key, more: query.more, problem: 'is not a field path into its data (positions, images.items)'});
+      }
+    }
+    if (this.kindName === 'action' && this.context === LOGO && this.dependencies.size) this.add('manifest.action_logo', this.header.node);
+    for (const subscription of this.subscriptions.values()) {
       if (subscription.history != null && !this.queries.has(subscription.history)) {
         this.add('query.history', `subscriptions.${subscription.key}`, {name: subscription.key, history: subscription.history});
       }
@@ -528,18 +627,17 @@ class Checker {
   }
 
   /** A local's default fits its port: a number for a number, a list for a list, one of its choices. */
-  private checkLocalDefault(local: ResolvedBlokLocal): void {
+  private checkLocalDefault(nodeId: string, local: ResolvedBlokLocal): void {
     if (local.kind === LOCAL_ANY) return;
     if (!valueFitsPort(local.default, local)) {
-      this.add('local.default', `locals.${local.key}`, {name: local.key, default: local.default, kind: local.kind});
+      this.add('local.default', nodeId, {name: local.key, default: local.default, kind: local.kind});
     }
   }
 
   /** The port a path into a local names (the local, or a field of it), or null when its shape does not say (an ANY local). */
-  private localPort(path: string): BlokScopeLocalPort | null {
-    const [root, ...rest] = path.split('.');
-    const local = this.locals.get(root) ?? null;
-    let port: BlokScopeLocalPort | null = local !== null && local.kind !== LOCAL_ANY ? local : null;
+  private localPort(binding: LocalBinding, path: string): BlokScopeLocalPort | null {
+    const rest = path.split('.').slice(1);
+    let port: BlokScopeLocalPort | null = binding.port.kind !== LOCAL_ANY ? binding.port : null;
     for (const part of rest) {
       if (port === null) return null;
       const children: readonly BlokScopeLocalPort[] = port.children ?? [];
@@ -551,8 +649,8 @@ class Checker {
   }
 
   finish(): void {
-    for (const local of this.scope.locals) {
-      if (local.persist && !this.boundLocals.has(local.key)) this.add('local.unused_persist', `locals.${local.key}`, {name: local.key});
+    for (const [nodeId, resolved] of this.resolved) {
+      if (resolved.local.persist && !this.boundLocals.has(nodeId)) this.add('local.unused_persist', nodeId, {name: resolved.local.key});
     }
     if (this.chromeless !== null && this.kind.roots.includes('task') && !this.asks) this.add('chrome.no_ask', this.chromeless);
   }
@@ -560,13 +658,13 @@ class Checker {
   /* -- the walk -- */
 
   walk(tree: BlokComponentNode): void {
-    const scope = new Map<string, Match>();
+    const scope = new Map<string, Binding>();
     for (const [name, sites] of intoSites(tree)) scope.set(name, this.bindInto(sites[0].call));
     this.walkNode(tree, scope, [], false);
   }
 
   private walkNode(node: BlokComponentNode, scope: Scope, ancestors: readonly BlokComponentNode[], inError: boolean): void {
-    this.visitComponent(node, ancestors);
+    this.visitComponent(node, ancestors, scope);
     const inner = new Map(scope);
     const declared = foreachLet(node);
     if (declared !== null) {
@@ -579,7 +677,13 @@ class Checker {
       this.walkProp(node, prop, propScope, inError);
     }
     const inSlot = inError || (node.component === ERROR_SLOT && ancestors.length > 0 && ancestors[ancestors.length - 1].component === SUSPENSE);
-    for (const child of node.children ?? []) this.walkNode(child, inner, [...ancestors, node], inSlot);
+    // Every local of a node is bound before any of its children is walked, in order: a second local of one name sees the first.
+    const children = node.children ?? [];
+    for (const child of children) {
+      const name = localDeclared(child);
+      if (name !== null) inner.set(name, this.bindLocal(name, child, new Map(inner)));
+    }
+    for (const child of children) this.walkNode(child, inner, [...ancestors, node], inSlot);
   }
 
   private walkProp(node: BlokComponentNode, prop: BlokComponentProp, scope: Scope, inError: boolean): void {
@@ -609,7 +713,7 @@ class Checker {
 
   /* -- components and props -- */
 
-  private visitComponent(node: BlokComponentNode, ancestors: readonly BlokComponentNode[]): void {
+  private visitComponent(node: BlokComponentNode, ancestors: readonly BlokComponentNode[], scope: Scope): void {
     const spec = this.view?.components.get(node.component);
     if (this.view && !spec) {
       const foreign = this.view.foreign.get(node.component);
@@ -621,14 +725,14 @@ class Checker {
     }
     if (spec) this.checkCatalog(node, spec, ancestors);
     this.checkHostPart(node, ancestors);
-    for (const prop of node.props ?? []) this.checkProp(node, prop, spec);
+    for (const prop of node.props ?? []) this.checkProp(node, prop, spec, scope);
   }
 
   private checkCatalog(node: BlokComponentNode, spec: SpecComponent, ancestors: readonly BlokComponentNode[]): void {
     const view = this.view;
     if (!view) return;
     const texts = (node.children ?? []).filter(child => child.component === TEXT_NODE);
-    const elements = (node.children ?? []).length - texts.length;
+    const elements = (node.children ?? []).filter(child => child.component !== TEXT_NODE && !isDeclaration(child)).length;
     if (elements && !spec.acceptsChildren) this.add('catalog.children', node.id, {component: node.component});
     if (texts.length) {
       // Text is a child like any other; what takes it is the catalog's to say.
@@ -647,7 +751,7 @@ class Checker {
     if (unknown.length) this.add('catalog.props', node.id, {component: node.component, detail: `has no props [${unknown.map(pythonRepr).join(', ')}]`});
     const missing = spec.props.filter(prop => prop.required && !present.has(prop.key)).map(prop => prop.key).sort();
     if (missing.length) this.add('catalog.props', node.id, {component: node.component, detail: `requires props [${missing.map(pythonRepr).join(', ')}]`});
-    let context = 'HTML';
+    let context = PANEL;
     for (const ancestor of ancestors) {
       const above = view.components.get(ancestor.component);
       if (above && !above.inheritsContext) context = above.childrenContext ?? above.context;
@@ -666,21 +770,18 @@ class Checker {
     if (forbidden.length) {
       this.add('catalog.placement', node.id, {component: node.component, detail: `must not be inside [${forbidden.map(pythonRepr).join(', ')}]`});
     }
-    if (spec.kinds.length && !spec.kinds.includes(this.scope.kind)) {
-      this.add('catalog.kind', node.id, {component: node.component, kinds: spec.kinds.join(' and '), n: article(this.scope.kind), kind: this.scope.kind});
+    if (spec.kinds.length && !spec.kinds.includes(this.kindName)) {
+      this.add('catalog.kind', node.id, {component: node.component, kinds: spec.kinds.join(' and '), n: article(this.kindName), kind: this.kindName});
     }
   }
 
   /**
    * What the language itself says of the host's parts, whatever catalog draws
-   * them: a part placed anywhere claims its slot, and a root without chrome
-   * leaves the asks to the blok.
+   * them: a part placed anywhere claims its slot (a blok without chrome
+   * leaves the asks to itself: `finish`).
    */
   private checkHostPart(node: BlokComponentNode, ancestors: readonly BlokComponentNode[]): void {
     if (node.component === ASK_COMPONENT) this.asks = true;
-    if (ancestors.length === 0 && (node.props ?? []).some(prop => prop.key === CHROME_PROP && prop.static_value === CHROME_NONE)) {
-      this.chromeless = node.id;
-    }
     if (this.vocabulary.hostParts.includes(node.component)) {
       const inside = [...ancestors].reverse().find(ancestor => CONDITIONAL_COMPONENTS.has(ancestor.component));
       if (inside) this.add('part.conditional', node.id, {component: node.component, inside: inside.component});
@@ -689,8 +790,8 @@ class Checker {
 
   /** A ``Placed dep`` or ``Route through`` names dependencies of the blok, written out as keys. */
   private checkDependencyKeys(node: BlokComponentNode, prop: BlokComponentProp): void {
-    // catalog.kind says it: a Space and its parts belong to an action's own blok.
-    if (!RUN_KINDS.includes(this.scope.kind)) return;
+    // catalog.kind says it: a Space and its parts belong to an action's own blok. Unmounted, its keys are taken as written.
+    if (!RUN_KINDS.includes(this.kindName) || !this.mounted) return;
     const path = `${node.component}.${prop.key}`;
     const value = prop.static_value;
     const keys = typeof value === 'string' ? [value] : Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string') : [];
@@ -699,14 +800,14 @@ class Checker {
         this.add(
           'deps.unknown',
           node.id,
-          {path, key, keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(key, this.scope.kind)},
+          {path, key, keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(key, this.kindName)},
           prop.key,
         );
       }
     }
   }
 
-  private checkProp(node: BlokComponentNode, prop: BlokComponentProp, spec: SpecComponent | undefined): void {
+  private checkProp(node: BlokComponentNode, prop: BlokComponentProp, spec: SpecComponent | undefined, scope: Scope): void {
     const {vocabulary} = this;
     const propSpec = spec?.props.find(candidate => candidate.key === prop.key);
     const holds = isCallbackValue(prop);
@@ -745,15 +846,16 @@ class Checker {
         this.add('local.bind', node.id, {what: what(prop)}, prop.key);
       } else {
         const root = path.split('.')[0];
-        if (!this.locals.has(root)) this.add('local.unknown', node.id, {path, root}, prop.key);
+        const binding = scope.get(root);
+        if (!isLocalBinding(binding)) this.add('local.unknown', node.id, {path, root}, prop.key);
         else {
-          this.boundLocals.add(root);
-          if (propSpec) this.checkBindKind(node, propSpec.kind, path);
+          this.boundLocals.add(binding.node);
+          if (propSpec) this.checkBindKind(node, propSpec.kind, binding, path);
         }
       }
     }
-    if (prop.util_call?.operation === START_EFFECT && this.scope.kind !== ASSIGN_KIND) {
-      this.add('assign.kind', node.id, {what: 'assign.start()', n: article(this.scope.kind), kind: this.scope.kind}, prop.key);
+    if (prop.util_call?.operation === START_EFFECT && this.kindName !== ASSIGN_KIND) {
+      this.add('assign.kind', node.id, {what: 'assign.start()', n: article(this.kindName), kind: this.kindName}, prop.key);
     }
     if (DEPENDENCY_KEY_PROPS.has(`${node.component}.${prop.key}`)) this.checkDependencyKeys(node, prop);
     if (node.component === TOAST_COMPONENT && prop.key === TOAST_TASK_PROP) {
@@ -762,7 +864,7 @@ class Checker {
     }
     if (typeof prop.static_value === 'string') {
       if (prop.key === CLASS_NAME) this.checkClasses(prop.static_value, node.id, prop.key);
-      if (drawnIn(this.scope) === LOGO && vocabulary.theme.logoPaintProps.includes(prop.key)) this.checkPaint(node, prop.key, prop.static_value);
+      if (this.context === LOGO && vocabulary.theme.logoPaintProps.includes(prop.key)) this.checkPaint(node, prop.key, prop.static_value);
       if (spec?.context === SCENE && vocabulary.theme.scenePaintProps.includes(prop.key)) this.checkSceneColour(node, prop.key, prop.static_value);
     }
     if (prop.key === CLASS_NAME && prop.util_call) {
@@ -771,9 +873,9 @@ class Checker {
   }
 
   /** The local a control writes is of a kind the control writes (`Slider`: FLOAT or INT). */
-  private checkBindKind(node: BlokComponentNode, propKind: string, path: string): void {
+  private checkBindKind(node: BlokComponentNode, propKind: string, binding: LocalBinding, path: string): void {
     const allowed = this.vocabulary.locals.bindKinds[propKind];
-    const port = this.localPort(path);
+    const port = this.localPort(binding, path);
     if (!allowed || port === null) return;
     if (!allowed.includes(port.kind)) {
       this.add(
@@ -840,11 +942,11 @@ class Checker {
     }
     const dependency = this.dependencies.get(call.dependency);
     if (!dependency) {
-      if (call.dependency !== 'self') {
+      if (call.dependency !== 'self' && this.mounted) {
         this.add(
           'deps.unknown',
           where.node.id,
-          {path: owner, key: call.dependency, keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(call.dependency, this.scope.kind)},
+          {path: owner, key: call.dependency, keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(call.dependency, this.kindName)},
           where.key,
         );
       }
@@ -872,9 +974,9 @@ class Checker {
       const path = argument.value_path;
       const match = ports.get(argument.key ?? '');
       if (path == null || !match || match.kind == null) continue;
-      const root = path.split('.')[0];
-      if (scope.has(root) || !this.locals.has(root)) continue;
-      const port = this.localPort(path);
+      const binding = scope.get(path.split('.')[0]);
+      if (!isLocalBinding(binding)) continue;
+      const port = this.localPort(binding, path);
       if (port === null) continue;
       const target = {kind: match.kind, identifier: match.identifier ?? null};
       if (!argFits(port, target)) {
@@ -940,7 +1042,11 @@ class Checker {
     if (call.operation === FETCH_MORE_FUNCTION && query.more == null) this.add('query.fetch_more', where.node.id, {path, name}, where.key);
   }
 
-  private bindLet(name: string, items: BlokComponentProp | null, where: Where, scope: Scope): Match {
+  private bindLet(name: string, items: BlokComponentProp | null, where: Where, scope: Scope): Binding {
+    if (this.vocabulary.reserved.has(name)) this.add('roots.reserved', where.node.id, {name});
+    else if (scope.has(name)) {
+      this.add('roots.shadow', where.node.id, {name, first: bindingWhat(name, scope.get(name), this.into), second: `the let of <foreach> (${where.node.id})`});
+    }
     const keyed = (where.node.props ?? []).some(prop => prop.key === FOREACH_KEY);
     const literal = items?.static_value;
     if (!keyed && Array.isArray(literal) && literal.some(item => typeof item === 'object' && item !== null)) {
@@ -961,6 +1067,15 @@ class Checker {
     if (resolved.kind == null || resolved.kind === 'LIST') return openMatch(name);
     this.add('path.unknown', where.node.id, {path, detail: `${FOREACH_ITEMS} of a foreach reads a list, not this ${resolved.kind.toLowerCase()}`}, FOREACH_ITEMS);
     return openMatch(name);
+  }
+
+  private bindLocal(name: string, node: BlokComponentNode, scope: Scope): Binding {
+    if (scope.has(name) && !this.vocabulary.reserved.has(name)) {
+      this.add('roots.shadow', node.id, {name, first: bindingWhat(name, scope.get(name), this.into), second: `the local ${node.id}`});
+    }
+    const resolved = this.resolved.get(node.id);
+    if (!resolved) return openMatch(name);
+    return {local: true, node: node.id, name, port: resolved.local};
   }
 
   private bindInto(call: BlokAgentCall): Match {
@@ -989,13 +1104,14 @@ class Checker {
     const [root, ...rest] = parts;
     const report = (code: string, fields: DiagnosticFields) => this.add(code, nodeId, fields, propKey);
     if (scope.has(root)) {
+      const binding = scope.get(root) ?? null;
+      if (isLocalBinding(binding)) {
+        const local = binding.port;
+        if (local.kind === LOCAL_ANY || OPAQUE_KINDS.has(local.kind)) return openMatch(root);
+        return this.descend({...portMatch(local), key: root}, rest, path, nodeId, propKey);
+      }
       if (this.into.has(root)) this.checkReturns(path, rest, nodeId, propKey);
-      return this.descend(scope.get(root) ?? null, rest, path, nodeId, propKey);
-    }
-    const local = this.locals.get(root);
-    if (local) {
-      if (local.kind === LOCAL_ANY || OPAQUE_KINDS.has(local.kind)) return openMatch(root);
-      return this.descend({...portMatch(local), key: root}, rest, path, nodeId, propKey);
+      return this.descend(binding, rest, path, nodeId, propKey);
     }
     if (root === 'event') {
       if (!where || !where.callback) {
@@ -1033,7 +1149,8 @@ class Checker {
         }
         const dependency = this.dependencies.get(rest[0]);
         if (!dependency) {
-          report('deps.unknown', {path, key: rest[0], keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(rest[0], this.scope.kind)});
+          if (!this.mounted) return openMatch(path);
+          report('deps.unknown', {path, key: rest[0], keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(rest[0], this.kindName)});
           return null;
         }
         return this.agent(dependency, rest[0], rest.slice(1), path, nodeId, propKey);
@@ -1269,15 +1386,33 @@ export const checkLogo = (tree: BlokComponentNode, demo?: BlokCheckScope['demo']
 };
 
 /**
- * Every finding of `tree` against `scope` and `view`: errors and warnings, in
- * tree order. `view` defaults to the Orkestrator's (base, the standard catalogs
- * and its module); `null` skips every catalog rule.
+ * The view a blok is checked with when none is given: that of the catalog its
+ * `<Blok catalog>` names when it is known here, the app's own when it names
+ * none, and an incomplete base view (nothing reported unknown) otherwise.
  */
-export const checkBlokTree = (tree: BlokComponentNode, scope: BlokCheckScope, view: BlokView | null = defaultBlokView()): BlokFinding[] => {
-  const checker = new Checker(resolveBlokScope(tree, scope, view), view);
+export const viewForTree = (tree: BlokComponentNode): BlokView => {
+  const catalog = blokCatalog(tree);
+  return catalog === null ? defaultBlokView() : blokViewFor(catalog);
+};
+
+/**
+ * Every finding of `tree` mounted as `scope` says (unmounted by default),
+ * against `view`: errors and warnings, in tree order. A root that is no
+ * readable `<Blok>` is the one finding. `view` defaults to that of the catalog
+ * the blok names (`viewForTree`); `null` skips every catalog rule.
+ */
+export const checkBlokTree = (
+  tree: BlokComponentNode,
+  scope: BlokCheckScope = unmountedBlokScope(),
+  view: BlokView | null = viewForTree(tree),
+): BlokFinding[] => {
+  const problem = headerProblem(tree);
+  if (problem !== null) return [problem];
+  const header = blokHeader(tree) as BlokHeader;
+  const checker = new Checker(header, scope, view, resolveLocals(tree, scope.dependencies, view));
   checker.checkDeclarations(tree);
   checker.walk(tree);
-  if (drawnIn(scope) === LOGO) checker.findings.push(...checkLogo(tree, scope.demo));
+  if (header.context === LOGO) checker.findings.push(...checkLogo(tree, scope.demo));
   checker.finish();
   return checker.findings;
 };

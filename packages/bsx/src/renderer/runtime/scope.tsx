@@ -26,13 +26,15 @@ export const BlokScopeProvider = (props: {
   aliases?: Readonly<Record<string, string>>;
   values?: Readonly<Record<string, unknown>>;
   basePath?: string;
+  /** What an alias reads before anything was written at its path, by the alias' absolute path (a `<local>`'s default). */
+  defaults?: Readonly<Record<string, unknown>>;
   children: React.ReactNode;
 }) => {
-  const {aliases, values, basePath, children} = props;
+  const {aliases, values, basePath, defaults, children} = props;
   const parentScope = React.useContext(BlokScopeContext);
 
   const scope = React.useMemo<BlokScope>(() => {
-    if (!aliases && !values && basePath === undefined) {
+    if (!aliases && !values && basePath === undefined && !defaults) {
       return parentScope;
     }
 
@@ -40,8 +42,9 @@ export const BlokScopeProvider = (props: {
       aliases: aliases ? {...parentScope.aliases, ...aliases} : parentScope.aliases,
       values: values ? {...parentScope.values, ...values} : parentScope.values,
       basePath: basePath ?? parentScope.basePath,
+      defaults: defaults ? {...parentScope.defaults, ...defaults} : parentScope.defaults,
     };
-  }, [aliases, basePath, parentScope, values]);
+  }, [aliases, basePath, defaults, parentScope, values]);
 
   return <BlokScopeContext.Provider value={scope}>{children}</BlokScopeContext.Provider>;
 };
@@ -107,7 +110,32 @@ export const readScopedPath = (
     return getValueAtPath(scope.values[head], tail.join('/'));
   }
 
+  const aliased = head ? scope.aliases[head] : undefined;
+  if (aliased !== undefined && scope.defaults && aliased in scope.defaults && getValueAtPath(dataModel, aliased) === undefined) {
+    // Nothing written at the alias yet (a local before its first input): it reads its default.
+    return getValueAtPath(scope.defaults[aliased], tail.join('/'));
+  }
+
   return getValueAtPath(dataModel, resolveScopedPath(path, scope));
+};
+
+/**
+ * Where a write of `path` lands, and what to write first so it lands on the
+ * value it was read as: a write below an alias that still reads its default
+ * (`bind={p.x}` on a dict local) seeds the default at the alias first.
+ */
+export const scopedWrite = (
+  dataModel: unknown,
+  path: string,
+  scope: BlokScope,
+): {path: string; seed: {path: string; value: unknown} | null} => {
+  const [head, ...tail] = splitPathSegments(path);
+  const aliased = head ? scope.aliases[head] : undefined;
+  const absolute = resolveScopedPath(path, scope);
+  if (aliased === undefined || tail.length === 0 || !scope.defaults || !(aliased in scope.defaults)) return {path: absolute, seed: null};
+  if (getValueAtPath(dataModel, aliased) !== undefined) return {path: absolute, seed: null};
+  const value = scope.defaults[aliased];
+  return {path: absolute, seed: value === null || value === undefined ? null : {path: aliased, value: structuredClone(value)}};
 };
 
 /** True when a path can be written back through the data model. */

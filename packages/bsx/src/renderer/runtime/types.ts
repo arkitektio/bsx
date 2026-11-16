@@ -194,6 +194,11 @@ export type BlokScope = {
   aliases: Readonly<Record<string, string>>;
   values: Readonly<Record<string, unknown>>;
   basePath?: string;
+  /**
+   * What an aliased path reads while nothing was written there yet, by the
+   * alias' absolute path: a `<local>`'s default (`runtime/locals`).
+   */
+  defaults?: Readonly<Record<string, unknown>>;
 };
 
 /**
@@ -236,8 +241,8 @@ export type BlokRuntimeContext = {
   initialDataModel: unknown;
   dataModel: unknown;
   runtimePathValues: Record<string, unknown>;
-  /** Top-level keys whose runtime values a reset keeps: the locals the host keeps between openings. */
-  keptRoots: ReadonlySet<string>;
+  /** The `<local>` node ids whose values a reset keeps (every item's, in a foreach): the locals the host keeps between openings. */
+  keptLocals: ReadonlySet<string>;
   /**
    * The status of each source, by the data-model path it is read under
    * (`deps.robot.arm`, `queries.cells.value`, `args`). A read below a path
@@ -271,7 +276,7 @@ export type BlokRuntimeContext = {
   lockedActions: BlokLockedActions;
   setInitialDataModel: (dataModel: unknown) => void;
   resetRuntimeValues: () => void;
-  setKeptRoots: (roots: ReadonlySet<string>) => void;
+  setKeptLocals: (keptLocals: ReadonlySet<string>) => void;
   setRuntimeValue: (path: string, value: unknown) => void;
   clearRuntimeValue: (path: string) => void;
   setAgentMappingStateUpdates: (updates: BlokAgentMappingStateUpdates) => void;

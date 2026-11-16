@@ -105,8 +105,6 @@ export const shadcnHtml = implementBlokCatalog(htmlCatalog, shadcnHtmlRenders);
 
 /** the logo family, drawn with shadcn/ui. */
 export const shadcnLogoRenders = {
-  ActionLogo: domRenders.ActionLogo,
-  AgentLogo: domRenders.AgentLogo,
   Circle: domRenders.Circle,
   ClipPath: domRenders.ClipPath,
   Defs: domRenders.Defs,
@@ -114,6 +112,7 @@ export const shadcnLogoRenders = {
   G: domRenders.G,
   Line: domRenders.Line,
   LinearGradient: domRenders.LinearGradient,
+  Logo: domRenders.Logo,
   Path: domRenders.Path,
   Polygon: domRenders.Polygon,
   Polyline: domRenders.Polyline,

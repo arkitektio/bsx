@@ -1,4 +1,4 @@
-import baseCatalogJson from './catalogs/base@3.json';
+import baseCatalogJson from './catalogs/base@4.json';
 import orkestratorCatalogJson from './catalogs/orkestrator@1.json';
 import {loadVocabulary, type BlokContextName, type VocabFunction} from './vocabulary';
 
@@ -9,8 +9,8 @@ import {loadVocabulary, type BlokContextName, type VocabFunction} from './vocabu
  * A *catalog* is a versioned set of components, named by the address it is
  * published at (its `id`).
  *
- * - The **base catalog** (`catalogs/base@3.json`,
- *   `https://arkitekt.live/catalogs/base/v3`): everything every renderer draws.
+ * - The **base catalog** (`catalogs/base@4.json`,
+ *   `https://arkitekt.live/catalogs/base/v4`): everything every renderer draws.
  *   The language's own elements, the html components, the structure and run
  *   parts a host supplies, the scene and the logo shapes. The spec owns it; this
  *   package's contracts (`catalogs/`) are held to it by a test.
@@ -24,7 +24,7 @@ import {loadVocabulary, type BlokContextName, type VocabFunction} from './vocabu
  */
 
 export const BASE_NAME = 'base';
-/** The family of the language's own elements (control flow, async boundaries, the context roots, text). */
+/** The family of the language's own elements (control flow, async boundaries, the Blok element, the declarations, text). */
 export const LANGUAGE_GROUP = 'language';
 /** The Orkestrator's catalog: what it draws beyond the base. */
 export const ORKESTRATOR_CATALOG_ID = 'https://arkitekt.live/catalogs/orkestrator/v1';
@@ -67,7 +67,7 @@ export type SpecComponent = {
   group: string | null;
   /** How it is drawn where there is no pointer, when that differs. */
   touch: string | null;
-  /** The catalog it is from, `name@version` (`base@3`), or the bare name of one nothing published. */
+  /** The catalog it is from, `name@version` (`base@4`), or the bare name of one nothing published. */
   catalog: string;
 };
 
@@ -93,7 +93,7 @@ const texts = (value: unknown): string[] => rawList(value).filter((item): item i
 const count = (value: unknown): number => (typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0);
 
 const contextOf = (value: unknown): BlokContextName | null =>
-  value === 'HTML' || value === 'SCENE' || value === 'LOGO' ? value : null;
+  value === 'PANEL' || value === 'SCENE' || value === 'LOGO' ? value : null;
 
 /**
  * A catalog file (`{id, name, version, minor, extends, components}`) as a
@@ -112,7 +112,7 @@ export const parseSpecCatalog = (raw: unknown, file: string): SpecCatalog => {
   const components = rawList(raw.components).filter(isRaw).map((entry): SpecComponent => ({
     name: String(entry.name),
     description: text(entry.description),
-    context: contextOf(entry.context) ?? 'HTML',
+    context: contextOf(entry.context) ?? 'PANEL',
     childrenContext: contextOf(entry.children_context),
     inheritsContext: entry.inherits_context === true,
     acceptsChildren: entry.accepts_children === true,
@@ -151,7 +151,7 @@ export const parseSpecCatalog = (raw: unknown, file: string): SpecCatalog => {
 export const catalogLabel = (catalog: SpecCatalog): string => (catalog.version === null ? catalog.name : `${catalog.name}@${catalog.version}`);
 
 const BUNDLED: Readonly<Record<string, unknown>> = {
-  'catalogs/base@3.json': baseCatalogJson,
+  'catalogs/base@4.json': baseCatalogJson,
   'catalogs/orkestrator@1.json': orkestratorCatalogJson,
 };
 

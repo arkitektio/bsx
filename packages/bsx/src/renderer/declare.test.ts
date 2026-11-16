@@ -13,12 +13,12 @@ const gauge = createBlokComponent({name: 'Gauge', service: 'lab', schema: z.obje
 describe('declareBlokUi', () => {
   it('speaks the base catalog in the contexts it draws whole', () => {
     const whole = declareBlokUi({name: 'whole', implements: [shadcnUi, shadcnHtml, shadcnLogo, shadcnExtras, threeScene, hostedStructure]});
-    expect(whole.contexts).toEqual(['HTML', 'SCENE', 'LOGO']);
-    expect(whole.claims).toEqual(['base@3']);
+    expect(whole.contexts).toEqual(['PANEL', 'SCENE', 'LOGO']);
+    expect(whole.claims).toEqual(['base@4']);
     const flat = declareBlokUi({name: 'flat', implements: [shadcnUi, shadcnHtml, shadcnLogo, shadcnExtras, hostedStructure]});
-    expect(flat.contexts).toEqual(['HTML', 'LOGO']);
+    expect(flat.contexts).toEqual(['PANEL', 'LOGO']);
     const logos = declareBlokUi({name: 'logos', implements: [shadcnLogo]});
-    expect([logos.contexts, logos.claims]).toEqual([['LOGO'], ['base@3']]);
+    expect([logos.contexts, logos.claims]).toEqual([['LOGO'], ['base@4']]);
     expect(declareBlokUi({name: 'none', implements: []}).claims).toEqual([]);
   });
 
