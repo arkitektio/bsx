@@ -265,6 +265,12 @@ const recordMatch = (
   }),
 });
 
+/** A STRUCTURE as what may be read below it: the `structure` record (`object`, `__identifier`). */
+const structureMatch = (structure: BlokPortMatch): BlokPortMatch => ({
+  ...recordMatch(structure.key || 'structure', loadVocabulary().records.structure.fields),
+  nullable: structure.nullable ?? null,
+});
+
 const taskRecordMatch = (key: string, returns?: readonly BlokPortMatch[] | null): BlokPortMatch =>
   recordMatch(
     key,
@@ -1298,6 +1304,8 @@ class Checker {
     for (let index = 0; index < rest.length; index += 1) {
       const part = rest[index];
       if (current === null || isOpen(current)) return current;
+      // A structure reads below it as the reference it travels as.
+      if (current.kind === 'STRUCTURE' && !current.children?.length) current = structureMatch(current);
       const children = current.children ?? [];
       let child = children.find(candidate => candidate.key === part) ?? null;
       if (!child && children.length === 1 && children[0].key === ITEM) child = children[0];
