@@ -60,6 +60,7 @@ export const IF_COMPONENT = 'if';
 export const ELSE_COMPONENT = 'else';
 export const FOREACH_COMPONENT = 'foreach';
 export const FOREACH_LET_PROP = 'let';
+export const FOREACH_INDEX_PROP = 'index';
 export const FOREACH_ITEMS_PROP = 'items';
 export const FOREACH_KEY_PROP = 'key';
 const LOCAL_COMPONENT = 'local';
@@ -468,6 +469,10 @@ class Lowering {
     if (declared && (typeof declared.value !== 'string' || !isLocalName(declared.value))) {
       throw this.fail('bsx.let', declared.offset, {let: typeof declared.value === 'string' ? declared.value : '{...}'});
     }
+    const index = attributes.get(FOREACH_INDEX_PROP);
+    if (index && (typeof index.value !== 'string' || !isLocalName(index.value))) {
+      throw this.fail('bsx.index', index.offset, {index: typeof index.value === 'string' ? index.value : '{...}'});
+    }
     for (const name of ['items', 'key']) {
       const attribute = attributes.get(name);
       if (attribute && (typeof attribute.value === 'string' || attribute.value === true)) {
@@ -554,12 +559,13 @@ class Lowering {
     }
     if (value === true) return {key: attribute.name, static_value: true};
     if (typeof value === 'string') {
-      if (attribute.name === FOREACH_LET_PROP && component === FOREACH_COMPONENT) {
+      if ((attribute.name === FOREACH_LET_PROP || attribute.name === FOREACH_INDEX_PROP) && component === FOREACH_COMPONENT) {
         return {key: attribute.name, static_value: value, declares_value: value};
       }
       return {key: attribute.name, static_value: value};
     }
     if (attribute.name === FOREACH_LET_PROP && component === FOREACH_COMPONENT) throw this.fail('bsx.let', attribute.offset, {let: '{...}'});
+    if (attribute.name === FOREACH_INDEX_PROP && component === FOREACH_COMPONENT) throw this.fail('bsx.index', attribute.offset, {index: '{...}'});
     return this.value(attribute.name, value, attribute.offset);
   }
 

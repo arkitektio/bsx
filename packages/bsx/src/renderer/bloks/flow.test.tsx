@@ -85,6 +85,17 @@ describe('foreach', () => {
     expect([...document.querySelectorAll('p')].map(element => element.textContent)).toEqual(['one', 'two', 'three']);
   });
 
+  it('names each item\'s position with index, for a path-backed list and a computed one', () => {
+    render(
+      '<Card><foreach items={xs} let="x" index="i"><Text>{math.add(a: i, b: 1)}. {x}</Text></foreach><foreach items={list.reverse(xs)} let="y" index="j" key={j}><Text>r{j} {y}</Text></foreach></Card>',
+      {xs: ['one', 'two']},
+    );
+    expect(screen.queryByText('1. one')).not.toBeNull();
+    expect(screen.queryByText('2. two')).not.toBeNull();
+    expect(screen.queryByText('r0 two')).not.toBeNull();
+    expect(screen.queryByText('r1 one')).not.toBeNull();
+  });
+
   describe('inside another foreach', () => {
     const rows = [
       {id: 'r1', cells: [{id: 'c1', name: 'One'}, {id: 'c2', name: 'Two'}]},

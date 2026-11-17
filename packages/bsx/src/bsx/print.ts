@@ -12,6 +12,7 @@ import {
   CLASSES_FUNCTION,
   FETCH_MORE_FUNCTION,
   FOREACH_COMPONENT,
+  FOREACH_INDEX_PROP,
   FOREACH_LET_PROP,
   LEGACY_IMPLICIT_TEXTS,
   TEXT_NODE,
@@ -253,7 +254,7 @@ class Printer {
       return `${key}={${this.agentCall(prop.agent_call)}${into}}`;
     }
     if (prop.declares_value != null) {
-      if (node.component === FOREACH_COMPONENT && key === FOREACH_LET_PROP && prop.static_value === prop.declares_value) {
+      if (node.component === FOREACH_COMPONENT && (key === FOREACH_LET_PROP || key === FOREACH_INDEX_PROP) && prop.static_value === prop.declares_value) {
         return `${key}=${quoted(prop.declares_value)}`;
       }
       if (node.component === 'local' && key === 'name' && prop.static_value === prop.declares_value) {

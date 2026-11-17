@@ -37,6 +37,7 @@ const ITEM_KEY = '...';
 const BIND_PROP = 'bind';
 const FOREACH = 'foreach';
 const FOREACH_LET = 'let';
+const FOREACH_INDEX = 'index';
 const FOREACH_ITEMS = 'items';
 /** The bind kinds a local takes from its control; a LIST, DICT or ANY control tells too little. */
 const BIND_INFERRED: ReadonlySet<string> = new Set(['STRING', 'INT', 'FLOAT', 'BOOL']);
@@ -260,8 +261,11 @@ class Uses {
     this.component(node, scope);
     const declared =
       node.component === FOREACH ? node.props?.find(prop => prop.key === FOREACH_LET && prop.declares_value)?.declares_value ?? null : null;
+    const index =
+      node.component === FOREACH ? node.props?.find(prop => prop.key === FOREACH_INDEX && prop.declares_value)?.declares_value ?? null : null;
     const inner = new Map(scope);
     if (declared !== null) inner.set(declared, null);
+    if (index !== null) inner.set(index, null);
     for (const prop of node.props ?? []) this.prop(prop, declared !== null && prop.key === FOREACH_ITEMS ? scope : inner);
     // Every local of a node is in scope in all of its children.
     for (const child of node.children ?? []) {

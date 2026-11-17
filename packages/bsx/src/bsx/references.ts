@@ -224,6 +224,7 @@ const TOAST_TASK_PROP = 'task';
 const CLASS_NAME = 'className';
 const FOREACH = 'foreach';
 const FOREACH_LET = 'let';
+const FOREACH_INDEX = 'index';
 const FOREACH_ITEMS = 'items';
 const FOREACH_KEY = 'key';
 /** An item of these kinds is no scalar: a foreach over it without key is keyed by position (`foreach.position_key`). */
@@ -327,6 +328,11 @@ export const foreachLet = (node: BlokComponentNode): string | null => {
   return node.props?.find(prop => prop.key === FOREACH_LET && prop.declares_value)?.declares_value ?? null;
 };
 
+/** The name a `foreach` gives each item's position (`index="i"`), or null when it names none. */
+export const foreachIndex = (node: BlokComponentNode): string | null => {
+  if (node.component !== FOREACH) return null;
+  return node.props?.find(prop => prop.key === FOREACH_INDEX && prop.declares_value)?.declares_value ?? null;
+};
 
 /** A `<local>` in scope: its node and the port it resolved to. */
 type LocalBinding = {local: true; node: string; name: string; port: ResolvedBlokLocal};
@@ -677,6 +683,8 @@ class Checker {
       const items = node.props?.find(prop => prop.key === FOREACH_ITEMS) ?? null;
       inner.set(declared, this.bindLet(declared, items, {node, key: FOREACH_ITEMS, callback: false, inError}, scope));
     }
+    const index = foreachIndex(node);
+    if (index !== null) inner.set(index, this.bindIndex(index, {node, key: FOREACH_INDEX, callback: false, inError}, new Map(inner)));
     for (const prop of node.props ?? []) {
       // A foreach reads its items outside the loop, its key inside it.
       const propScope = declared !== null && prop.key === FOREACH_ITEMS ? scope : inner;
@@ -1046,6 +1054,15 @@ class Checker {
       return;
     }
     if (call.operation === FETCH_MORE_FUNCTION && query.more == null) this.add('query.fetch_more', where.node.id, {path, name}, where.key);
+  }
+
+  /** What a foreach's `index` is bound to: the item's 0-based position. `scope` holds the loop variable already. */
+  private bindIndex(name: string, where: Where, scope: Scope): Binding {
+    if (this.vocabulary.reserved.has(name)) this.add('roots.reserved', where.node.id, {name});
+    else if (scope.has(name)) {
+      this.add('roots.shadow', where.node.id, {name, first: bindingWhat(name, scope.get(name), this.into), second: `the index of <foreach> (${where.node.id})`});
+    }
+    return {key: name, kind: 'INT'};
   }
 
   private bindLet(name: string, items: BlokComponentProp | null, where: Where, scope: Scope): Binding {

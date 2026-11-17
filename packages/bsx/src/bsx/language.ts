@@ -2,7 +2,7 @@ import {defaultBlokView, innerContext, type BlokView, type SpecComponent, type S
 import {BLOK_KINDS, kindIn, loadVocabulary, type BlokContextName, type BlokKind, type VocabFunction, type VocabRecordField} from '../spec/vocabulary';
 import {BLOK_COMPONENT, declaredQueries, declaredSubscriptions, QUERY_COMPONENT, SUBSCRIPTION_COMPONENT} from './declared';
 import {resolveLocals} from './infer';
-import {FOREACH_COMPONENT, FOREACH_LET_PROP, INTO_KEYWORD} from './parse';
+import {FOREACH_COMPONENT, FOREACH_INDEX_PROP, FOREACH_LET_PROP, INTO_KEYWORD} from './parse';
 import {parseBsxPartial} from './partial';
 import {type BlokCheckScope, type BlokPortMatch, type BlokScopeDependency, type BlokScopeLocalPort, type ResolvedBlokLocal} from './references';
 import type {BsxRange} from './source';
@@ -488,7 +488,7 @@ const intoNames = (text: string): string[] => [...new Set([...text.matchAll(new 
 const foreachLets = (stack: readonly OpenElement[]): string[] =>
   stack
     .filter(element => element.tag === FOREACH_COMPONENT)
-    .map(element => element.attributes.get(FOREACH_LET_PROP) ?? '')
+    .flatMap(element => [element.attributes.get(FOREACH_LET_PROP) ?? '', element.attributes.get(FOREACH_INDEX_PROP) ?? ''])
     .filter(Boolean);
 
 const dependencyOf = (env: BsxEnvironment, key: string): BlokScopeDependency | undefined =>
@@ -704,7 +704,7 @@ export const completeBsx = (text: string, offset: number, env: BsxEnvironment): 
       return cursor.attr === 'className' ? classCompletions(cursor.value, cursor.from + cursor.value.length) : [];
     case 'attrExpression': {
       const end = cursor.from + cursor.expression.length;
-      if (cursor.tag === FOREACH_COMPONENT && cursor.attr === FOREACH_LET_PROP) return [];
+      if (cursor.tag === FOREACH_COMPONENT && (cursor.attr === FOREACH_LET_PROP || cursor.attr === FOREACH_INDEX_PROP)) return [];
       if (cursor.attr === 'className' && inString(cursor.expression)) {
         const quote = Math.max(cursor.expression.lastIndexOf('"'), cursor.expression.lastIndexOf("'"));
         return classCompletions(cursor.expression.slice(quote + 1), end);

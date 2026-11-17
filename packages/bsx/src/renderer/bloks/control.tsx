@@ -31,7 +31,7 @@ import {blokPlatform} from '../../platform';
  * - `<if when={...}>`: its children are the then-branch, then `<else when>`
  *   (else-if) and a last `<else>`; only the active branch is rendered and read.
  * - `<foreach items={...} let="p" key={p.id}>`: once per item, keyed; without
- *   `key`, keyed by position.
+ *   `key`, keyed by position. `index="i"` names the item's position, from 0.
  * - `<match value={...}>` with `<case is={...}>` and `<default>`.
  * - `<suspense>` with `<fallback>` and `<error>`: React's model, the error
  *   boundary folded in; a pending read inside shows the fallback, a failed
@@ -62,15 +62,23 @@ const ForeachIteration = (props: {
   itemPath?: string;
   /** The item itself, for sources that have no addressable path. */
   item: unknown;
+  /** The name the item's position is read by (`index="i"`), when the foreach names one. */
+  indexName?: string;
+  /** The item's 0-based position in the list. */
+  index: number;
   childIds: string[];
   buildChild: (id: string, basePath?: string) => React.ReactNode;
 }) => {
-  const {buildChild, childIds, item, itemKey, itemPath, scopeName} = props;
+  const {buildChild, childIds, index, indexName, item, itemKey, itemPath, scopeName} = props;
 
   // A path-backed item aliases to its path, so a bound control inside the loop
   // writes the real backing list. Without a path the item is handed down by value.
   const aliases = React.useMemo(() => (itemPath ? {[scopeName]: itemPath} : undefined), [itemPath, scopeName]);
-  const values = React.useMemo(() => (itemPath ? undefined : {[scopeName]: item}), [item, itemPath, scopeName]);
+  // The position has no path: it is always handed down by value.
+  const values = React.useMemo(() => {
+    const position = indexName ? {[indexName]: index} : undefined;
+    return itemPath ? position : {[scopeName]: item, ...position};
+  }, [index, indexName, item, itemPath, scopeName]);
 
   return (
     <BlokItemKeyProvider itemKey={itemKey}>
@@ -87,6 +95,7 @@ const foreachSchema = z
   .object({
     items: z.array(z.unknown()).nullish().describe('The list to iterate.'),
     let: z.string().describe('The name each item is read by inside the loop (`let="p"`, read as `p.name`).'),
+    index: z.string().optional().describe('A name for the item\'s position, from 0 (`index="i"`), read bare inside the loop.'),
     key: z
       .unknown()
       .optional()
@@ -136,6 +145,8 @@ export const Foreach = createBlokComponent(
     const blok = useBlok(component, schema);
     const items = useValue(blok.items);
     const scopeName = blok['let'].prop?.declares_value ?? (typeof blok['let'].prop?.static_value === 'string' ? blok['let'].prop.static_value : '');
+    const indexProp = blok.index.prop;
+    const indexName = indexProp?.declares_value ?? (typeof indexProp?.static_value === 'string' ? indexProp.static_value : undefined);
     const resolve = useScopedResolver();
     const childIds = React.useMemo(() => component.children?.map(child => child.id) ?? [], [component]);
     const scope = useBlokScope();
@@ -150,7 +161,8 @@ export const Foreach = createBlokComponent(
     const keys = keyProp
       ? items.map((item, index) => {
           const path = itemPath(index);
-          const resolved = resolve(keyProp, path ? {} : {[scopeName]: item}, path ? {[scopeName]: path} : undefined);
+          const position = indexName ? {[indexName]: index} : {};
+          const resolved = resolve(keyProp, path ? position : {[scopeName]: item, ...position}, path ? {[scopeName]: path} : undefined);
           return resolved.ok ? resolved.value : null;
         })
       : null;
@@ -165,6 +177,8 @@ export const Foreach = createBlokComponent(
               scopeName={scopeName}
               itemPath={itemPath(index)}
               item={item}
+              indexName={indexName || undefined}
+              index={index}
               childIds={childIds}
               buildChild={buildChild}
             />

@@ -49,7 +49,7 @@ describe('the synced vocabulary', () => {
     expect(vocabulary.callKinds).not.toContain('query_refetch');
     expect(vocabulary.records.query.fields.map(field => field.key)).toContain('fetching_more');
     expect(Object.keys(vocabulary.theme.dataAttributes).sort()).toEqual(['busy', 'stale']);
-    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 3]);
+    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 4]);
     expect(vocabulary.baseCatalog).toBe('https://arkitekt.live/catalogs/base/v4');
     expect(Object.values(vocabulary.bundledCatalogs)).toEqual(['catalogs/base@4.json', 'catalogs/orkestrator@1.json']);
     expect(vocabulary.hostParts).toEqual(['args', 'arg', 'deps', 'dep', 'ask', 'returns', 'status', 'timeline']);
@@ -76,7 +76,7 @@ describe('the synced vocabulary', () => {
   });
 
   it('fills diagnostic messages like str.format', () => {
-    expect(diagnosticMessage('roots.reserved', {name: 'task'})).toBe("'task' is reserved: no local, let or into may use it.");
+    expect(diagnosticMessage('roots.reserved', {name: 'task'})).toBe("'task' is reserved: no local, let, index or into may use it.");
     expect(diagnosticMessage('local.bind', {what: 'x'})).toContain('{name}');
   });
 
