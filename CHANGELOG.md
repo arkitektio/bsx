@@ -1,3 +1,10 @@
+# [6.4.0](https://github.com/arkitektio/bsx/compare/v6.3.0...v6.4.0) (2026-11-17)
+
+
+### Features
+
+* **foreach:** index names each item's position ([b751def](https://github.com/arkitektio/bsx/commit/b751def9e1f5abaeb40c9b015df41f4404d3e1f8))
+
 # [6.3.0](https://github.com/arkitektio/bsx/compare/v6.2.1...v6.3.0) (2026-11-17)
 
 
