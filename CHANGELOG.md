@@ -1,3 +1,10 @@
+# [6.3.0](https://github.com/arkitektio/bsx/compare/v6.2.1...v6.3.0) (2026-11-17)
+
+
+### Features
+
+* **references:** a structure reads as its reference, object and __identifier ([7ddd73b](https://github.com/arkitektio/bsx/commit/7ddd73b9c07456ee0f5ffca9129e687af6a72062))
+
 ## [6.2.1](https://github.com/arkitektio/bsx/compare/v6.2.0...v6.2.1) (2026-11-16)
 
 
