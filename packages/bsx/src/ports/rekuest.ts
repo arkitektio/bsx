@@ -72,7 +72,7 @@ export const ReturnWidgetKind = {
 } as const;
 export type ReturnWidgetKind = (typeof ReturnWidgetKind)[keyof typeof ReturnWidgetKind];
 
-export type ArgChildPortDeepFragment = { __typename: 'ArgPort', kind: PortKind, key: string, label?: string | null, identifier?: any | null, referenceUnit?: string | null, proposedUnits?: Array<string> | null, dimension?: string | null, description?: string | null, nullable: boolean, default?: any | null, requires?: Array<{ __typename?: 'Requires', key: string, operator: DescriptorOperator, value?: any | null }> | null, choices?: Array<{ __typename?: 'Choice', value: any, label: string, description?: string | null }> | null, widget?: (
+export type ArgChildPortDeepFragment = { __typename: 'ArgPort', kind: PortKind, key: string, label?: string | null, identifier?: any | null, referenceUnit?: string | null, proposedUnits?: Array<string> | null, dimension?: string | null, description?: string | null, nullable: boolean, default?: any | null, requires?: Array<{ __typename?: 'Requires', key: string, operator: DescriptorOperator, value?: any | null }> | null, choices?: Array<{ __typename?: 'Choice', value: any, label: string, description?: string | null }> | null, widget?: BlokAssignWidgetFragment | (
     { __typename?: 'ChoiceAssignWidget' }
     & AssignWidget_ChoiceAssignWidget_Fragment
   ) | (
@@ -93,7 +93,7 @@ export type ArgChildPortDeepFragment = { __typename: 'ArgPort', kind: PortKind, 
   ) | (
     { __typename?: 'StringAssignWidget' }
     & AssignWidget_StringAssignWidget_Fragment
-  ) | null, children?: Array<{ __typename: 'ArgPort', kind: PortKind, key: string, identifier?: any | null, nullable: boolean, requires?: Array<{ __typename?: 'Requires', key: string, operator: DescriptorOperator, value?: any | null }> | null, widget?: (
+  ) | null, children?: Array<{ __typename: 'ArgPort', kind: PortKind, key: string, identifier?: any | null, nullable: boolean, requires?: Array<{ __typename?: 'Requires', key: string, operator: DescriptorOperator, value?: any | null }> | null, widget?: BlokAssignWidgetFragment | (
       { __typename?: 'ChoiceAssignWidget' }
       & AssignWidget_ChoiceAssignWidget_Fragment
     ) | (
@@ -119,7 +119,7 @@ export type ArgChildPortDeepFragment = { __typename: 'ArgPort', kind: PortKind, 
 export type ArgChildPortFragment = { __typename: 'ArgPort', kind: PortKind, key: string, label?: string | null, identifier?: any | null, referenceUnit?: string | null, proposedUnits?: Array<string> | null, dimension?: string | null, nullable: boolean, description?: string | null, default?: any | null, requires?: Array<{ __typename?: 'Requires', key: string, operator: DescriptorOperator, value?: any | null }> | null, children?: Array<(
     { __typename?: 'ArgPort' }
     & ArgChildPortNestedFragment
-  )> | null, widget?: (
+  )> | null, widget?: BlokAssignWidgetFragment | (
     { __typename?: 'ChoiceAssignWidget' }
     & AssignWidget_ChoiceAssignWidget_Fragment
   ) | (
@@ -157,7 +157,7 @@ export type ArgChildPortFragment = { __typename: 'ArgPort', kind: PortKind, key:
 export type ArgChildPortNestedFragment = { __typename: 'ArgPort', kind: PortKind, key: string, label?: string | null, identifier?: any | null, referenceUnit?: string | null, proposedUnits?: Array<string> | null, dimension?: string | null, description?: string | null, nullable: boolean, default?: any | null, requires?: Array<{ __typename?: 'Requires', key: string, operator: DescriptorOperator, value?: any | null }> | null, children?: Array<(
     { __typename?: 'ArgPort' }
     & ArgChildPortDeepFragment
-  )> | null, choices?: Array<{ __typename?: 'Choice', value: any, label: string, description?: string | null }> | null, widget?: (
+  )> | null, choices?: Array<{ __typename?: 'Choice', value: any, label: string, description?: string | null }> | null, widget?: BlokAssignWidgetFragment | (
     { __typename?: 'ChoiceAssignWidget' }
     & AssignWidget_ChoiceAssignWidget_Fragment
   ) | (
@@ -201,7 +201,7 @@ export type ArgPortFragment = { __typename: 'ArgPort', key: string, label?: stri
   ) | (
     { __typename?: 'MessageEffect' }
     & PortEffect_MessageEffect_Fragment
-  )> | null, widget?: (
+  )> | null, widget?: BlokAssignWidgetFragment | (
     { __typename?: 'ChoiceAssignWidget' }
     & AssignWidget_ChoiceAssignWidget_Fragment
   ) | (
@@ -332,7 +332,7 @@ export type ChoiceReturnWidgetFragment = { __typename: 'ChoiceReturnWidget', kin
 export type CustomAssignWidgetFragment = { __typename: 'CustomAssignWidget', kind: AssignWidgetKind, followValue?: string | null, component: string, children?: any | null, dependencies?: Array<string> | null, props?: Array<(
     { __typename?: 'ComponentProp' }
     & BlokComponentPropFragment
-  )> | null, fallback?: (
+  )> | null, fallback?: { __typename: 'BlokAssignWidget', kind: AssignWidgetKind } | (
     { __typename: 'ChoiceAssignWidget', kind: AssignWidgetKind }
     & ChoiceAssignWidgetFragment
   ) | { __typename: 'CustomAssignWidget', kind: AssignWidgetKind } | (
@@ -362,7 +362,7 @@ export type CustomReturnWidgetFragment = { __typename: 'CustomReturnWidget', kin
     & BlokComponentPropFragment
   )> | null };
 
-export type FilterPortFragment = { __typename: 'ArgPort', kind: PortKind, key: string, identifier?: any | null, description?: string | null, nullable: boolean, widget?: { __typename?: 'ChoiceAssignWidget' } | { __typename?: 'CustomAssignWidget' } | { __typename?: 'ProxyWidget' } | { __typename?: 'SearchAssignWidget', query: string } | { __typename?: 'SliderAssignWidget' } | { __typename?: 'StateChoiceAssignWidget' } | { __typename?: 'StringAssignWidget' } | null };
+export type FilterPortFragment = { __typename: 'ArgPort', kind: PortKind, key: string, identifier?: any | null, description?: string | null, nullable: boolean, widget?: { __typename?: 'BlokAssignWidget' } | { __typename?: 'ChoiceAssignWidget' } | { __typename?: 'CustomAssignWidget' } | { __typename?: 'ProxyWidget' } | { __typename?: 'SearchAssignWidget', query: string } | { __typename?: 'SliderAssignWidget' } | { __typename?: 'StateChoiceAssignWidget' } | { __typename?: 'StringAssignWidget' } | null };
 
 export type HideEffectFragment = (
   { __typename: 'HideEffect', fade: boolean }
