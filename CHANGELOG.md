@@ -1,3 +1,10 @@
+# [6.5.0](https://github.com/arkitektio/bsx/compare/v6.4.0...v6.5.0) (2026-11-18)
+
+
+### Features
+
+* **ports:** a port's widget can be a blok ([a94f7f8](https://github.com/arkitektio/bsx/commit/a94f7f8099f2e857f9bc3d786cc8f2769f3c1ca3))
+
 # [6.4.0](https://github.com/arkitektio/bsx/compare/v6.3.0...v6.4.0) (2026-11-17)
 
 
