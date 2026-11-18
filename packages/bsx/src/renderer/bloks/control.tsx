@@ -21,6 +21,7 @@ import {
   type BlokSuspenseReporter,
 } from '../runtime';
 import {useBlokRunHost} from './run/host';
+import {useBlokPortParts} from './port/host';
 import {blokPlatform} from '../../platform';
 
 /**
@@ -301,7 +302,7 @@ export const Blok = createBlokComponent(
     placement: {notDownstreamOf: [BLOK_COMPONENT]},
     schema: z
       .object({
-        kind: z.enum(['agent', 'custom', 'task', 'action', 'assign']).describe('What the blok is: what it reads, and where it may be mounted.'),
+        kind: z.enum(['agent', 'custom', 'task', 'action', 'assign', 'port']).describe('What the blok is: what it reads, and where it may be mounted.'),
         context: z
           .enum(['panel', 'scene', 'logo'])
           .describe('What draws it: a panel (a flat rectangle the host lays out), a scene (a 3D view) or a logo (an SVG drawing).'),
@@ -667,6 +668,46 @@ export const Timeline = createBlokComponent(
   () => <>{useBlokRunHost().renderTimeline?.() ?? null}</>,
 );
 
+/* -------------------------------------------------------------------------- */
+/* a port blok's parts of the form                                            */
+/* -------------------------------------------------------------------------- */
+
+export const PortLabel = createBlokComponent(
+  {name: 'label', schema: z.object({}).describe("The port's label, as the form draws it. The form draws its own above a port blok that places none.")},
+  () => <>{useBlokPortParts().renderLabel()}</>,
+);
+
+export const PortDescription = createBlokComponent(
+  {name: 'description', schema: z.object({}).describe("The port's description, as the form draws it.")},
+  () => <>{useBlokPortParts().renderDescription()}</>,
+);
+
+export const PortMessage = createBlokComponent(
+  {
+    name: 'message',
+    schema: z.object({}).describe("What the form says is wrong with the port's value (`port.error`), as the form draws it; nothing while the value is fine."),
+  },
+  () => <>{useBlokPortParts().renderMessage()}</>,
+);
+
+export const PortControl = createBlokComponent(
+  {
+    name: 'control',
+    schema: z.object({}).describe("The control the form would draw for this port without a blok, bound to the port: place it to draw around the standard control instead of replacing it."),
+  },
+  () => <>{useBlokPortParts().renderControl()}</>,
+);
+
+const fieldSchema = z
+  .object({key: z.string().describe('The key of the child port: `key="x"`.')})
+  .describe('One child port of the port (a field of a MODEL), as its own widget draws it, bound below the port\'s value.');
+
+export const PortField = createBlokComponent({name: 'field', schema: fieldSchema}, ({component, schema}) => {
+  const key = useValue(useBlok(component, schema).key);
+  const parts = useBlokPortParts();
+  return <>{typeof key === 'string' ? parts.renderField(key) : null}</>;
+});
+
 export const controlBlokComponents = [
   TextNode,
   Foreach,
@@ -692,4 +733,9 @@ export const controlBlokComponents = [
   Returns,
   Status,
   Timeline,
+  PortLabel,
+  PortDescription,
+  PortMessage,
+  PortControl,
+  PortField,
 ];

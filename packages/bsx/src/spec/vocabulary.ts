@@ -8,8 +8,8 @@ import vocabularyJson from './vocabulary.json';
  * diagnostics is read from this one file, never restated.
  */
 
-export type BlokKind = 'agent' | 'custom' | 'task' | 'action' | 'assign';
-export const BLOK_KINDS: readonly BlokKind[] = ['agent', 'custom', 'task', 'action', 'assign'];
+export type BlokKind = 'agent' | 'custom' | 'task' | 'action' | 'assign' | 'port';
+export const BLOK_KINDS: readonly BlokKind[] = ['agent', 'custom', 'task', 'action', 'assign', 'port'];
 
 export type BlokContextName = 'PANEL' | 'SCENE' | 'LOGO';
 export const BLOK_CONTEXTS: readonly BlokContextName[] = ['PANEL', 'SCENE', 'LOGO'];
@@ -30,6 +30,8 @@ export type VocabFunction = {
   command: boolean;
   /** Acts on the task the blok is about (`task.answer`, `task.cancel`): only where the blok reads one. */
   taskOperation: boolean;
+  /** The root a blok's kind must read to hold this effect (`port.set` needs `port`); null for none. */
+  needs: string | null;
   /** Sees a pending or failed argument instead of suspending. */
   seesStatus: boolean;
   /** The parameter names, in positional order. */
@@ -60,6 +62,8 @@ export type VocabKind = {
   contexts: readonly BlokContextName[];
   /** Per context, the narrower row the kind reads there (an action's logo reads only `task`, and has no locals). */
   within: Readonly<Partial<Record<BlokContextName, VocabKind>>>;
+  /** Whether a blok of this kind may call an agent (`self.<action>(...)`). A port blok may not: it is a field of a form. */
+  calls: boolean;
 };
 
 /** The row of `kind` in `context`: its own, or the narrower one it has there (vocabulary `kinds.<kind>.in`). */
@@ -300,6 +304,7 @@ const parseFunction = (name: string, raw: unknown): VocabFunction => {
     effect: entry.effect === true,
     command: entry.command === true,
     taskOperation: entry.task_operation === true,
+    needs: typeof entry.needs === 'string' ? entry.needs : null,
     seesStatus: entry.sees_status === true,
     keys: params.map(param => param.key),
     requiredKeys: params.filter(param => param.required).map(param => param.key),
@@ -327,6 +332,7 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
         locals: narrower.locals === true,
         contexts: [context],
         within: {},
+        calls: true,
       };
     }
     kinds[kind] = {
@@ -335,6 +341,7 @@ export const parseVocabulary = (raw: unknown): BlokVocabulary => {
       locals: entry.locals === true,
       contexts: strings(entry.contexts, `kinds.${kind}.contexts`).filter(isContext),
       within,
+      calls: entry.calls !== false,
     };
   }
   const unknownKinds = Object.keys(kindsRaw).filter(kind => kind !== 'description' && !(BLOK_KINDS as readonly string[]).includes(kind));

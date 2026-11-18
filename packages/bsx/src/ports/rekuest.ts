@@ -5,6 +5,7 @@
 
 /** The kind of assign widget. */
 export const AssignWidgetKind = {
+  Blok: 'BLOK',
   Choice: 'CHOICE',
   Custom: 'CUSTOM',
   Proxy: 'PROXY',
@@ -229,7 +230,12 @@ export type ArgPortFragment = { __typename: 'ArgPort', key: string, label?: stri
     & ValidatorFragment
   )> | null, requires?: Array<{ __typename?: 'Requires', key: string, operator: DescriptorOperator, value?: any | null }> | null };
 
-export type AssignWidgetFragment = AssignWidget_ChoiceAssignWidget_Fragment | AssignWidget_CustomAssignWidget_Fragment | AssignWidget_ProxyWidget_Fragment | AssignWidget_SearchAssignWidget_Fragment | AssignWidget_SliderAssignWidget_Fragment | AssignWidget_StateChoiceAssignWidget_Fragment | AssignWidget_StringAssignWidget_Fragment;
+/** A port blok as the port's widget: BSX (`<Blok kind="port">`) the form draws where the port's control would be. */
+export type BlokAssignWidgetFragment = { __typename: 'BlokAssignWidget', kind: AssignWidgetKind, followValue?: string | null, source: string, vocab: number, fallback?: (
+    { __typename: string, kind: AssignWidgetKind }
+  ) | null };
+
+export type AssignWidgetFragment = BlokAssignWidgetFragment | AssignWidget_ChoiceAssignWidget_Fragment | AssignWidget_CustomAssignWidget_Fragment | AssignWidget_ProxyWidget_Fragment | AssignWidget_SearchAssignWidget_Fragment | AssignWidget_SliderAssignWidget_Fragment | AssignWidget_StateChoiceAssignWidget_Fragment | AssignWidget_StringAssignWidget_Fragment;
 
 type AssignWidget_ChoiceAssignWidget_Fragment = (
   { __typename: 'ChoiceAssignWidget', kind: AssignWidgetKind }

@@ -17,6 +17,10 @@ export * from './ports/dependencies/useDependencyTree';
 export * from './ports/engine/useAssignForm';
 export * from './ports/engine/usePortForm';
 export * from './ports/host';
+// A port's own blok (a BLOK widget) as a field of the form, and what an app is handed to draw it
+// with its agents and services (`configurePortHost({PortBlokRenderer})`).
+export {argsRead, DefaultPortBlokRenderer, PortBlokWidget, type PortBlokRendererProps} from './ports/widgets/custom/PortBlokWidget';
+export {BlokPortPartsProvider, useBlokPortParts, type BlokPortOperation, type BlokPortParts} from './renderer/bloks/port/host';
 export * from './ports/rekuest';
 export * from './ports/structure';
 export {ArgsContainer} from './ports/widgets/ArgsContainer';

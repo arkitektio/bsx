@@ -1,5 +1,6 @@
 import { ChoicesWidget } from "../widgets/custom/ChoicesWidget";
 import { CustomWidget } from "../widgets/custom/CustomWidget";
+import { PortBlokWidget } from "../widgets/custom/PortBlokWidget";
 import { ProxyWidget } from "../widgets/custom/ProxyWidget";
 import { SearchWidget } from "../widgets/custom/SearchWidget";
 import { SliderWidget } from "../widgets/custom/SliderWidget";
@@ -90,6 +91,7 @@ export const createWidgetRegistry = (options: { canPick?: (identifier: string) =
   registry.registerInputWidget("ProxyWidget", ProxyWidget);
   registry.registerInputWidget("StringAssignWidget", StringWidget);
   registry.registerInputWidget("CustomAssignWidget", CustomWidget);
+  registry.registerInputWidget("BlokAssignWidget", PortBlokWidget);
 
   registry.registerReturnWidgetFallback(PortKind.Int, IntReturnWidget);
   registry.registerReturnWidgetFallback(PortKind.Float, FloatReturnWidget);

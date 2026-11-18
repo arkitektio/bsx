@@ -10,7 +10,7 @@ import type {BlokComponentNode} from '../renderer/runtime/types';
 /** Where a corpus case is checked: the spec's `mount`, and whether a catalog is read at all. */
 type CorpusMount = Omit<BlokCheckScope, 'catalog'> & {catalog: boolean};
 
-const scopeOf = (mount: CorpusMount): BlokCheckScope => ({kinds: mount.kinds, dependencies: mount.dependencies, args: mount.args});
+const scopeOf = (mount: CorpusMount): BlokCheckScope => ({kinds: mount.kinds, dependencies: mount.dependencies, args: mount.args, port: mount.port ?? null});
 type CheckedCase = {
   name: string;
   source: string;

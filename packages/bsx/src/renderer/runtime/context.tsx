@@ -16,6 +16,7 @@ import type {
   BlokRuntimeStore,
 } from './types';
 import {invokeBlokFunction} from '../functions/v2/handler';
+import type {BlokPortOperation} from '../bloks/port/host';
 
 /** The blok language's functions (the vocabulary's): what a store calls unless its host says otherwise. */
 const defaultInvokeFunction: BlokInvokeFunctionHandler = invokeBlokFunction;
@@ -159,6 +160,7 @@ export const createBlokRuntimeStore = (config?: {
   travelAt?: string | null;
   answerTask?: (values: Record<string, unknown>) => unknown;
   startRun?: () => unknown;
+  writePort?: (operation: BlokPortOperation, value?: unknown) => unknown;
   controlTask?: (operation: BlokTaskControl) => unknown;
 }): BlokRuntimeStore => {
   const initialDataModel = config?.initialDataModel;
@@ -184,6 +186,7 @@ export const createBlokRuntimeStore = (config?: {
     fetchMoreQuery: undefined,
     answerTask: config?.answerTask,
     startRun: config?.startRun,
+    writePort: config?.writePort,
     controlTask: config?.controlTask,
     setStatus: (path, status) => {
       const key = canonicalStatusPath(path);
@@ -223,6 +226,9 @@ export const createBlokRuntimeStore = (config?: {
     },
     setStartRun: start => {
       set({startRun: start});
+    },
+    setWritePort: write => {
+      set({writePort: write});
     },
     setControlTask: control => {
       set({controlTask: control});

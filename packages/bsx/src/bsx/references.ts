@@ -177,6 +177,8 @@ export type BlokCheckScope = {
   assets?: readonly string[] | null;
   /** Preview data, for the logo's foreach limit. */
   demo?: {deps?: unknown; args?: unknown; task?: unknown} | null;
+  /** The port a port blok is the widget of, as a match: what `port.value` is typed as. Null (or absent) leaves the value open. */
+  port?: BlokPortMatch | null;
 };
 
 /** A blok checked on its own, mounted nowhere: what an editor checks from the source alone. */
@@ -206,6 +208,10 @@ const DEPENDENCY_KEY_PROPS = new Set(['Placed.dep', 'Route.through']);
 /** The kinds that have a run's dependencies: an action's own bloks, for a run and for starting one. */
 const RUN_KINDS: readonly string[] = ['action', 'assign'];
 const ASSIGN_KIND = 'assign';
+/** The root of a port blok: the port it is the widget of. */
+const PORT_ROOT = 'port';
+/** The one field of `port` a control writes. */
+const PORT_VALUE_FIELD = 'value';
 const ASK_COMPONENT = 'ask';
 const CHROME_NONE = 'none';
 /** The language's elements whose children do not always show: a host part inside one still claims its slot. */
@@ -382,7 +388,7 @@ const DIGITS = /^[0-9]+$/;
  * - an agent blok has none: ``agent bloks read only `self` ``.
  */
 export const dependencyHint = (key: string, kind: BlokKind): string => {
-  if (kind === 'action' || kind === 'assign') return `add a dependency parameter \`${key}\` to the action`;
+  if (kind === 'action' || kind === 'assign' || kind === 'port') return `add a dependency parameter \`${key}\` to the action`;
   if (kind === 'agent') return 'agent bloks read only `self`';
   return `dependencies=[AgentDependencyInput(key="${key}")]`;
 };
@@ -854,6 +860,11 @@ class Checker {
     if (effect !== undefined && vocabulary.functions.get(effect)?.taskOperation && !this.kind.roots.includes('task')) {
       this.notInKind(node.id, effect, 'task', prop.key);
     }
+    // An effect that is a root's own (port.set) belongs to the kinds that read that root.
+    const needs = effect === undefined ? null : (vocabulary.functions.get(effect)?.needs ?? null);
+    if (effect !== undefined && needs !== null && !this.kind.roots.includes(needs)) {
+      this.notInKind(node.id, effect, needs, prop.key);
+    }
     if (prop.key === BIND_PROP) {
       const path = prop.dynamic_value?.path ?? null;
       if (path === null) {
@@ -861,7 +872,11 @@ class Checker {
       } else {
         const root = path.split('.')[0];
         const binding = scope.get(root);
-        if (!isLocalBinding(binding)) this.add('local.unknown', node.id, {path, root}, prop.key);
+        if (root === PORT_ROOT && !scope.has(root) && this.kind.roots.includes(PORT_ROOT)) {
+          // The one thing besides a local a control writes: the value of the port a port blok
+          // stands for (and what is below it), never what the form says of it.
+          if (path.split('.')[1] !== PORT_VALUE_FIELD) this.add('port.bind', node.id, {path}, prop.key);
+        } else if (!isLocalBinding(binding)) this.add('local.unknown', node.id, {path, root}, prop.key);
         else {
           this.boundLocals.add(binding.node);
           if (propSpec) this.checkBindKind(node, propSpec.kind, binding, path);
@@ -945,6 +960,11 @@ class Checker {
   private visitAgentCall(call: BlokAgentCall, where: Where, scope: Scope): void {
     const owner = whereText(where);
     const action = actionKeyFor(call);
+    if (!this.kind.calls) {
+      const called = call.dependency === 'self' ? `self.${action}(...)` : `deps.${call.dependency}.${action}(...)`;
+      this.add('calls.not_in_kind', where.node.id, {path: called, n: article(this.kindName), kind: this.kindName}, where.key);
+      return;
+    }
     if (call.dependency === 'self') {
       if (!this.kind.roots.includes('self')) {
         this.notInKind(where.node.id, `self.${action}(...)`, 'self', where.key);
@@ -1198,6 +1218,12 @@ class Checker {
           return {key: rest[1], kind: 'BOOL'};
         }
         return this.descend(recordMatch('assign', vocabulary.records.assign.fields), rest, path, nodeId, propKey);
+      case PORT_ROOT: {
+        // `port.value` is the port's own type where the mount says it; the rest is the record.
+        const value = this.scope.port ?? null;
+        const overrides = value === null ? undefined : {[PORT_VALUE_FIELD]: {...value, at: null, nullable: true}};
+        return this.descend(recordMatch(PORT_ROOT, vocabulary.records.port.fields, overrides), rest, path, nodeId, propKey);
+      }
       case 'task':
         this.checkReturns(path, rest, nodeId, propKey);
         return this.descend(taskRecordMatch('task'), rest, path, nodeId, propKey);

@@ -40,6 +40,7 @@ import {
   type BlokSubscription,
   type BlokViewer,
 } from './runtime';
+import type {BlokPortOperation} from './bloks/port/host';
 
 type BlokRendererProps = {
   surfaceId?: string;
@@ -101,6 +102,8 @@ type BlokRendererProps = {
   answerTask?: (values: Record<string, unknown>) => unknown;
   /** Starts the run an assign blok prepares (`assign.start()`). */
   startRun?: () => unknown;
+  /** Writes the port a port blok is the widget of (`port.set(...)`, `port.clear()`, `port.reset()`, `port.touch()`). */
+  writePort?: (operation: BlokPortOperation, value?: unknown) => unknown;
   /** Cancels, pauses, resumes, steps, interrupts or reruns `task` (`task.cancel()` and its kin). */
   controlTask?: (operation: BlokTaskControl) => unknown;
   /** Where `persist` components keep their state by id; none: they keep nothing. */
@@ -183,6 +186,7 @@ export default function BlokRenderer({
   readExecutor,
   answerTask,
   startRun,
+  writePort,
   controlTask,
   componentState = null,
   children,
@@ -256,6 +260,7 @@ export default function BlokRenderer({
       travelAt,
       answerTask,
       startRun,
+      writePort,
       controlTask,
     });
     return store;
@@ -283,6 +288,10 @@ export default function BlokRenderer({
   useEffect(() => {
     runtimeStore.getState().setStartRun(startRun);
   }, [startRun, runtimeStore]);
+
+  useEffect(() => {
+    runtimeStore.getState().setWritePort(writePort);
+  }, [writePort, runtimeStore]);
 
   useEffect(() => {
     runtimeStore.getState().setControlTask(controlTask);

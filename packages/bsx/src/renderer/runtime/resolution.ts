@@ -13,6 +13,7 @@ import type {
   BlokRuntimeDependencies,
   BlokUtilCall,
 } from './types';
+import type {BlokPortOperation} from '../bloks/port/host';
 
 /**
  * How a prop's value is worked out from the data model: paths, literals and
@@ -392,6 +393,13 @@ const resolvePropValue = (
 export const COPY_EFFECT = 'ui.copy';
 export const ANSWER_EFFECT = 'task.answer';
 export const START_EFFECT = 'assign.start';
+/** The effects a port blok writes its port with, by the operation the form runs. */
+export const PORT_EFFECTS: Readonly<Record<string, BlokPortOperation>> = {
+  'port.set': 'set',
+  'port.clear': 'clear',
+  'port.reset': 'reset',
+  'port.touch': 'touch',
+};
 /** `task.cancel()` and its kin: what the viewer does to the task the blok is about. */
 const TASK_CONTROL_PREFIX = 'task.';
 export const taskControlOf = (operation: string): BlokTaskControl | null => {
@@ -523,6 +531,13 @@ const runActionCall = (
     // What the host returns (a promise, while the task takes it) keeps the control busy.
     return {ok: true, value: context.controlTask(control)};
   }
+  const portOperation = PORT_EFFECTS[operation];
+  if (portOperation !== undefined) {
+    if (context.travelling) return {ok: true, value: undefined};
+    if (!context.writePort) return {ok: false, error: `${operation}: this blok is the widget of no port.`};
+    // `port.set(null)` empties the port, as `port.clear()` does.
+    return {ok: true, value: context.writePort(portOperation, portOperation === 'set' ? resolvedArguments.value.value : undefined)};
+  }
   if (operation === START_EFFECT) {
     if (context.travelling) return {ok: true, value: undefined};
     if (!context.startRun) return {ok: false, error: 'assign.start: nothing here starts a run.'};
@@ -531,7 +546,7 @@ const runActionCall = (
   }
   return {
     ok: false,
-    error: `${operation} is not a callback's one thing: a callback holds one task call or one effect (queries.<name>.refetch(), queries.<name>.fetch_more(...), ui.copy, task.answer, assign.start).`,
+    error: `${operation} is not a callback's one thing: a callback holds one task call or one effect (queries.<name>.refetch(), queries.<name>.fetch_more(...), ui.copy, task.answer, assign.start, port.set).`,
   };
 };
 

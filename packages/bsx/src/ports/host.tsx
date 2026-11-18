@@ -57,6 +57,12 @@ export type PortHost = {
   StructureDisplay: React.ComponentType<StructureDisplayProps>;
   StructureViewer: React.ComponentType<StructureViewerProps>;
   useReportError: () => (error: unknown, title?: string) => void;
+  /**
+   * Draws a port's own blok (a BLOK widget) with what this app knows beyond the form: the agents
+   * a run would get (`self`, `deps.<key>`) and the services its queries ask. Left out, a port
+   * blok is drawn with neither: its dependencies read unbound and its queries do not run.
+   */
+  PortBlokRenderer?: React.ComponentType<import('./widgets/custom/PortBlokWidget').PortBlokRendererProps>;
 };
 
 const notConnected: ServiceQuery = async () => {
