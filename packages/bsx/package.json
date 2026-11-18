@@ -1,6 +1,6 @@
 {
   "name": "@arkitektio/bsx",
-  "version": "6.6.0",
+  "version": "6.6.1",
   "description": "The BSX language, the blok spec, runtime and React renderer: one copy for every Arkitekt frontend.",
   "license": "MIT",
   "type": "module",

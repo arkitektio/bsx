@@ -1,3 +1,10 @@
+## [6.6.1](https://github.com/arkitektio/bsx/compare/v6.6.0...v6.6.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **ui:** a button drawn inside a form does not submit it ([c8bfd0a](https://github.com/arkitektio/bsx/commit/c8bfd0acd4c47aff90e74ab186f70747685994a5))
+
 # [6.6.0](https://github.com/arkitektio/bsx/compare/v6.5.0...v6.6.0) (2026-11-18)
 
 
