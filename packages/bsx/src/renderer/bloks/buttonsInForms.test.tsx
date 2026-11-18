@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {act, cleanup, fireEvent, render} from '@testing-library/react';
+import {act, cleanup, createEvent, fireEvent, render} from '@testing-library/react';
 import * as React from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
@@ -31,6 +31,11 @@ const SOURCE = `<Blok kind="agent" context="panel">
   <DatePicker />
   <Combobox options={[{value: "a", label: "A"}]} />
   <Calendar />
+  <Input placeholder="Text" />
+  <Input type="number" placeholder="Number" />
+  <InputOTP length={4} />
+  <InputGroup><Input placeholder="Grouped" /></InputGroup>
+  <Textarea placeholder="Long" />
 </Blok>`;
 
 describe('a blok drawn inside a form', () => {
@@ -55,6 +60,37 @@ describe('a blok drawn inside a form', () => {
     }
     await act(async () => {});
     expect(submitted).not.toHaveBeenCalled();
+  });
+
+  it('keeps Enter in its fields: a field of a blok does not submit the form either', async () => {
+    const form = React.createRef<HTMLFormElement>();
+    render(
+      <form ref={form} onSubmit={event => event.preventDefault()}>
+        <BlokRenderer uiComponents={[parseBsx(SOURCE).tree]} catalog={testCatalog()} chrome="none" sizing="intrinsic" />
+      </form>,
+    );
+    await act(async () => {});
+
+    // Every field the browser would submit on Enter: an input of this form that can be focused,
+    // not the ones Radix keeps out of reach for a checkbox's, a switch's or a radio's value (the
+    // open dialog hides the rest from assistive technology, which is why that is not the test).
+    // jsdom does not submit on Enter itself, so what is checked is that the default is taken away.
+    const fields = Array.from(document.body.querySelectorAll('input')).filter(
+      input => input.form === form.current && input.type !== 'hidden' && input.tabIndex !== -1,
+    );
+    expect(fields.length).toBeGreaterThanOrEqual(4);
+    const submitting = fields.filter(input => {
+      const enter = createEvent.keyDown(input, {key: 'Enter'});
+      fireEvent(input, enter);
+      return !enter.defaultPrevented;
+    });
+    expect(submitting.map(input => input.outerHTML.slice(0, 120))).toEqual([]);
+
+    // A textarea takes its Enter as a new line, as it always did.
+    const textarea = document.body.querySelector('textarea') as HTMLTextAreaElement;
+    const newline = createEvent.keyDown(textarea, {key: 'Enter'});
+    fireEvent(textarea, newline);
+    expect(newline.defaultPrevented).toBe(false);
   });
 
   it('keeps a submit that says it is one', () => {

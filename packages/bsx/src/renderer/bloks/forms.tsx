@@ -91,6 +91,16 @@ type Contracts = typeof formContracts;
  * out is wrapping a child in `asChild`, since `BlokNode` does not forward refs.
  */
 
+/**
+ * Enter in a blok's field stays the field's. A browser submits the form a text field is in
+ * when Enter is pressed there; a blok never submits a form it is drawn in (an action's form
+ * starts from its own button, a blok through `assign.start()`). An IME composition still
+ * takes its Enter.
+ */
+const keepEnter = (event: React.KeyboardEvent<HTMLElement>): void => {
+  if (event.key === 'Enter' && !event.nativeEvent.isComposing) event.preventDefault();
+};
+
 const ButtonRender: BlokRender<Contracts['Button']> = ({buildChild, component, schema}) => {
     const blok = useBlok(component, schema);
     const validation = useValidation(component, schema);
@@ -181,6 +191,7 @@ const InputRender: BlokRender<Contracts['Input']> = ({component, schema}) => {
         className={cn(fullWidth && 'w-full', className)}
         disabled={disabled === true}
         readOnly={readOnly}
+        onKeyDown={keepEnter}
         onChange={event => {
           const nextValue = event.target.value;
           controlled.setValue(nextValue);
@@ -656,6 +667,7 @@ const InputOTPRender: BlokRender<Contracts['InputOTP']> = ({component, schema}) 
         value={controlled.value}
         disabled={disabled === true}
         className={className}
+        onKeyDown={keepEnter}
         onChange={next => controlled.setValue(next)}
         onComplete={next => onComplete?.(next)}
       >
