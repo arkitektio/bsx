@@ -21,6 +21,7 @@ export function CodeBlock({ language, content }: CodeBlockProps) {
       <div className="flex items-center justify-between px-4 py-1.5 border-b border-border/10 bg-zinc-900 dark:bg-zinc-950/40 text-[10px] font-mono text-zinc-400 select-none">
         <span>{language || "text"}</span>
         <button
+          type="button"
           onClick={handleCopy}
           className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer"
         >

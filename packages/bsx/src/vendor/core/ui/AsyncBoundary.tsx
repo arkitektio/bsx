@@ -58,6 +58,7 @@ const DefaultErrorFallback = ({ error, reset }: { error: Error; reset: () => voi
     <h3 style={{ marginTop: 0 }}>Something went wrong</h3>
     <p>{error.message}</p>
     <button
+      type="button"
       onClick={reset}
       style={{ padding: '0.5rem 1rem', cursor: 'pointer', backgroundColor: '#b91c1c', color: 'white', border: 'none', borderRadius: '4px' }}
     >

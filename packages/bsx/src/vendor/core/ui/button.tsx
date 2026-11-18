@@ -61,12 +61,17 @@ function Button({
   alwaysShow: _alwaysShow,
   priority: _priority,
   collapse: _collapse,
+  type,
   ...props
 }: ButtonProps) {
   const Comp = asChild ? Slot.Root : "button"
 
   return (
     <Comp
+      // A button is a button, not a form's submit: these are drawn inside forms (an action's
+      // ports, a blok in one) and only ever act through their onClick. One that submits says
+      // so (`type="submit"`). A child it is merged onto (asChild, a link say) keeps its own.
+      type={asChild ? type : (type ?? "button")}
       data-slot="button"
       data-variant={variant}
       data-size={size}

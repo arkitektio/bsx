@@ -30,9 +30,13 @@ function Tooltip({
 
 function TooltipTrigger({
   asChild,
+  type,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" asChild={resolveTriggerAsChild(asChild, props.children)} {...props} />
+  const merged = resolveTriggerAsChild(asChild, props.children)
+  // Radix draws the trigger as a bare <button>, a form's submit by default: inside a form,
+  // hovering is all it is for. On a child it is merged onto, the child says what it is.
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" asChild={merged} type={merged ? type : (type ?? "button")} {...props} />
 }
 
 function TooltipContent({
