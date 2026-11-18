@@ -1,3 +1,10 @@
+## [6.6.2](https://github.com/arkitektio/bsx/compare/v6.6.1...v6.6.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **blok:** Enter in a blok's field does not submit the form it is drawn in ([814d5ed](https://github.com/arkitektio/bsx/commit/814d5edec6ddce52b290526f34901f214a3a0139))
+
 ## [6.6.1](https://github.com/arkitektio/bsx/compare/v6.6.0...v6.6.1) (2026-11-18)
 
 
