@@ -60,8 +60,21 @@ const Placeholder = ({reason, source}: {reason: string; source?: BlokAssetSource
 const CLICK_SLOP_PX = 4;
 
 const HoverBox = ({node}: {node: THREE.Object3D}) => {
-  const helper = React.useMemo(() => new THREE.BoxHelper(node, 0x38bdf8), [node]);
-  useFrame(() => helper.update());
+  const helper = React.useMemo(() => {
+    const made = new THREE.BoxHelper(node, 0x38bdf8);
+    // Its corners are world coordinates already: it must not also take the pose of
+    // whatever it is mounted in (a placement in a space), so its own matrix undoes that.
+    made.matrixAutoUpdate = false;
+    return made;
+  }, [node]);
+  useFrame(() => {
+    helper.update();
+    const parent = helper.parent;
+    if (!parent) return;
+    parent.updateWorldMatrix(true, false);
+    helper.matrix.copy(parent.matrixWorld).invert();
+    helper.matrixWorldNeedsUpdate = true;
+  });
   React.useEffect(() => () => helper.dispose(), [helper]);
   return <primitive object={helper} />;
 };
