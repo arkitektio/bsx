@@ -1,4 +1,5 @@
 import * as React from 'react';
+import {Name} from '../../vendor/core/ui/name';
 import {structureCatalog} from '../../catalogs';
 import {StructurePickerControl, type PickerRequest} from '../forms/StructurePickerControl';
 import {portHost} from '../host';
@@ -36,20 +37,26 @@ const Notice = ({children, className}: {children: React.ReactNode; className?: s
 );
 
 /** One candidate, as a search answers it. */
-type Option = {value: string; label: string; description?: string};
+type Option = {value: string; label: string; description?: string; group?: string};
 
 const keyOf = (option: Option) => option.value;
 
 const renderOption = (option: Option) => (
   <div className="flex min-w-0 flex-col">
-    <span className="truncate">{option.label}</span>
+    <Name title={option.label}>{option.label}</Name>
     {option.description && (
-      <span className="truncate text-xs text-muted-foreground">{option.description}</span>
+      <Name title={option.description} className="text-xs text-muted-foreground">
+        {option.description}
+      </Name>
     )}
   </div>
 );
 
-const renderChosen = (option: Option) => <span className="truncate">{option.label}</span>;
+const groupOf = (option: Option) => option.group;
+
+const renderChosen = (option: Option) => (
+  <Name title={option.group ? `${option.label} (${option.group})` : option.label}>{option.label}</Name>
+);
 
 /**
  * The variables a picker's query is handed by the picker itself: what the
@@ -71,13 +78,14 @@ const asVariable = (raw: unknown): unknown => {
 const asOptions = (raw: unknown): Option[] =>
   (Array.isArray(raw) ? raw : []).flatMap(entry => {
     if (!entry || typeof entry !== 'object') return [];
-    const {value, label, description} = entry as Record<string, unknown>;
+    const {value, label, description, group} = entry as Record<string, unknown>;
     if (value == null) return [];
     return [
       {
         value: String(value),
         label: typeof label === 'string' && label ? label : String(value),
         description: typeof description === 'string' && description ? description : undefined,
+        group: typeof group === 'string' && group ? group : undefined,
       },
     ];
   });
@@ -200,6 +208,7 @@ const StructurePickerRender: BlokRender<(typeof structureCatalog.components)['St
         keyOf={keyOf}
         renderRow={renderOption}
         renderValue={renderChosen}
+        groupOf={groupOf}
         requires={
           (queried ? declared.includes('requires') : sourceHonoursRequires) ? port?.requires : undefined
         }

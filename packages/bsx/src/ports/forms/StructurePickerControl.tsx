@@ -8,6 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from "../../vendor/core/ui/command";
+import { Name } from "../../vendor/core/ui/name";
 import { Popover, PopoverContent, PopoverTrigger } from "../../vendor/core/ui/popover";
 import { useDebouncedCallback } from "../../vendor/core/util/hooks/useDebouncedCallback";
 import { useLatestRef } from "../../vendor/core/util/hooks/useLatestRef";
@@ -45,6 +46,12 @@ export type StructurePickerControlProps<T> = {
   renderRow: (item: T) => ReactNode;
   /** The chosen one, in the closed field: one line. */
   renderValue: (item: T) => ReactNode;
+  /**
+   * What a candidate belongs to (a lens' dataset), said once as a heading over
+   * every candidate sharing it rather than on each row. Candidates without one
+   * are listed first, under no heading.
+   */
+  groupOf?: (item: T) => string | undefined;
   /** What the list is fixed to, shown so an empty list explains itself. */
   requires?: readonly DescriptorConstraint[];
   scope?: PickerScope;
@@ -53,6 +60,29 @@ export type StructurePickerControlProps<T> = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+};
+
+/**
+ * Candidates by what they belong to, in the order each group first appears:
+ * a group a later page returns to is added to, never opened a second time.
+ * The ungrouped come first, whenever they arrive.
+ */
+export const groupItems = <T,>(
+  items: readonly T[],
+  groupOf?: (item: T) => string | undefined,
+): { group: string | undefined; items: T[] }[] => {
+  const ungrouped: T[] = [];
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const group = groupOf?.(item)?.trim();
+    if (!group) ungrouped.push(item);
+    else if (groups.has(group)) groups.get(group)!.push(item);
+    else groups.set(group, [item]);
+  }
+  return [
+    ...(ungrouped.length > 0 ? [{ group: undefined, items: ungrouped }] : []),
+    ...Array.from(groups, ([group, members]) => ({ group, items: members })),
+  ];
 };
 
 /** The chosen object in the closed field, resolved by id. Mounted per id (`key`), so it starts out loading. */
@@ -101,6 +131,7 @@ export const StructurePickerControl = <T,>({
   keyOf,
   renderRow,
   renderValue,
+  groupOf,
   requires,
   scope,
   paged = true,
@@ -270,9 +301,12 @@ export const StructurePickerControl = <T,>({
                   )}
                 </div>
               )}
-              {items.length > 0 && (
-                <CommandGroup>
-                  {items.map((item) => {
+              {groupItems(items, groupOf).map((bucket) => (
+                <CommandGroup
+                  key={bucket.group ?? ""}
+                  heading={bucket.group ? <Name title={bucket.group}>{bucket.group}</Name> : undefined}
+                >
+                  {bucket.items.map((item) => {
                     const id = keyOf(item);
                     return (
                       <CommandItem
@@ -291,7 +325,7 @@ export const StructurePickerControl = <T,>({
                     );
                   })}
                 </CommandGroup>
-              )}
+              ))}
               {hasMore && (
                 <div ref={sentinelRef} className="flex items-center justify-center py-2 text-xs text-muted-foreground">
                   {loadingMore ? "Loading more…" : ""}

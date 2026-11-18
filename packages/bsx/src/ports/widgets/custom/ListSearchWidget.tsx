@@ -1,4 +1,5 @@
 import { portDescription, portLabel } from "../../engine/portPresentation";
+import { Name } from "../../../vendor/core/ui/name";
 import {
   PAGE_SIZE,
   queryDeclaresPagination,
@@ -96,7 +97,7 @@ export const ListButtonLabel = (props: {
           title="Remove"
           className="group/chip cursor-pointer pr-1.5"
         >
-          <span className="max-w-40 truncate">{l.label}</span>
+          <Name className="max-w-40" title={`Remove ${l.label}`}>{l.label}</Name>
           <X className="text-muted-foreground transition-colors group-hover/chip:text-foreground" />
         </Badge>
       ))}
@@ -414,7 +415,7 @@ export const ListSearchWidget = (
                                 }
                               }}
                             >
-                              {option.label}
+                              <Name title={option.label}>{option.label}</Name>
                               <CheckIcon
                                 className={cn(
                                   "ml-auto h-4 w-4",

@@ -1,4 +1,5 @@
 import { SearchField, type SearchOptions } from "../../forms/SearchField";
+import { Name } from "../../../vendor/core/ui/name";
 import {
   choicePresentation,
   portDescription,
@@ -24,12 +25,21 @@ import {
   SelectValue,
 } from "../../../vendor/core/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "../../../vendor/core/ui/toggle-group";
+import { OVERFLOW_TEXT, OverflowTooltip } from "../../../vendor/core/ui/overflow-tooltip";
 import { notEmpty } from "../../../vendor/core/util/utils";
 import { X } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useFormContext } from "react-hook-form";
 
 type Choice = { value: string; label: string; description?: string | null };
+
+/** What a cut-off choice shows on hover: its whole label, then its description. */
+const ChoiceTip = ({ choice }: { choice: Choice }) => (
+  <div className="flex flex-col gap-0.5">
+    <span className="font-medium">{choice.label}</span>
+    {choice.description && <span className="opacity-80">{choice.description}</span>}
+  </div>
+);
 
 /**
  * A port's `choices`, shown by how many there are: a few sit side by side,
@@ -102,29 +112,44 @@ export const ChoicePortField = (props: InputWidgetProps) => {
                   className="w-full"
                 >
                   {choices.map((choice) => (
-                    <ToggleGroupItem
+                    <OverflowTooltip
                       key={choice.value}
-                      value={choice.value}
-                      title={choice.description ?? undefined}
-                      className="min-w-0 flex-1 px-2"
+                      content={<ChoiceTip choice={choice} />}
+                      always={!!choice.description}
                     >
-                      <span className="truncate">{choice.label}</span>
-                    </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value={choice.value}
+                        aria-label={choice.label}
+                        className="min-w-0 flex-1 px-2"
+                      >
+                        <Name>{choice.label}</Name>
+                      </ToggleGroupItem>
+                    </OverflowTooltip>
                   ))}
                 </ToggleGroup>
               </FormControl>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="flex min-w-0 items-center gap-1">
                 <Select value={value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger className="w-full min-w-0">
-                      <SelectValue placeholder={placeholder} />
-                    </SelectTrigger>
-                  </FormControl>
+                  <OverflowTooltip
+                    content={chosen ? <ChoiceTip choice={chosen} /> : placeholder}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full min-w-0">
+                        <SelectValue {...OVERFLOW_TEXT} placeholder={placeholder} />
+                      </SelectTrigger>
+                    </FormControl>
+                  </OverflowTooltip>
                   <SelectContent>
                     {choices.map((choice) => (
                       <SelectItem key={choice.value} value={choice.value}>
-                        {choice.label}
+                        {/* Wraps in the list; cut off (with a tooltip) in the trigger. */}
+                        <span
+                          {...OVERFLOW_TEXT}
+                          className="in-data-[slot=select-value]:min-w-0 in-data-[slot=select-value]:truncate"
+                        >
+                          {choice.label}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

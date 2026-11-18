@@ -27,7 +27,7 @@ vi.mock("../../vendor/core/ui/command", () => ({
   ),
 }));
 
-import { PICKER_PAGE_SIZE, StructurePickerControl, type PickerRequest, type PickerScope } from "./StructurePickerControl";
+import { PICKER_PAGE_SIZE, StructurePickerControl, groupItems, type PickerRequest, type PickerScope } from "./StructurePickerControl";
 
 afterEach(cleanup);
 
@@ -107,5 +107,33 @@ describe("the structure picker control", () => {
     expect(await screen.findByText("lens 0")).toBeInTheDocument();
     expect(screen.queryByText("Loading more…")).toBeNull();
     expect(load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("groupItems", () => {
+  type Lens = { id: string; group?: string };
+  const groupOf = (lens: Lens) => lens.group;
+  const ids = (buckets: { group: string | undefined; items: Lens[] }[]) =>
+    buckets.map((bucket) => [bucket.group, bucket.items.map((lens) => lens.id)]);
+
+  it("is one headless bucket when nothing is grouped", () => {
+    expect(ids(groupItems([{ id: "1" }, { id: "2" }], groupOf))).toEqual([[undefined, ["1", "2"]]]);
+    expect(ids(groupItems([{ id: "1", group: "a" }]))).toEqual([[undefined, ["1"]]]);
+    expect(groupItems([], groupOf)).toEqual([]);
+  });
+
+  it("opens a group where it first appears and adds a later page to it", () => {
+    const page1 = [{ id: "1", group: "Series001" }, { id: "2", group: "Series002" }];
+    const page2 = [{ id: "3", group: "Series001" }, { id: "4", group: "Series003" }];
+    expect(ids(groupItems([...page1, ...page2], groupOf))).toEqual([
+      ["Series001", ["1", "3"]],
+      ["Series002", ["2"]],
+      ["Series003", ["4"]],
+    ]);
+  });
+
+  it("lists the ungrouped first, and a blank group is no group", () => {
+    const items = [{ id: "1", group: "a" }, { id: "2" }, { id: "3", group: "  " }];
+    expect(ids(groupItems(items, groupOf))).toEqual([[undefined, ["2", "3"]], ["a", ["1"]]]);
   });
 });

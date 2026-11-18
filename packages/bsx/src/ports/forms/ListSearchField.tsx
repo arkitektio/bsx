@@ -1,4 +1,5 @@
 import { CheckIcon } from "lucide-react";
+import { Name } from "../../vendor/core/ui/name";
 
 import {
   Command,
@@ -19,6 +20,7 @@ import { cn, notEmpty } from "../../vendor/core/util/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Badge } from "../../vendor/core/ui/badge";
+import { OverflowTooltip } from "../../vendor/core/ui/overflow-tooltip";
 import { type FieldProps } from "./types";
 
 export type Option = {
@@ -59,15 +61,16 @@ export const ListButtonLabel = (props: {
   };
 
   return (
-    <div className="gap-2 flex flex-row p-1">
+    <div className="flex min-w-0 flex-row flex-wrap gap-2 p-1">
       {options.map((l, index) => (
-        <Badge
-          key={index}
-          onClick={() => remove(l.value)}
-          className="cursor-pointer px-1 py-1 bg-muted my-2"
-        >
-          {l.label}
-        </Badge>
+        <OverflowTooltip key={index} content={l.label}>
+          <Badge
+            onClick={() => remove(l.value)}
+            className="cursor-pointer px-1 py-1 bg-muted my-2 max-w-full"
+          >
+            <Name>{l.label}</Name>
+          </Badge>
+        </OverflowTooltip>
       ))}
       {error}
     </div>
@@ -253,7 +256,7 @@ export const ListSearchField = ({
                                 setInputValue("");
                               }}
                             >
-                              {option.label}
+                              <Name title={option.label}>{option.label}</Name>
                               <CheckIcon
                                 className={cn(
                                   "ml-auto h-4 w-4",

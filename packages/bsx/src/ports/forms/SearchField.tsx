@@ -1,4 +1,5 @@
 import { CheckIcon } from "lucide-react";
+import { Name } from "../../vendor/core/ui/name";
 
 import {
   Command,
@@ -20,6 +21,7 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "../../vendor/core/ui/popover";
+import { OverflowTooltip } from "../../vendor/core/ui/overflow-tooltip";
 import { useLatestRef } from "../../vendor/core/util/hooks/useLatestRef";
 import { cn, notEmpty } from "../../vendor/core/util/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -64,8 +66,12 @@ export const ButtonLabel = (props: {
   }, [props.value, props.searchKey]);
 
   return (
-    <div className="flex flex-row items-center">
-      {option?.label && <div className="text-foreground">{option.label}</div>}
+    <div className="flex min-w-0 flex-row items-center">
+      {option?.label && (
+        <OverflowTooltip content={option.label}>
+          <Name className="text-foreground">{option.label}</Name>
+        </OverflowTooltip>
+      )}
       {error}
     </div>
   );
@@ -287,7 +293,7 @@ export const SearchField = ({
                                 setOpen(false);
                               }}
                             >
-                              {option.label}
+                              <Name title={option.label}>{option.label}</Name>
                               <CheckIcon
                                 className={cn(
                                   "ml-auto h-4 w-4",

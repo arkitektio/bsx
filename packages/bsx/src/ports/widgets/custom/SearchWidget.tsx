@@ -1,4 +1,5 @@
 import { portDescription, portLabel } from "../../engine/portPresentation";
+import { Name } from "../../../vendor/core/ui/name";
 import { Badge } from "../../../vendor/core/ui/badge";
 import { type SearchAssignWidgetFragment } from "../../rekuest";
 import useWidgetDependencies from "../../engine/useWidgetDependencies";
@@ -88,7 +89,7 @@ export const ButtonLabel = (props: {
       {loading && !option && !error && (
         <span className="h-3 w-24 animate-pulse rounded-full bg-muted-foreground/20" />
       )}
-      {option?.label && <span className="truncate">{option.label}</span>}
+      {option?.label && <Name title={option.label}>{option.label}</Name>}
       {error && (
         <span className="flex items-center gap-1 text-xs text-destructive shrink-0">
           <AlertCircle className="h-3 w-3 shrink-0" />
@@ -395,7 +396,7 @@ export const SearchWidget = (
                                 setOpen(false);
                               }}
                             >
-                              {option.label}
+                              <Name title={option.label}>{option.label}</Name>
                               <CheckIcon
                                 className={cn(
                                   "ml-auto h-4 w-4",
