@@ -1,3 +1,16 @@
+# [6.6.0](https://github.com/arkitektio/bsx/compare/v6.5.0...v6.6.0) (2026-11-18)
+
+
+### Bug Fixes
+
+* **ports:** the blok widget is in every union a port's widget is read from ([661217f](https://github.com/arkitektio/bsx/commit/661217f0d46227f319bb4b31119746658535417f))
+* **scene:** a model's selection box stays on the model inside a placed space ([7e6a201](https://github.com/arkitektio/bsx/commit/7e6a2012956a8332ffa83bcff6719fa9c9f8a526))
+
+
+### Features
+
+* **ports:** long names are cut with their whole text at hand, and candidates are grouped ([32c80e6](https://github.com/arkitektio/bsx/commit/32c80e6970bd454dff8e8613da8cc2e48d1e037d))
+
 # [6.5.0](https://github.com/arkitektio/bsx/compare/v6.4.0...v6.5.0) (2026-11-18)
 
 
