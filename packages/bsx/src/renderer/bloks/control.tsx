@@ -284,9 +284,9 @@ export const chromeSchema = z
   );
 
 const BLOK_COMPONENT = 'Blok';
-const DECLARATIONS: ReadonlySet<string> = new Set(['local', 'query', 'subscription', 'var']);
+const DECLARATIONS: ReadonlySet<string> = new Set(['local', 'query', 'subscription', 'var', 'dependencies']);
 
-/** The children of a node that draw: its declarations (`local`, `query`, `subscription`, `var`) left out. */
+/** The children of a node that draw: its declarations (`local`, `query`, `subscription`, `var`, `dependencies`) left out. */
 export const drawnChildren = (component: BlokComponentNode): BlokComponentNode[] =>
   (component.children ?? []).filter(child => !DECLARATIONS.has(child.component));
 
@@ -323,8 +323,8 @@ export const Blok = createBlokComponent(
   },
 );
 
-const declaration = <T extends BlokObjectSchema>(name: string, schema: T, acceptsChildren = false) =>
-  createBlokComponent({name, acceptsChildren, placement: {inheritsContext: true}, schema}, () => null);
+const declaration = <T extends BlokObjectSchema>(name: string, schema: T, acceptsChildren = false, api: {kinds?: readonly string[]; since?: number} = {}) =>
+  createBlokComponent({name, acceptsChildren, placement: {inheritsContext: true}, schema, ...api}, () => null);
 
 /** `<local name="x" default={...} persist />`: draws nothing; its parent provides it to its children (`runtime/locals`). */
 export const Local = declaration(
@@ -385,6 +385,21 @@ export const Var = declaration(
       value: z.unknown().optional().describe('Its value.'),
     })
     .describe('One variable of its query or subscription: an expression over args, blok-level locals and agents, or a literal.'),
+);
+
+/** `<dependencies key like>`: draws nothing; the host binds each `deps.<key>__<dependency>` to an agent. */
+export const Dependencies = declaration(
+  'dependencies',
+  z
+    .object({
+      key: z.string().describe('The key they are read through, bare: cells.<dependency>.'),
+      like: z.string().describe('The action whose dependencies they are: self.<action>.'),
+    })
+    .describe(
+      "Declares the dependencies of one of the app's own actions for an agent blok: read and called through its key (cells.<dependency>), picked by the viewer, and handed to a run of that action with `with <key>`. A child of <Blok>; draws nothing.",
+    ),
+  false,
+  {kinds: ['agent'], since: 3},
 );
 
 /* -------------------------------------------------------------------------- */
@@ -628,6 +643,21 @@ export const Dep = createBlokComponent({name: 'dep', schema: depSchema}, ({compo
   return <>{typeof key === 'string' ? (host.renderDep?.(key) ?? null) : null}</>;
 });
 
+const depPickerSchema = z
+  .object({
+    key: z
+      .string()
+      .describe('One dependency (`cells.microscope`), or the key alone (`cells`) for every dependency declared under it that no other picker places.'),
+  })
+  .describe('The ready-made picker of the agent a declared dependency is bound to: the agents that fit, the chosen one shown, always changeable. An agent blok only.');
+
+/** `<deppicker key="cells.microscope" />`: the host's picker of declared dependencies; nothing without a host. */
+export const Deppicker = createBlokComponent({name: 'deppicker', schema: depPickerSchema, kinds: ['agent'], since: 3}, ({component, schema}) => {
+  const key = useValue(useBlok(component, schema).key);
+  const host = useBlokRunHost();
+  return <>{typeof key === 'string' ? (host.renderDepPicker?.(key) ?? null) : null}</>;
+});
+
 /* -------------------------------------------------------------------------- */
 /* returns, status                                                            */
 /* -------------------------------------------------------------------------- */
@@ -719,6 +749,7 @@ export const controlBlokComponents = [
   Query,
   Subscription,
   Var,
+  Dependencies,
   Match,
   Case,
   Default,
@@ -730,6 +761,7 @@ export const controlBlokComponents = [
   Arg,
   Deps,
   Dep,
+  Deppicker,
   Returns,
   Status,
   Timeline,

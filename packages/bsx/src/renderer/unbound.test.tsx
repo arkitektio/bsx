@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {act, cleanup, render, screen} from '@testing-library/react';
+import {act, cleanup, fireEvent, render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it} from 'vitest';
 import {parseBsx} from '../bsx/parse';
 import BlokRenderer from './BlokRenderer';
@@ -71,5 +71,38 @@ describe('an unbound dependency', () => {
       />,
     );
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('the dependencies an agent blok declares', () => {
+  const source =
+    '<Blok kind="agent" context="panel"><dependencies key="cells" like="self.analyze" /><Button label="Go" onClick={self.analyze(tiles: 3) with cells} /><Button label="Pick" onClick={cells.pick(microscope: "7")} /></Blok>';
+
+  it('draw nothing, are handed to a run (given) and are picked through the host', () => {
+    const dispatched: unknown[] = [];
+    const picked: unknown[] = [];
+    const {container} = render(
+      <BlokRenderer catalog={testCatalog()}
+        uiComponents={tree(source)}
+        dispatchAction={action => void dispatched.push(action)}
+        pickDependencies={(key, picks) => void picked.push([key, picks])}
+      />,
+    );
+    expect(container.textContent).toBe('GoPick');
+    fireEvent.click(screen.getByRole('button', {name: 'Go'}));
+    expect(dispatched).toEqual([{dependency: 'self', operation: 'analyze', arguments: {tiles: 3}, given: 'cells'}]);
+    fireEvent.click(screen.getByRole('button', {name: 'Pick'}));
+    expect(picked).toEqual([['cells', {microscope: '7'}]]);
+  });
+
+  it('disable a call they are handed to while one of them is bound to no agent', () => {
+    render(
+      <BlokRenderer catalog={testCatalog()}
+        uiComponents={tree(source)}
+        unavailableDependencies={new Map([['cells__microscope', 'No agent is bound to "cells.microscope", so this does nothing']])}
+      />,
+    );
+    expect((screen.getByRole('button', {name: 'Go'}) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', {name: 'Pick'}) as HTMLButtonElement).disabled).toBe(false);
   });
 });

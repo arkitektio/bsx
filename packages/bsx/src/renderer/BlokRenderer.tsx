@@ -28,6 +28,7 @@ import {
   type BlokNodeErrorProps,
   type BlokDispatchActionHandler,
   type BlokInvokeFunctionHandler,
+  type BlokPickDependenciesHandler,
   type BlokRefuseActionHandler,
   type BlokUnavailableDependencies,
   type BlokLockedActions,
@@ -102,6 +103,8 @@ type BlokRendererProps = {
   answerTask?: (values: Record<string, unknown>) => unknown;
   /** Starts the run an assign blok prepares (`assign.start()`). */
   startRun?: () => unknown;
+  /** Binds declared dependencies to agents (`cells.pick(microscope: id)`): the key of the `<dependencies>`, and per dependency an agent id. */
+  pickDependencies?: BlokPickDependenciesHandler;
   /** Writes the port a port blok is the widget of (`port.set(...)`, `port.clear()`, `port.reset()`, `port.touch()`). */
   writePort?: (operation: BlokPortOperation, value?: unknown) => unknown;
   /** Cancels, pauses, resumes, steps, interrupts or reruns `task` (`task.cancel()` and its kin). */
@@ -186,6 +189,7 @@ export default function BlokRenderer({
   readExecutor,
   answerTask,
   startRun,
+  pickDependencies,
   writePort,
   controlTask,
   componentState = null,
@@ -260,6 +264,7 @@ export default function BlokRenderer({
       travelAt,
       answerTask,
       startRun,
+      pickDependencies,
       writePort,
       controlTask,
     });
@@ -288,6 +293,10 @@ export default function BlokRenderer({
   useEffect(() => {
     runtimeStore.getState().setStartRun(startRun);
   }, [startRun, runtimeStore]);
+
+  useEffect(() => {
+    runtimeStore.getState().setPickDependencies(pickDependencies);
+  }, [pickDependencies, runtimeStore]);
 
   useEffect(() => {
     runtimeStore.getState().setWritePort(writePort);

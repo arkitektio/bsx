@@ -9,6 +9,7 @@ import type {
   BlokAgentMappingStateUpdates,
   BlokDispatchActionHandler,
   BlokInvokeFunctionHandler,
+  BlokPickDependenciesHandler,
   BlokRefuseActionHandler,
   BlokUnavailableDependencies,
   BlokLockedActions,
@@ -160,6 +161,7 @@ export const createBlokRuntimeStore = (config?: {
   travelAt?: string | null;
   answerTask?: (values: Record<string, unknown>) => unknown;
   startRun?: () => unknown;
+  pickDependencies?: BlokPickDependenciesHandler;
   writePort?: (operation: BlokPortOperation, value?: unknown) => unknown;
   controlTask?: (operation: BlokTaskControl) => unknown;
 }): BlokRuntimeStore => {
@@ -186,6 +188,7 @@ export const createBlokRuntimeStore = (config?: {
     fetchMoreQuery: undefined,
     answerTask: config?.answerTask,
     startRun: config?.startRun,
+    pickDependencies: config?.pickDependencies,
     writePort: config?.writePort,
     controlTask: config?.controlTask,
     setStatus: (path, status) => {
@@ -226,6 +229,9 @@ export const createBlokRuntimeStore = (config?: {
     },
     setStartRun: start => {
       set({startRun: start});
+    },
+    setPickDependencies: pick => {
+      set({pickDependencies: pick});
     },
     setWritePort: write => {
       set({writePort: write});

@@ -18,6 +18,7 @@ import {
 import {isActionSchema} from './schemas';
 import {isWritableScopedPath, readScopedPath, resolveScopedPath, scopedWrite, useBlokScope} from './scope';
 import {defaultBlokView} from '../../spec/catalogs';
+import {REFERENCE_SEPARATOR} from '../../bsx/expr';
 import {useBlokNodeState} from './nodeState';
 import {combineStatus, READY, type BlokSourceStatus} from './status';
 import {bindTask} from './task';
@@ -195,6 +196,7 @@ const createLiveResolutionContext = (
   fetchMoreQuery: (name, variables) => store.getState().fetchMoreQuery?.(name, variables),
   answerTask: values => store.getState().answerTask?.(values),
   startRun: () => store.getState().startRun?.(),
+  pickDependencies: (key, picks) => store.getState().pickDependencies?.(key, picks),
   writePort: store.getState().writePort ? (operation, value) => store.getState().writePort?.(operation, value) : undefined,
   controlTask: store.getState().controlTask ? operation => store.getState().controlTask?.(operation) : undefined,
   travelling: store.getState().travelAt !== null,
@@ -355,11 +357,18 @@ const useCallbackRunner = (handle: BlokPropHandle<z.ZodTypeAny> | undefined): Ca
     const record = readScopedPath(state.dataModel, into, scope);
     return typeof record === 'object' && record !== null && (record as {running?: unknown}).running === true;
   });
+  const given = prop?.agent_call?.given ?? null;
   const unavailable = useBlokRuntime(state => {
     if (command && state.travelAt !== null) return TRAVEL_REASON;
     for (const dependency of dependencies) {
       const reason = state.unavailableDependencies.get(dependency);
       if (reason) return reason;
+    }
+    // `with cells`: the run gets every dependency declared under the key (`cells__<name>`).
+    if (given) {
+      for (const [dependency, reason] of state.unavailableDependencies) {
+        if (reason && isGivenDependency(dependency, given)) return reason;
+      }
     }
     return undefined;
   });
@@ -428,6 +437,10 @@ export function useAction(
   const {run} = useCallbackRunner(resolveHandle(handleOrBlok, key));
   return React.useMemo(() => (run ? () => run() : undefined), [run]);
 }
+
+/** Whether `dependency` is one declared under `key` (`cells__microscope`), its options (`cells__options`) left out. */
+export const isGivenDependency = (dependency: string, key: string): boolean =>
+  dependency.startsWith(`${key}${REFERENCE_SEPARATOR}`) && dependency !== `${key}${REFERENCE_SEPARATOR}options`;
 
 /** Every dependency a callback prop calls. */
 export const actionDependenciesOf = (prop: BlokComponentProp | undefined): string[] => {

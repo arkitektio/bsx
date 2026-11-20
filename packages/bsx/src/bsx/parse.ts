@@ -16,6 +16,7 @@ import {
   Locator,
   parseAttribute,
   parseExpression,
+  PICK_VERB,
   type CallExpr,
   type Expr,
 } from './expr';
@@ -71,6 +72,9 @@ export const EVENT_ROOT = 'event';
 export const REFETCH_FUNCTION = 'query.refetch';
 export const FETCH_MORE_FUNCTION = 'query.fetch_more';
 /** The read intents written as methods of a query: `queries.<name>.refetch()`. */
+/** What `<key>.pick(<dependency>: <agent id>)` is stored as. */
+export const PICK_FUNCTION = 'deps.pick';
+const DEPENDENCIES_COMPONENT = 'dependencies';
 export const QUERY_SUGAR: Readonly<Record<string, string>> = {refetch: REFETCH_FUNCTION, fetch_more: FETCH_MORE_FUNCTION};
 
 const isQuerySugar = (call: CallExpr): boolean =>
@@ -181,6 +185,16 @@ class Markup {
     return match[0];
   }
 
+  /** The keys of the `<dependencies>` read so far: what a later expression may read through. */
+  readonly references = new Set<string>();
+
+  /** A `<dependencies key="cells" />` is read through from here on (`cells.microscope`). */
+  private declares(element: MarkupElement): void {
+    if (element.name !== DEPENDENCIES_COMPONENT) return;
+    const key = element.attributes.find(attribute => attribute.name === 'key')?.value;
+    if (typeof key === 'string' && isLocalName(key)) this.references.add(key);
+  }
+
   element(): MarkupElement {
     const offset = this.index;
     this.index += 1;
@@ -202,11 +216,13 @@ class Markup {
         this.index += 2;
         element.tagEnd = this.index;
         element.end = this.index;
+        this.declares(element);
         return element;
       }
       if (this.at('>')) {
         this.index += 1;
         element.tagEnd = this.index;
+        this.declares(element);
         this.content(element);
         element.end = this.index;
         return element;
@@ -248,7 +264,7 @@ class Markup {
       const inner = this.source.slice(start, end);
       this.index = end + 1;
       if (!inner.trim()) throw this.fail('expr.syntax', start, {detail: `the value of ${name} is empty`});
-      const expression = parseAttribute(inner, start, this.locator);
+      const expression = parseAttribute(inner, start, this.locator, new Set(this.references));
       return {name, value: expression, offset, nameEnd, valueStart: start, end};
     }
     throw this.fail('bsx.syntax', undefined, {detail: `${name}= takes "a string" or {an expression}`});
@@ -308,7 +324,7 @@ class Markup {
         this.index = end + 1;
         const stripped = inner.trim();
         if (!stripped || (stripped.startsWith('/*') && stripped.endsWith('*/'))) continue;
-        element.children.push({kind: 'container', expression: parseExpression(inner, start, this.locator), offset});
+        element.children.push({kind: 'container', expression: parseExpression(inner, start, this.locator, new Set(this.references)), offset});
         continue;
       }
       if (this.at('}')) throw this.fail('bsx.syntax', undefined, {detail: "unexpected '}' in text; write {'}'}"});
@@ -592,7 +608,7 @@ class Lowering {
       case 'call': {
         const agent = this.agentCall(expression);
         if (agent) return {key, agent_call: agent};
-        const effect = this.queryEffect(expression);
+        const effect = this.pickEffect(expression) ?? this.queryEffect(expression);
         if (effect) return {key, util_call: effect};
         return {key, util_call: this.utilCall(expression, true)};
       }
@@ -638,8 +654,10 @@ class Lowering {
       dependency = callee[1];
       operation = callee[2];
     } else {
+      if (call.given !== undefined) throw this.fail('callback.with', call.offset);
       return null;
     }
+    if (call.given !== undefined && dependency !== 'self') throw this.fail('callback.with', call.offset);
     const args: BlokActionArgument[] = [];
     const seen = new Set<string>();
     for (const argument of call.arguments) {
@@ -648,7 +666,26 @@ class Lowering {
       seen.add(argument.name);
       args.push(this.argument(argument.name, argument.value));
     }
-    return {dependency, operation, ...(args.length ? {arguments: args} : {})};
+    // Left out, so a call without `with` is stored as it always was.
+    return {dependency, operation, ...(args.length ? {arguments: args} : {}), ...(call.given !== undefined ? {given: call.given} : {})};
+  }
+
+  /** `cells.pick(microscope: id, ...)` as its effect (`deps.pick`), or null. */
+  private pickEffect(call: CallExpr): BlokUtilCall | null {
+    const {callee} = call;
+    if (callee.length !== 2 || callee[1] !== PICK_VERB || !this.markup.references.has(callee[0])) return null;
+    const picks: BlokActionArgument[] = [];
+    const seen = new Set<string>();
+    for (const argument of call.arguments) {
+      if (argument.name === null) throw this.fail('callback.positional', argument.offset, {call: calleeName(call)});
+      if (seen.has(argument.name)) throw this.fail('expr.duplicate_key', argument.offset, {key: argument.name});
+      seen.add(argument.name);
+      picks.push(this.argument(argument.name, argument.value));
+    }
+    if (!picks.length) {
+      throw this.fail('expr.arguments', call.offset, {function: calleeName(call), detail: 'pick names the dependency to bind: pick(<dependency>: <agent id>)'});
+    }
+    return {operation: PICK_FUNCTION, arguments: [{key: 'key', value_literal: callee[0]}, {key: 'picks', value_dict: picks}]};
   }
 
   /** `queries.<name>.refetch()` / `.fetch_more(k: v, ...)` as its effect, or null. */

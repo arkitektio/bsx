@@ -407,6 +407,7 @@ export const taskControlOf = (operation: string): BlokTaskControl | null => {
   return (TASK_CONTROLS as readonly string[]).includes(name) ? (name as BlokTaskControl) : null;
 };
 export const REFETCH_EFFECT = 'query.refetch';
+export const PICK_EFFECT = 'deps.pick';
 export const FETCH_MORE_EFFECT = 'query.fetch_more';
 
 export type BlokActionCall =
@@ -468,10 +469,11 @@ const runActionCall = (
   }
 
   if (actionCall.type === 'agent') {
-    const action = {
+    const action: BlokResolvedAgentCall = {
       dependency: actionCall.call.dependency,
       operation: actionCall.call.operation,
       arguments: resolvedArguments.value,
+      ...(actionCall.call.given ? {given: actionCall.call.given} : {}),
     };
     if (context.travelling) {
       return {ok: true, value: undefined};
@@ -537,6 +539,14 @@ const runActionCall = (
     if (!context.writePort) return {ok: false, error: `${operation}: this blok is the widget of no port.`};
     // `port.set(null)` empties the port, as `port.clear()` does.
     return {ok: true, value: context.writePort(portOperation, portOperation === 'set' ? resolvedArguments.value.value : undefined)};
+  }
+  if (operation === PICK_EFFECT) {
+    const {key, picks} = resolvedArguments.value;
+    if (typeof key !== 'string' || typeof picks !== 'object' || picks === null || Array.isArray(picks)) {
+      return {ok: false, error: 'deps.pick: takes a literal key and the picks, per dependency an agent id.'};
+    }
+    if (!context.pickDependencies) return {ok: false, error: 'deps.pick: nothing here binds a dependency.'};
+    return {ok: true, value: context.pickDependencies(key, picks as Record<string, unknown>)};
   }
   if (operation === START_EFFECT) {
     if (context.travelling) return {ok: true, value: undefined};

@@ -6,7 +6,7 @@ import {BsxSyntaxError} from './source';
  * (takt) and Python parsers implement the same grammar and all three are held
  * to one corpus (`core/blok/spec/bsx_v2.json`):
  *
- *     callback   := expression ('into' name)?
+ *     callback   := expression ('with' name)? ('into' name)?
  *     expression := ternary
  *     ternary    := coalesce ('?' expression ':' expression)?
  *     coalesce   := or ('??' or)*
@@ -34,7 +34,14 @@ export type ListExpr = {type: 'list'; items: Expr[]; offset: number};
 export type ObjectExpr = {type: 'object'; entries: Array<[string, Expr]>; offset: number};
 export type PathExpr = {type: 'path'; segments: string[]; offset: number};
 export type Argument = {name: string | null; value: Expr; offset: number};
-export type CallExpr = {type: 'call'; callee: string[]; arguments: Argument[]; offset: number};
+export type CallExpr = {
+  type: 'call';
+  callee: string[];
+  arguments: Argument[];
+  offset: number;
+  /** `with cells` on a task call: the dependencies the blok declares under that key (`<dependencies key="cells" />`), whose agents the run gets. */
+  given?: string;
+};
 export type NotExpr = {type: 'not'; operand: Expr; offset: number};
 export type CompareExpr = {type: 'compare'; operator: string; left: Expr; right: Expr; offset: number};
 /** `a && b && c`, `a || b` or `a ?? b`: one operator over every operand (a parenthesized group stays one operand). */
@@ -241,12 +248,24 @@ class Lexer {
 /* Parser                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * How a read through a declared `<dependencies key="cells" />` is stored: `cells.microscope`
+ * is the dependency `cells__microscope` of the blok (`deps.cells__microscope`), one segment.
+ */
+export const REFERENCE_SEPARATOR = '__';
+/** `cells.pick(microscope: id)`: the one call a reference itself takes. */
+export const PICK_VERB = 'pick';
+
+const NO_REFERENCES: ReadonlySet<string> = new Set();
+
 class Parser {
   private readonly lexer: Lexer;
   private readonly tokens: Token[];
+  private readonly references: ReadonlySet<string>;
   private index = 0;
 
-  constructor(text: string, base: number, locator: Locator) {
+  constructor(text: string, base: number, locator: Locator, references: ReadonlySet<string> = NO_REFERENCES) {
+    this.references = references;
     this.lexer = new Lexer(text, base, locator);
     this.tokens = this.lexer.tokens();
   }
@@ -308,7 +327,14 @@ class Parser {
 
   callback(): Expr {
     if (this.token.kind === 'name' && this.token.value === 'await') throw this.fail('callback.await');
-    const expression = this.expression();
+    let expression = this.expression();
+    if (this.token.kind === 'name' && this.token.value === 'with') {
+      const withToken = this.advance();
+      const name = this.token;
+      if (expression.type !== 'call' || name.kind !== 'name' || name.value === 'into') throw this.fail('callback.with', withToken.offset);
+      this.advance();
+      expression = {...expression, given: name.value};
+    }
     if (this.token.kind === 'name' && this.token.value === 'into') {
       const into = this.advance();
       if (expression.type !== 'call') throw this.fail('callback.into', into.offset);
@@ -428,13 +454,18 @@ class Parser {
 
   private pathOrCall(): Expr {
     const first = this.advance();
-    const segments = [first.value];
+    let segments = [first.value];
     while (this.isOp('.')) {
       this.advance();
       if (this.token.kind !== 'name') throw this.unexpected("expected a name after '.'");
       segments.push(this.advance().value);
     }
     if (this.isOp('=>')) throw this.fail('expr.lambda');
+    // A read or a call through declared dependencies (`cells.microscope.stage`) is one of
+    // the blok's dependencies, `deps.cells__microscope`; `cells.pick(...)` stays as written.
+    if (this.references.has(segments[0]) && segments.length > 1 && !(this.isOp('(') && segments.length === 2 && segments[1] === PICK_VERB)) {
+      segments = ['deps', `${segments[0]}${REFERENCE_SEPARATOR}${segments[1]}`, ...segments.slice(2)];
+    }
     if (!this.isOp('(')) return {type: 'path', segments, offset: first.offset};
     this.advance();
     const args: Argument[] = [];
@@ -496,22 +527,26 @@ class Parser {
   }
 }
 
-const parser = (text: string, base: number, locator: Locator | undefined): Parser => {
-  const parsing = new Parser(text, base, locator ?? new Locator(text));
+const parser = (text: string, base: number, locator: Locator | undefined, references?: ReadonlySet<string>): Parser => {
+  const parsing = new Parser(text, base, locator ?? new Locator(text), references);
   if (parsing.isEmpty()) throw parsing.fail('expr.syntax', undefined, {detail: 'the expression is empty'});
   return parsing;
 };
 
-/** A value expression (no `into`). `base` is where `text` starts in the source `locator` reads. */
-export const parseExpression = (text: string, base = 0, locator?: Locator): Expr => {
-  const parsing = parser(text, base, locator);
+/**
+ * A value expression (no `into`). `base` is where `text` starts in the source `locator` reads;
+ * `references` are the keys of the `<dependencies>` it may read through.
+ */
+export const parseExpression = (text: string, base = 0, locator?: Locator, references?: ReadonlySet<string>): Expr => {
+  const parsing = parser(text, base, locator, references);
   const expression = parsing.expression();
   parsing.finish();
   return expression;
 };
 
 /** An attribute's expression: a value, or a callback (`<call> into <name>`). */
-export const parseAttribute = (text: string, base = 0, locator?: Locator): Expr => parser(text, base, locator).callback();
+export const parseAttribute = (text: string, base = 0, locator?: Locator, references?: ReadonlySet<string>): Expr =>
+  parser(text, base, locator, references).callback();
 
 /** The expressions directly inside `expression`. */
 export const childrenOf = (expression: Expr): Expr[] => {

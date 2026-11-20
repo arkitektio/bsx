@@ -615,7 +615,8 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
   }
   if (lets.includes(first)) return [];
   if (into.includes(first)) {
-    const call = new RegExp(`(?:self|deps\\.(\\w+))\\.(\\w+)\\([^)]*\\)\\s+${INTO_KEYWORD}\\s+${first}\\b`).exec(text);
+    // `self.go() with cells into run`: the `with` clause sits between the call and its name.
+    const call = new RegExp(`(?:self|deps\\.(\\w+))\\.(\\w+)\\([^)]*\\)(?:\\s+with\\s+\\w+)?\\s+${INTO_KEYWORD}\\s+${first}\\b`).exec(text);
     const dependency = call ? dependencyOf(env, call[1] ?? 'self') : undefined;
     const action = dependency?.action_dependencies?.find(candidate => candidate.key === call?.[2]);
     return taskRecord(rest, action?.demand?.return_matches);

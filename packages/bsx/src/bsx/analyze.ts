@@ -3,7 +3,7 @@ import {type BlokView} from '../spec/catalogs';
 import {diagnosticHint, type BlokFinding} from '../spec/vocabulary';
 import {parseBsxSafe, type BsxSourceMap} from './parse';
 import {resolveLocals, type ResolvedLocal} from './infer';
-import {checkBlokTree, unmountedBlokScope, viewForTree, type BlokCheckScope} from './references';
+import {boundScope, checkBlokTree, unmountedBlokScope, viewForTree, type BlokCheckScope} from './references';
 import type {BsxRange} from './source';
 
 export type BsxMarker = {message: string; range: BsxRange; severity: 'error' | 'warning'; code?: string};
@@ -63,5 +63,5 @@ export const analyzeBsx = (source: string, options: {scope?: BlokCheckScope | nu
       code: found.code,
     }),
   );
-  return {tree, sources, findings, markers, resolved: resolveLocals(tree, scope.dependencies, view)};
+  return {tree, sources, findings, markers, resolved: resolveLocals(tree, boundScope(tree, scope).dependencies, view)};
 };

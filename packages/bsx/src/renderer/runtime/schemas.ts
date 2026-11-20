@@ -29,6 +29,7 @@ const agentCallInputSchema: z.ZodType<BlokAgentCall> = z.object({
   dependency: z.string(),
   operation: z.string(),
   arguments: z.array(actionArgumentInputSchema).nullish(),
+  given: z.string().nullish(),
 });
 
 const utilCallInputSchema: z.ZodType<BlokUtilCall> = z.object({

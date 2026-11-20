@@ -49,7 +49,7 @@ describe('the synced vocabulary', () => {
     expect(vocabulary.callKinds).not.toContain('query_refetch');
     expect(vocabulary.records.query.fields.map(field => field.key)).toContain('fetching_more');
     expect(Object.keys(vocabulary.theme.dataAttributes).sort()).toEqual(['busy', 'stale']);
-    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 5]);
+    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 6]);
     expect(vocabulary.baseCatalog).toBe('https://arkitekt.live/catalogs/base/v4');
     expect(Object.values(vocabulary.bundledCatalogs)).toEqual(['catalogs/base@4.json', 'catalogs/orkestrator@1.json']);
     expect(vocabulary.hostParts).toEqual(['args', 'arg', 'deps', 'dep', 'ask', 'returns', 'status', 'timeline', 'label', 'description', 'message', 'control', 'field']);
@@ -171,7 +171,7 @@ describe('what a blok may do', () => {
       'task.step',
     ]);
     // What is left changes nothing but the viewer's own screen and clipboard.
-    expect(effects.filter(fn => !fn.command).map(fn => fn.name).sort()).toEqual(['port.clear', 'port.reset', 'port.set', 'port.touch', 'query.fetch_more', 'query.refetch', 'ui.copy']);
+    expect(effects.filter(fn => !fn.command).map(fn => fn.name).sort()).toEqual(['deps.pick', 'port.clear', 'port.reset', 'port.set', 'port.touch', 'query.fetch_more', 'query.refetch', 'ui.copy']);
     // A root's own effects name the root a blok must read to hold them; a port blok is the one kind that calls no agent.
     expect(effects.filter(fn => fn.needs !== null).map(fn => [fn.name, fn.needs])).toEqual([['port.set', 'port'], ['port.clear', 'port'], ['port.reset', 'port'], ['port.touch', 'port']]);
     const kinds = loadVocabulary().kinds;

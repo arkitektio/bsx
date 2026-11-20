@@ -13,7 +13,8 @@ import {portIsValid} from './infer';
  * - its declarations, each a node of its own that draws nothing: `<local>`
  *   anywhere (first among its parent's children, in scope in its parent's
  *   subtree), `<query>` and `<subscription>` as children of the `<Blok>`, each
- *   with `<var>` children for its variables.
+ *   with `<var>` children for its variables, and an agent blok's
+ *   `<dependencies>` children of the `<Blok>`.
  *
  * Nothing here checks a rule beyond what makes a declaration readable at all;
  * the checker (`references.ts`) says the rest.
@@ -24,8 +25,15 @@ export const LOCAL_COMPONENT = 'local';
 export const QUERY_COMPONENT = 'query';
 export const SUBSCRIPTION_COMPONENT = 'subscription';
 export const VAR_COMPONENT = 'var';
+export const DEPENDENCIES_COMPONENT = 'dependencies';
 /** The components that declare what a blok owns and draw nothing. */
-export const DECLARATION_COMPONENTS: ReadonlySet<string> = new Set([LOCAL_COMPONENT, QUERY_COMPONENT, SUBSCRIPTION_COMPONENT, VAR_COMPONENT]);
+export const DECLARATION_COMPONENTS: ReadonlySet<string> = new Set([
+  LOCAL_COMPONENT,
+  QUERY_COMPONENT,
+  SUBSCRIPTION_COMPONENT,
+  VAR_COMPONENT,
+  DEPENDENCIES_COMPONENT,
+]);
 /** The name a local, a query or a subscription is read by. */
 export const NAME_PROP = 'name';
 /** A local's borrowed port: `self.<action>.<arg>` or `deps.<key>.<action>.<arg>`. */
@@ -322,6 +330,33 @@ const declaredRead = (node: BlokComponentNode): Record<string, unknown> => {
 };
 
 const rootChildren = (tree: BlokComponentNode | null | undefined): BlokComponentNode[] => tree?.children ?? [];
+
+/**
+ * A `<dependencies key="cells" like="self.<action>" />` of an agent blok: the dependencies
+ * of one of the app's own actions, each read and called as `deps.<key>__<dependency>` and
+ * handed to a run of that action with `with <key>`.
+ */
+export type DeclaredDependencies = {
+  key: string;
+  node: string;
+  /** As written; null when it is missing or no literal. */
+  like: string | null;
+};
+
+/** The action when `like` reads `self.<action>`, else null. */
+export const dependenciesAction = (declared: DeclaredDependencies): string | null => {
+  const parts = declared.like ? declared.like.split('.') : [];
+  return parts.length === 2 && parts[0] === 'self' && parts[1] ? parts[1] : null;
+};
+
+/** The keyed `<dependencies>` children of a blok's `<Blok>`, in order. */
+export const declaredDependencies = (tree: BlokComponentNode | null | undefined): DeclaredDependencies[] =>
+  rootChildren(tree).flatMap(child => {
+    if (child.component !== DEPENDENCIES_COMPONENT) return [];
+    const key = staticProp(child, KEY_PROP)?.static_value;
+    const like = staticProp(child, LIKE_PROP)?.static_value;
+    return typeof key === 'string' && key ? [{key, node: child.id, like: typeof like === 'string' ? like : null}] : [];
+  });
 
 /** The readable `<query>` children of a blok's `<Blok>`, in order. */
 export const declaredQueries = (tree: BlokComponentNode | null | undefined): DeclaredQuery[] =>

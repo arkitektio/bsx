@@ -320,7 +320,7 @@ export type BlokArgumentInnerFragment = (
 export type BlokComponentPropFragment = { __typename?: 'ComponentProp', key: string, staticValue?: any | null, declaresValue?: string | null, dynamicValue?: { __typename?: 'DynamicValue', path?: string | null, literal?: string | null } | null, agentCall?: { __typename?: 'AgentCall', dependency: string, operation: string, arguments?: Array<(
       { __typename?: 'ActionArgument' }
       & BlokArgumentFragment
-    )> | null } | null, utilCall?: { __typename?: 'UtilCall', operation: string, arguments?: Array<(
+    )> | null, given?: string | null } | null, utilCall?: { __typename?: 'UtilCall', operation: string, arguments?: Array<(
       { __typename?: 'ActionArgument' }
       & BlokArgumentFragment
     )> | null } | null };

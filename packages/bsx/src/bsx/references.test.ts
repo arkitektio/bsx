@@ -4,13 +4,13 @@ import {baseBlokView, blokViewFor, type BlokView} from '../spec/catalogs';
 import {blokCatalog} from './declared';
 import {resolveLocals} from './infer';
 import {parseBsx} from './parse';
-import {checkBlokTree, dependencyHint, mountedBlokScope, type BlokCheckScope} from './references';
+import {boundScope, checkBlokTree, dependencyHint, mountedBlokScope, type BlokCheckScope} from './references';
 import type {BlokComponentNode} from '../renderer/runtime/types';
 
 /** Where a corpus case is checked: the spec's `mount`, and whether a catalog is read at all. */
 type CorpusMount = Omit<BlokCheckScope, 'catalog'> & {catalog: boolean};
 
-const scopeOf = (mount: CorpusMount): BlokCheckScope => ({kinds: mount.kinds, dependencies: mount.dependencies, args: mount.args, port: mount.port ?? null});
+const scopeOf = (mount: CorpusMount): BlokCheckScope => ({kinds: mount.kinds, dependencies: mount.dependencies, args: mount.args, port: mount.port ?? null, workflows: mount.workflows ?? null});
 type CheckedCase = {
   name: string;
   source: string;
@@ -79,7 +79,7 @@ describe('the validator against the corpus', () => {
 describe('inference against the corpus', () => {
   it.each(checked.map(entry => [entry.name, entry] as const))('%s', (_name, entry) => {
     const {tree} = parseBsx(entry.source);
-    const resolved = resolveLocals(tree, entry.mount.dependencies, caseView(entry.mount, tree));
+    const resolved = resolveLocals(tree, boundScope(tree, scopeOf(entry.mount)).dependencies, caseView(entry.mount, tree));
     expect(Object.keys(entry.resolved)).toEqual(['locals']);
     const locals = Object.fromEntries([...resolved].map(([node, {local}]) => [node, local]));
     expect(withoutDefaults(locals)).toEqual(withoutDefaults(entry.resolved.locals));
@@ -124,8 +124,9 @@ describe('findings', () => {
     expect(message('custom')).toContain('Fix: dependencies=[AgentDependencyInput(key="laser")].');
     expect(message('task')).toContain('Fix: dependencies=[AgentDependencyInput(key="laser")].');
     expect(message('action')).toContain('Fix: add a dependency parameter `laser` to the action.');
-    // An agent blok has no deps root at all (roots.not_in_kind), so only the spec's wording is ported.
-    expect(dependencyHint('laser', 'agent')).toBe('agent bloks read only `self`');
+    // An agent blok's dependencies are in its own tree.
+    expect(message('agent')).toContain('Fix: declare it in the blok: <dependencies key="laser" like="self.<action>" />, then read laser.<dependency>.');
+    expect(dependencyHint('laser', 'agent')).toBe('declare it in the blok: <dependencies key="laser" like="self.<action>" />, then read laser.<dependency>');
   });
 
   it('scope a let to its loop and an into name to the whole tree', () => {

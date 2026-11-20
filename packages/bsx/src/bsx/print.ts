@@ -15,11 +15,14 @@ import {
   FOREACH_INDEX_PROP,
   FOREACH_LET_PROP,
   LEGACY_IMPLICIT_TEXTS,
+  PICK_FUNCTION,
   TEXT_NODE,
   TEXT_VALUE,
   REFETCH_FUNCTION,
   TEMPLATE_FUNCTION,
 } from './parse';
+import {declaredDependencies} from './declared';
+import {PICK_VERB, REFERENCE_SEPARATOR} from './expr';
 
 /**
  * Print a stored v2 tree as BSX: the inverse of `parseBsx`, the port of
@@ -229,7 +232,7 @@ class Printer {
     if (typeof prop.static_value === 'string') return textLiteral(prop.static_value, !inline);
     if (prop.dynamic_value) {
       if (prop.dynamic_value.literal != null || prop.dynamic_value.path == null || prop.static_value != null) return null;
-      return `{${prop.dynamic_value.path}}`;
+      return `{${this.path(prop.dynamic_value.path)}}`;
     }
     const call = prop.util_call;
     if (call && call.operation === TEMPLATE_FUNCTION) {
@@ -264,7 +267,7 @@ class Printer {
     }
     if (prop.util_call) {
       const call = prop.util_call;
-      const sugar = this.querySugar(call);
+      const sugar = this.pickSugar(call) ?? this.querySugar(call);
       if (sugar !== null) return `${key}={${sugar}}`;
       if (key === CLASS_NAME && call.operation === CLASSES_FUNCTION && call.arguments?.length === 1) {
         const values = call.arguments[0];
@@ -276,7 +279,7 @@ class Printer {
       if (prop.dynamic_value.literal != null || prop.dynamic_value.path == null) {
         return refuse(`<${node.component}> (${node.id}): ${key} has a fallback literal, which BSX cannot spell`);
       }
-      return `${key}={${prop.dynamic_value.path}}`;
+      return `${key}={${this.path(prop.dynamic_value.path)}}`;
     }
     const value = prop.static_value;
     if (value === true) return key;
@@ -314,15 +317,45 @@ class Printer {
     return `queries.${named.value_literal}.fetch_more(${variables.join(', ')})`;
   }
 
+  /** The keys of the `<dependencies>` the tree declares: what it reads through, bare. */
+  references: ReadonlySet<string> = new Set();
+
+  /** `path` as BSX writes it: one through declared dependencies (stored `deps.cells__microscope.stage`) reads `cells.microscope.stage`. */
+  private path(path: string): string {
+    const parts = path.split('.');
+    if (parts.length > 1 && parts[0] === 'deps') {
+      const at = parts[1].indexOf(REFERENCE_SEPARATOR);
+      const key = at < 0 ? '' : parts[1].slice(0, at);
+      if (at >= 0 && this.references.has(key)) return [key, parts[1].slice(at + REFERENCE_SEPARATOR.length), ...parts.slice(2)].join('.');
+    }
+    return path;
+  }
+
+  /** `deps.pick` as BSX writes it (`cells.pick(microscope: id)`), or null when the call is not one the sugar spells. */
+  private pickSugar(call: BlokUtilCall): string | null {
+    if (call.operation !== PICK_FUNCTION) return null;
+    const args = call.arguments ?? [];
+    if (args.length !== 2 || args[0].key !== 'key' || args[1].key !== 'picks') return null;
+    const key = args[0].value_literal;
+    const picks = args[1].value_dict;
+    if (typeof key !== 'string' || !this.references.has(key) || !picks?.length) return null;
+    const written: string[] = [];
+    for (const pick of picks) {
+      if (pick.key == null || !IDENTIFIER.test(pick.key)) return null;
+      written.push(`${pick.key}: ${this.argument(pick, 0)}`);
+    }
+    return `${key}.${PICK_VERB}(${written.join(', ')})`;
+  }
+
   private agentCall(call: BlokAgentCall): string {
-    const callee = call.dependency === 'self' ? `self.${call.operation}` : `deps.${call.dependency}.${call.operation}`;
+    const callee = call.dependency === 'self' ? `self.${call.operation}` : this.path(`deps.${call.dependency}.${call.operation}`);
     const args = (call.arguments ?? []).map(argument => {
       if (argument.key == null || !IDENTIFIER.test(argument.key)) {
         return refuse(`${callee}: a task call names its arguments, not '${argument.key ?? 'None'}'`);
       }
       return `${argument.key}: ${this.argument(argument, 0)}`;
     });
-    return `${callee}(${args.join(', ')})`;
+    return `${callee}(${args.join(', ')})${call.given ? ` with ${call.given}` : ''}`;
   }
 
   private expressionOfCall(call: BlokUtilCall, needed: number): string {
@@ -383,7 +416,7 @@ class Printer {
 
   argument(argument: BlokActionArgument, needed: number): string {
     if (argument.agent_call) return refuse("a task call is a callback's one thing, never an argument");
-    if (argument.value_path != null) return argument.value_path;
+    if (argument.value_path != null) return this.path(argument.value_path);
     if (argument.util_call) return this.expressionOfCall(argument.util_call, needed);
     if (argument.value_list != null) return `[${argument.value_list.map(item => this.argument(item, 0)).join(', ')}]`;
     if (argument.value_dict != null) {
@@ -400,7 +433,9 @@ class Printer {
 /** Print `node` as v2 BSX that `parseBsx` (with the same view) reads back into it. Throws a `BsxPrintError`. */
 export const printBsx = (node: BlokComponentNode, options: {view?: BlokView; indent?: number} = {}): string => {
   const lines: string[] = [];
-  new Printer(options.view ?? defaultBlokView(), options.indent ?? 2).node(node, `${node.component}[0]`, 0, lines);
+  const printer = new Printer(options.view ?? defaultBlokView(), options.indent ?? 2);
+  printer.references = new Set(declaredDependencies(node).map(declared => declared.key));
+  printer.node(node, `${node.component}[0]`, 0, lines);
   return lines.join('\n');
 };
 

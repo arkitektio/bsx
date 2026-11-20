@@ -25,6 +25,8 @@ export type BlokAgentCall = {
   dependency: string;
   operation: string;
   arguments?: BlokActionArgument[] | null;
+  /** `with <key>`: the dependencies the blok declares under that key; only on a call to `self`, absent when not written. */
+  given?: string | null;
 };
 
 export type BlokUtilCall = {
@@ -61,7 +63,15 @@ export type BlokResolvedAgentCall = {
   dependency: string;
   operation: string;
   arguments?: Record<string, unknown>;
+  /** `with <key>`: the key of the `<dependencies>` whose agents the run gets. Absent without a `with`. */
+  given?: string;
 };
+
+/**
+ * Binds the dependencies an agent blok declares under `key` (`<dependencies key=... />`) to
+ * agents: `picks` is, per dependency, the id of an agent (`cells.pick(microscope: o.id)`).
+ */
+export type BlokPickDependenciesHandler = (key: string, picks: Record<string, unknown>) => void | Promise<unknown>;
 
 export type BlokValidationState = {
   isValid: boolean;
@@ -222,6 +232,8 @@ export type BlokResolutionContext = {
   answerTask?: (values: Record<string, unknown>) => unknown;
   /** Starts the run an assign blok prepares (`assign.start()`); undefined where the host starts none. */
   startRun?: () => unknown;
+  /** Binds declared dependencies to agents (`<key>.pick(...)`, stored `deps.pick`); undefined where the host binds none. */
+  pickDependencies?: BlokPickDependenciesHandler;
   /** Writes the port a port blok is the widget of (`port.set(value)`, `port.clear()`, `port.reset()`, `port.touch()`); undefined outside a form. */
   writePort?: (operation: BlokPortOperation, value?: unknown) => unknown;
   /** Cancels, pauses, resumes, steps, interrupts or reruns `task` (`task.cancel()` and its kin); undefined where the host controls no task. */
@@ -262,6 +274,7 @@ export type BlokRuntimeContext = {
   answerTask: ((values: Record<string, unknown>) => unknown) | undefined;
   /** Starts the run an assign blok prepares; set by a host that can start one. */
   startRun: (() => unknown) | undefined;
+  pickDependencies: BlokPickDependenciesHandler | undefined;
   /** Writes the port a port blok is the widget of; set by the form that holds the field. */
   writePort: ((operation: BlokPortOperation, value?: unknown) => unknown) | undefined;
   /** Controls `task`; set by a host that can. */
@@ -272,6 +285,7 @@ export type BlokRuntimeContext = {
   setFetchMoreQuery: (fetchMore: ((name: string, variables: Record<string, unknown>) => void) | undefined) => void;
   setAnswerTask: (answer: ((values: Record<string, unknown>) => unknown) | undefined) => void;
   setStartRun: (start: (() => unknown) | undefined) => void;
+  setPickDependencies: (pick: BlokPickDependenciesHandler | undefined) => void;
   setWritePort: (write: ((operation: BlokPortOperation, value?: unknown) => unknown) | undefined) => void;
   setControlTask: (control: ((operation: BlokTaskControl) => unknown) | undefined) => void;
   agentMappingStateUpdates: BlokAgentMappingStateUpdates;

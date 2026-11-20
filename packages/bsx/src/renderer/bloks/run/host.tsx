@@ -43,6 +43,11 @@ export type BlokRunHost = {
   renderDeps?: () => React.ReactNode;
   /** The picker of one dependency of that run, by key (`<dep key="microscope" />`). */
   renderDep?: (key: string) => React.ReactNode;
+  /**
+   * The ready-made picker of declared dependencies (`<deppicker key=... />`), by the key as
+   * written: one dependency (`cells.microscope`), or every one under a key no other picker places (`cells`).
+   */
+  renderDepPicker?: (key: string) => React.ReactNode;
   /** What the run returned, as its return ports show it (`<returns />`); nothing before the first yield. */
   renderReturns?: (options?: Pick<BlokArgsOptions, 'only' | 'omit'>) => React.ReactNode;
   /** Where the run stands, as one line (`<status />`). */
