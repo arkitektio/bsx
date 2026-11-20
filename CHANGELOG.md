@@ -1,3 +1,10 @@
+# [6.7.0](https://github.com/arkitektio/bsx/compare/v6.6.2...v6.7.0) (2026-11-20)
+
+
+### Features
+
+* **blok:** an agent blok declares the dependencies of its own actions ([ed6986d](https://github.com/arkitektio/bsx/commit/ed6986d68d0dc17af9f22f6f9abd8da88fa10c8f))
+
 ## [6.6.2](https://github.com/arkitektio/bsx/compare/v6.6.1...v6.6.2) (2026-11-18)
 
 
