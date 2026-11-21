@@ -1,3 +1,10 @@
+# [6.8.0](https://github.com/arkitektio/bsx/compare/v6.7.0...v6.8.0) (2026-11-21)
+
+
+### Features
+
+* **bsx:** a custom blok reads its bound agents as agents.<key> ([5beab6a](https://github.com/arkitektio/bsx/commit/5beab6a9f004f349cdb0d8581dd2e3f78a849202))
+
 # [6.7.0](https://github.com/arkitektio/bsx/compare/v6.6.2...v6.7.0) (2026-11-20)
 
 
