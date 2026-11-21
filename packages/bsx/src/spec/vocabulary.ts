@@ -66,6 +66,10 @@ export type VocabKind = {
   calls: boolean;
 };
 
+/** Whether a blok of this kind holds the stored `root`: a custom blok's `agents` is stored `deps`. */
+export const kindReads = (kind: VocabKind, root: string): boolean =>
+  kind.roots.includes(root) || (root === 'deps' && kind.roots.includes('agents'));
+
 /** The row of `kind` in `context`: its own, or the narrower one it has there (vocabulary `kinds.<kind>.in`). */
 export const kindIn = (kind: VocabKind, context: string): VocabKind => kind.within[context as BlokContextName] ?? kind;
 

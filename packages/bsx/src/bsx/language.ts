@@ -616,7 +616,7 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
   if (lets.includes(first)) return [];
   if (into.includes(first)) {
     // `self.go() with cells into run`: the `with` clause sits between the call and its name.
-    const call = new RegExp(`(?:self|deps\\.(\\w+))\\.(\\w+)\\([^)]*\\)(?:\\s+with\\s+\\w+)?\\s+${INTO_KEYWORD}\\s+${first}\\b`).exec(text);
+    const call = new RegExp(`(?:self|(?:deps|agents)\\.(\\w+))\\.(\\w+)\\([^)]*\\)(?:\\s+with\\s+\\w+)?\\s+${INTO_KEYWORD}\\s+${first}\\b`).exec(text);
     const dependency = call ? dependencyOf(env, call[1] ?? 'self') : undefined;
     const action = dependency?.action_dependencies?.find(candidate => candidate.key === call?.[2]);
     return taskRecord(rest, action?.demand?.return_matches);
@@ -643,6 +643,7 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
     case 'self':
       return agent(dependencyOf(env, 'self'), rest);
     case 'deps':
+    case 'agents': // a custom blok's spelling of its bound agents
       if (rest.length === 0) return dependenciesOf(env).filter(dependency => dependency.key !== 'self').map(dependency => item(dependency.key, 'dependency', 'dependency'));
       return agent(dependencyOf(env, rest[0]), rest.slice(1));
     case 'args':
@@ -784,7 +785,7 @@ export const signatureBsx = (text: string, offset: number, env: BsxEnvironment):
     };
   }
   const parts = call.callee.split('.');
-  const target = parts[0] === 'self' && parts.length === 2 ? ['self', parts[1]] : parts[0] === 'deps' && parts.length === 3 ? [parts[1], parts[2]] : null;
+  const target = parts[0] === 'self' && parts.length === 2 ? ['self', parts[1]] : (parts[0] === 'deps' || parts[0] === 'agents') && parts.length === 3 ? [parts[1], parts[2]] : null;
   if (!target) return null;
   const action = dependencyOf(env, target[0])?.action_dependencies?.find(candidate => candidate.key === target[1]);
   if (!action) return null;

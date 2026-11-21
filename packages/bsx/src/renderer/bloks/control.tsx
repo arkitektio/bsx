@@ -393,13 +393,13 @@ export const Dependencies = declaration(
   z
     .object({
       key: z.string().describe('The key they are read through, bare: cells.<dependency>.'),
-      like: z.string().describe('The action whose dependencies they are: self.<action>.'),
+      like: z.string().describe('The action whose dependencies they are: self.<action>, in a custom blok agents.<name>.<action>.'),
     })
     .describe(
-      "Declares the dependencies of one of the app's own actions for an agent blok: read and called through its key (cells.<dependency>), picked by the viewer, and handed to a run of that action with `with <key>`. A child of <Blok>; draws nothing.",
+      "Declares the dependencies of one action, for an agent blok one of the app's own, for a custom blok one of an agent it is bound to: read and called through its key (cells.<dependency>), picked by the viewer, and handed to a run of that action with `with <key>`. A child of <Blok>; draws nothing.",
     ),
   false,
-  {kinds: ['agent'], since: 3},
+  {kinds: ['agent', 'custom'], since: 3},
 );
 
 /* -------------------------------------------------------------------------- */
@@ -649,10 +649,10 @@ const depPickerSchema = z
       .string()
       .describe('One dependency (`cells.microscope`), or the key alone (`cells`) for every dependency declared under it that no other picker places.'),
   })
-  .describe('The ready-made picker of the agent a declared dependency is bound to: the agents that fit, the chosen one shown, always changeable. An agent blok only.');
+  .describe('The ready-made picker of the agent a declared dependency is bound to: the agents that fit, the chosen one shown, always changeable. In an agent or a custom blok.');
 
 /** `<deppicker key="cells.microscope" />`: the host's picker of declared dependencies; nothing without a host. */
-export const Deppicker = createBlokComponent({name: 'deppicker', schema: depPickerSchema, kinds: ['agent'], since: 3}, ({component, schema}) => {
+export const Deppicker = createBlokComponent({name: 'deppicker', schema: depPickerSchema, kinds: ['agent', 'custom'], since: 3}, ({component, schema}) => {
   const key = useValue(useBlok(component, schema).key);
   const host = useBlokRunHost();
   return <>{typeof key === 'string' ? (host.renderDepPicker?.(key) ?? null) : null}</>;

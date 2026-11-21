@@ -253,6 +253,8 @@ class Lexer {
  * is the dependency `cells__microscope` of the blok (`deps.cells__microscope`), one segment.
  */
 export const REFERENCE_SEPARATOR = '__';
+/** How a custom blok writes an agent it is bound to: `agents.<key>`, stored `deps.<key>`. */
+export const AGENTS_ROOT = 'agents';
 /** `cells.pick(microscope: id)`: the one call a reference itself takes. */
 export const PICK_VERB = 'pick';
 
@@ -262,10 +264,13 @@ class Parser {
   private readonly lexer: Lexer;
   private readonly tokens: Token[];
   private readonly references: ReadonlySet<string>;
+  /** In a custom blok: its bound agents are written `agents.<key>` (stored `deps.<key>`). */
+  private readonly custom: boolean;
   private index = 0;
 
-  constructor(text: string, base: number, locator: Locator, references: ReadonlySet<string> = NO_REFERENCES) {
+  constructor(text: string, base: number, locator: Locator, references: ReadonlySet<string> = NO_REFERENCES, custom = false) {
     this.references = references;
+    this.custom = custom;
     this.lexer = new Lexer(text, base, locator);
     this.tokens = this.lexer.tokens();
   }
@@ -465,6 +470,10 @@ class Parser {
     // the blok's dependencies, `deps.cells__microscope`; `cells.pick(...)` stays as written.
     if (this.references.has(segments[0]) && segments.length > 1 && !(this.isOp('(') && segments.length === 2 && segments[1] === PICK_VERB)) {
       segments = ['deps', `${segments[0]}${REFERENCE_SEPARATOR}${segments[1]}`, ...segments.slice(2)];
+    } else if (this.custom && segments[0] === AGENTS_ROOT) {
+      segments[0] = 'deps';
+    } else if (this.custom && segments[0] === 'deps') {
+      throw this.fail('roots.custom_deps', first.offset, {path: segments.join('.')});
     }
     if (!this.isOp('(')) return {type: 'path', segments, offset: first.offset};
     this.advance();
@@ -527,26 +536,26 @@ class Parser {
   }
 }
 
-const parser = (text: string, base: number, locator: Locator | undefined, references?: ReadonlySet<string>): Parser => {
-  const parsing = new Parser(text, base, locator ?? new Locator(text), references);
+const parser = (text: string, base: number, locator: Locator | undefined, references?: ReadonlySet<string>, custom = false): Parser => {
+  const parsing = new Parser(text, base, locator ?? new Locator(text), references, custom);
   if (parsing.isEmpty()) throw parsing.fail('expr.syntax', undefined, {detail: 'the expression is empty'});
   return parsing;
 };
 
 /**
  * A value expression (no `into`). `base` is where `text` starts in the source `locator` reads;
- * `references` are the keys of the `<dependencies>` it may read through.
+ * `references` are the keys of the `<dependencies>` it may read through; `custom` says it is a custom blok's.
  */
-export const parseExpression = (text: string, base = 0, locator?: Locator, references?: ReadonlySet<string>): Expr => {
-  const parsing = parser(text, base, locator, references);
+export const parseExpression = (text: string, base = 0, locator?: Locator, references?: ReadonlySet<string>, custom = false): Expr => {
+  const parsing = parser(text, base, locator, references, custom);
   const expression = parsing.expression();
   parsing.finish();
   return expression;
 };
 
 /** An attribute's expression: a value, or a callback (`<call> into <name>`). */
-export const parseAttribute = (text: string, base = 0, locator?: Locator, references?: ReadonlySet<string>): Expr =>
-  parser(text, base, locator, references).callback();
+export const parseAttribute = (text: string, base = 0, locator?: Locator, references?: ReadonlySet<string>, custom = false): Expr =>
+  parser(text, base, locator, references, custom).callback();
 
 /** The expressions directly inside `expression`. */
 export const childrenOf = (expression: Expr): Expr[] => {

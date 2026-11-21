@@ -332,8 +332,8 @@ const declaredRead = (node: BlokComponentNode): Record<string, unknown> => {
 const rootChildren = (tree: BlokComponentNode | null | undefined): BlokComponentNode[] => tree?.children ?? [];
 
 /**
- * A `<dependencies key="cells" like="self.<action>" />` of an agent blok: the dependencies
- * of one of the app's own actions, each read and called as `deps.<key>__<dependency>` and
+ * A `<dependencies key="cells" like="self.<action>" />` (custom blok: `agents.<name>.<action>`):
+ * the dependencies of one action, each read and called as `deps.<key>__<dependency>` and
  * handed to a run of that action with `with <key>`.
  */
 export type DeclaredDependencies = {
@@ -343,11 +343,22 @@ export type DeclaredDependencies = {
   like: string | null;
 };
 
-/** The action when `like` reads `self.<action>`, else null. */
-export const dependenciesAction = (declared: DeclaredDependencies): string | null => {
+/**
+ * Whose action it names: `['self', action]` for `self.<action>`, `[key, action]` for a custom
+ * blok's `agents.<key>.<action>` (stored `deps.<key>.<action>`); else null.
+ */
+export const dependenciesTarget = (declared: DeclaredDependencies): readonly [string, string] | null => {
   const parts = declared.like ? declared.like.split('.') : [];
-  return parts.length === 2 && parts[0] === 'self' && parts[1] ? parts[1] : null;
+  if (parts.length === 2 && parts[0] === 'self' && parts[1]) return ['self', parts[1]];
+  if (parts.length === 3 && parts[0] === 'deps' && parts[1] && parts[1] !== 'self' && parts[2]) return [parts[1], parts[2]];
+  return null;
 };
+
+/** The dependency whose action it names: `self`, or a custom blok's bound agent. */
+export const dependenciesOwner = (declared: DeclaredDependencies): string | null => dependenciesTarget(declared)?.[0] ?? null;
+
+/** The action `like` names, else null. */
+export const dependenciesAction = (declared: DeclaredDependencies): string | null => dependenciesTarget(declared)?.[1] ?? null;
 
 /** The keyed `<dependencies>` children of a blok's `<Blok>`, in order. */
 export const declaredDependencies = (tree: BlokComponentNode | null | undefined): DeclaredDependencies[] =>

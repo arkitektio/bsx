@@ -22,7 +22,7 @@ import {
   TEMPLATE_FUNCTION,
 } from './parse';
 import {declaredDependencies} from './declared';
-import {PICK_VERB, REFERENCE_SEPARATOR} from './expr';
+import {AGENTS_ROOT, PICK_VERB, REFERENCE_SEPARATOR} from './expr';
 
 /**
  * Print a stored v2 tree as BSX: the inverse of `parseBsx`, the port of
@@ -283,7 +283,10 @@ class Printer {
     }
     const value = prop.static_value;
     if (value === true) return key;
-    if (typeof value === 'string') return `${key}=${quoted(value)}`;
+    if (typeof value === 'string') {
+      const agents = this.custom && key === 'like' && (node.component === 'local' || node.component === 'dependencies') && value.startsWith('deps.');
+      return `${key}=${quoted(agents ? `${AGENTS_ROOT}.${value.slice('deps.'.length)}` : value)}`;
+    }
     if (value !== null && typeof value === 'object' && key === CLASS_NAME) {
       return refuse(`<${node.component}> (${node.id}): a static className list reads back as str.classes`);
     }
@@ -319,6 +322,8 @@ class Printer {
 
   /** The keys of the `<dependencies>` the tree declares: what it reads through, bare. */
   references: ReadonlySet<string> = new Set();
+  /** Whether the tree is a custom blok: its bound agents (stored `deps.<key>`) are written `agents.<key>`. */
+  custom = false;
 
   /** `path` as BSX writes it: one through declared dependencies (stored `deps.cells__microscope.stage`) reads `cells.microscope.stage`. */
   private path(path: string): string {
@@ -327,6 +332,7 @@ class Printer {
       const at = parts[1].indexOf(REFERENCE_SEPARATOR);
       const key = at < 0 ? '' : parts[1].slice(0, at);
       if (at >= 0 && this.references.has(key)) return [key, parts[1].slice(at + REFERENCE_SEPARATOR.length), ...parts.slice(2)].join('.');
+      if (this.custom) return [AGENTS_ROOT, ...parts.slice(1)].join('.');
     }
     return path;
   }
@@ -435,6 +441,7 @@ export const printBsx = (node: BlokComponentNode, options: {view?: BlokView; ind
   const lines: string[] = [];
   const printer = new Printer(options.view ?? defaultBlokView(), options.indent ?? 2);
   printer.references = new Set(declaredDependencies(node).map(declared => declared.key));
+  printer.custom = node.component === 'Blok' && (node.props ?? []).some(prop => prop.key === 'kind' && prop.static_value === 'custom');
   printer.node(node, `${node.component}[0]`, 0, lines);
   return lines.join('\n');
 };

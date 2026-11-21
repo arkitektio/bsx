@@ -108,7 +108,8 @@ describe('completeBsx: components and props', () => {
 describe('completeBsx: expressions', () => {
   it('offers the roots of the kind, locals, records and namespaces', () => {
     const items = labels('<Text text={|');
-    expect(items).toEqual(expect.arrayContaining(['deps', 'args', 'queries', 'viewer', 'speed', 'str', 'true']));
+    expect(items).toEqual(expect.arrayContaining(['agents', 'args', 'queries', 'viewer', 'speed', 'str', 'true']));
+    expect(items).not.toContain('deps');
     expect(items).not.toContain('self');
     expect(items).not.toContain('task');
     expect(items).not.toContain('event');
@@ -116,14 +117,14 @@ describe('completeBsx: expressions', () => {
   });
 
   it('walks agents: states, tasks, assets, fields, and actions only in callbacks', () => {
-    expect(labels('<Text text={deps.|')).toEqual(['stage']);
-    expect(labels('<Text text={deps.stage.|')).toEqual(['position', 'tasks', 'assets', 'id', 'name', 'connected']);
-    expect(labels('<Button onClick={deps.stage.|')).toContain('move');
-    expect(at('<Button onClick={deps.stage.|').find(item => item.label === 'move')?.insertText).toBe('move(x: ${1}, y: ${2})');
-    expect(labels('<Text text={deps.stage.position.|')).toEqual(['x', 'y']);
-    expect(labels('<Text text={deps.stage.tasks.|')).toEqual(['move']);
-    expect(labels('<Text text={deps.stage.tasks.move.|')).toEqual(expect.arrayContaining(['status', 'running', 'returns', 'args']));
-    expect(labels('<Text text={deps.stage.tasks.move.returns.|')).toEqual(['arrived']);
+    expect(labels('<Text text={agents.|')).toEqual(['stage']);
+    expect(labels('<Text text={agents.stage.|')).toEqual(['position', 'tasks', 'assets', 'id', 'name', 'connected']);
+    expect(labels('<Button onClick={agents.stage.|')).toContain('move');
+    expect(at('<Button onClick={agents.stage.|').find(item => item.label === 'move')?.insertText).toBe('move(x: ${1}, y: ${2})');
+    expect(labels('<Text text={agents.stage.position.|')).toEqual(['x', 'y']);
+    expect(labels('<Text text={agents.stage.tasks.|')).toEqual(['move']);
+    expect(labels('<Text text={agents.stage.tasks.move.|')).toEqual(expect.arrayContaining(['status', 'running', 'returns', 'args']));
+    expect(labels('<Text text={agents.stage.tasks.move.returns.|')).toEqual(['arrived']);
   });
 
   it('offers query records and refetch in a callback', () => {
@@ -145,11 +146,11 @@ describe('completeBsx: expressions', () => {
   });
 
   it('offers into names, lets and event fields where they are bound', () => {
-    expect(labels('<Card><Button onClick={deps.stage.move(x: 1, y: 2) into run} /><Text>{run.|')).toContain('progress');
-    expect(labels('<Card><Button onClick={deps.stage.move(x: 1, y: 2) into run} /><Text>{|')).toContain('run');
+    expect(labels('<Card><Button onClick={agents.stage.move(x: 1, y: 2) into run} /><Text>{run.|')).toContain('progress');
+    expect(labels('<Card><Button onClick={agents.stage.move(x: 1, y: 2) into run} /><Text>{|')).toContain('run');
     expect(labels('<foreach items={args.image} let="p" key={p}><Text text={|')).toContain('p');
-    expect(labels('<Slider onChange={deps.stage.move(x: |')).toContain('event');
-    expect(labels('<Slider onChange={deps.stage.move(x: event.|')).toEqual(['value']);
+    expect(labels('<Slider onChange={agents.stage.move(x: |')).toContain('event');
+    expect(labels('<Slider onChange={agents.stage.move(x: event.|')).toEqual(['value']);
     expect(labels('<suspense><error><Text text={|')).toContain('error');
   });
 
@@ -161,7 +162,7 @@ describe('completeBsx: expressions', () => {
   });
 
   it('offers into after a task call', () => {
-    expect(labels('<Button onClick={deps.stage.move(x: 1, y: 2) |')).toEqual(['into']);
+    expect(labels('<Button onClick={agents.stage.move(x: 1, y: 2) |')).toEqual(['into']);
     expect(labels("<Text text={str.upper('|")).toEqual([]);
   });
 });
@@ -192,11 +193,11 @@ describe('analyzeBsx', () => {
   const analyze = (source: string, overrides: Partial<BlokCheckScope> = {}) => analyzeBsx(source, {scope: {...scope, ...overrides}});
 
   it('marks a finding at its prop, with its code', () => {
-    const source = '<Blok kind="custom" context="panel"><Text text={deps.stage.speed} /></Blok>';
+    const source = '<Blok kind="custom" context="panel"><Text text={agents.stage.speed} /></Blok>';
     const {markers} = analyze(source);
     expect(markers).toHaveLength(1);
     expect(markers[0]).toMatchObject({code: 'deps.unknown_state', severity: 'error'});
-    expect(source.slice(markers[0].range.start, markers[0].range.end)).toBe('deps.stage.speed');
+    expect(source.slice(markers[0].range.start, markers[0].range.end)).toBe('agents.stage.speed');
   });
 
   it('marks warnings as warnings', () => {

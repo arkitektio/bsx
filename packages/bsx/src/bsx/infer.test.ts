@@ -81,7 +81,7 @@ describe('local kind inference', () => {
   });
 
   it('never infers a dependency: a custom blok reading an undeclared one is refused', () => {
-    const tree = parseBsx(blok('custom', '<Card><Text text={deps.zeta.x} /><Button onClick={deps.alpha.go()} /><Text text={deps.mid.y} /></Card>')).tree;
+    const tree = parseBsx(blok('custom', '<Card><Text text={agents.zeta.x} /><Button onClick={agents.alpha.go()} /><Text text={agents.mid.y} /></Card>')).tree;
     const found = checkBlokTree(tree, mountedBlokScope([], [{key: 'mid', state_dependencies: []}]), null);
     expect(found.map(finding => finding.code)).toEqual(['deps.unknown', 'deps.unknown', 'deps.unknown_state']);
     expect(found[0].message).toContain('Fix: dependencies=[AgentDependencyInput(key="zeta")].');

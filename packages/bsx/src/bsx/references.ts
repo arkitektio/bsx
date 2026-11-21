@@ -7,7 +7,7 @@ import type {
 } from '../renderer/runtime/types';
 import {blokViewFor, defaultBlokView, type BlokView, type SpecComponent} from '../spec/catalogs';
 import {PICK_FUNCTION, TEXT_NODE} from './parse';
-import {PICK_VERB, REFERENCE_SEPARATOR} from './expr';
+import {AGENTS_ROOT, PICK_VERB, REFERENCE_SEPARATOR} from './expr';
 import {valueFitsPort} from '../spec/locals';
 import {LOCAL_ANY, localDeclared, resolveLocals, type ResolvedLocal} from './infer';
 import {
@@ -17,6 +17,8 @@ import {
   declarationProblem,
   declaredDependencies,
   dependenciesAction,
+  dependenciesOwner,
+  dependenciesTarget,
   DEPENDENCIES_COMPONENT,
   declaredQueries,
   declaredSubscriptions,
@@ -39,6 +41,7 @@ import {
   argFits,
   finding,
   kindIn,
+  kindReads,
   loadVocabulary,
   type BlokFinding,
   type BlokKind,
@@ -265,6 +268,18 @@ export const boundScope = (tree: BlokComponentNode, scope: BlokCheckScope): Blok
     }
   }
   return borrowed.length ? {...scope, dependencies: [...(scope.dependencies ?? []), ...borrowed]} : scope;
+};
+
+const CUSTOM_KIND: BlokKind = 'custom';
+
+/**
+ * `text` (a path, a call) as a custom blok writes it: a bound agent stored `deps.<key>`
+ * reads `agents.<key>`; one through declared dependencies is left.
+ */
+const asWritten = (text: string): string => {
+  if (!text.startsWith('deps.')) return text;
+  const rest = text.slice('deps.'.length);
+  return rest.split('.')[0].split('(')[0].includes(REFERENCE_SEPARATOR) ? text : `${AGENTS_ROOT}.${rest}`;
 };
 
 /** A context as a `<Blok context>` spells it (`PANEL` → `panel`). */
@@ -573,8 +588,22 @@ class Checker {
     this.colour = colourPattern(this.vocabulary);
   }
 
-  add(code: string, nodeId: string | null, fields: DiagnosticFields = {}, propKey?: string): void {
+  add(code: string, nodeId: string | null, written: DiagnosticFields = {}, propKey?: string): void {
+    const fields =
+      this.kindName === CUSTOM_KIND
+        ? Object.fromEntries(Object.entries(written).map(([key, value]) => [key, typeof value === 'string' ? asWritten(value) : value]))
+        : written;
     this.findings.push(finding(code, fields, {...(nodeId !== null ? {nodeId} : {}), ...(propKey !== undefined ? {propKey} : {})}));
+  }
+
+  /** Whether the kind reads the stored `root`: a custom blok's `agents` is stored `deps`. */
+  private reads(root: string): boolean {
+    return kindReads(this.kind, root);
+  }
+
+  /** Whether `dependency` (as stored) is declared in the blok's own tree: any of an agent blok, a `<key>__<name>` one of a custom blok. */
+  private declares(dependency: string): boolean {
+    return this.kindName === 'agent' || (this.kindName === CUSTOM_KIND && dependency.includes(REFERENCE_SEPARATOR));
   }
 
   private rootsText(): string {
@@ -669,15 +698,15 @@ class Checker {
   }
 
   /**
-   * A `<dependencies>` is a child of an agent blok's `<Blok>`, keyed once, and
-   * names one of the app's own actions that has dependencies.
+   * A `<dependencies>` is a child of an agent or custom blok's `<Blok>`, keyed once, and
+   * names an action that has dependencies: one of the app's own, or of a bound agent (custom).
    */
   private checkDependencies(tree: BlokComponentNode): void {
     for (const [node, ancestors] of iterWithParents(tree)) {
       if (node.component !== DEPENDENCIES_COMPONENT) continue;
       const literal = (name: string): unknown => node.props?.find(prop => prop.key === name)?.static_value;
       const key = literal('key');
-      if (ancestors.length !== 1 || this.kindName !== 'agent') {
+      if (ancestors.length !== 1 || (this.kindName !== 'agent' && this.kindName !== CUSTOM_KIND)) {
         const at = ancestors.length > 1 ? ancestors[ancestors.length - 1].id : `a${article(this.kindName)} ${this.kindName} blok`;
         this.add('dependencies.position', node.id, {key: typeof key === 'string' ? key : '?', at});
         continue;
@@ -695,7 +724,14 @@ class Checker {
       const declared: DeclaredDependencies = {key, node: node.id, like: typeof like === 'string' ? like : null};
       this.declared.set(key, declared);
       const workflows = this.scope.workflows ?? null;
-      if (dependenciesAction(declared) === null) {
+      const owner = dependenciesOwner(declared);
+      if (this.kindName === CUSTOM_KIND) {
+        if (owner === null || owner === 'self') {
+          this.add('dependencies.like', node.id, {key, like: declared.like ?? '', problem: 'is not agents.<name>.<action>'});
+        } else if (this.mounted && !this.dependencies.has(owner)) {
+          this.add('dependencies.like', node.id, {key, like: declared.like ?? '', problem: `names the agent '${owner}', which the blok is not bound to`});
+        }
+      } else if (owner !== 'self') {
         this.add('dependencies.like', node.id, {key, like: declared.like ?? '', problem: 'is not self.<action>'});
       } else if (workflows !== null) {
         const borrowed = borrowedDependencies(declared, workflows);
@@ -711,15 +747,17 @@ class Checker {
   private typed(key: string): boolean {
     const declared = this.declared.get(key);
     const workflows = this.scope.workflows ?? null;
-    return declared !== undefined && workflows !== null && typeof borrowedDependencies(declared, workflows) !== 'string';
+    // A bound agent's actions are known only where the blok runs.
+    if (declared === undefined || dependenciesOwner(declared) !== 'self' || workflows === null) return false;
+    return typeof borrowedDependencies(declared, workflows) !== 'string';
   }
 
   /**
-   * Whether `dependency` (stored `<key>__<name>`) is none this agent blok
-   * declares: its dependencies are the ones in its own tree, mounted or not.
+   * Whether `dependency` (stored `<key>__<name>`) is none this blok
+   * declares: such dependencies are the ones in its own tree, mounted or not.
    */
   private undeclared(dependency: string): boolean {
-    if (this.kindName !== 'agent' || dependency === 'self') return false;
+    if (!this.declares(dependency) || dependency === 'self') return false;
     const split = splitReference(dependency);
     if (split === null || !this.declared.has(split[0])) return true;
     return this.typed(split[0]) && split[1] !== OPTIONS_SEGMENT && !this.dependencies.has(dependency);
@@ -780,12 +818,14 @@ class Checker {
       this.add('deps.unknown', where.node.id, {path: `with ${given}`, key: given, keys, hint: dependencyHint(given, this.kindName)}, where.key);
       return;
     }
+    const target = dependenciesTarget(declared);
     const of = dependenciesAction(declared);
-    if (of !== null && of !== action) this.add('with.mismatch', where.node.id, {path: whereText(where), key: given, action, of}, where.key);
+    if (target !== null && (target[0] !== call.dependency || target[1] !== action)) this.add('with.mismatch', where.node.id, {path: whereText(where), key: given, action, of}, where.key);
   }
 
   /** What `key` may read through, for a message: the dependencies declared under it, else the keys the blok declares. */
   private dependencyKnown(key: string): string {
+    if (this.kindName !== 'agent' && !this.declared.has(key)) return [...this.dependencies.keys()].sort().join(', ') || 'none';
     if (this.declared.has(key) && this.typed(key)) {
       const prefix = `${key}${REFERENCE_SEPARATOR}`;
       const names = [...this.dependencies.keys()].filter(name => name.startsWith(prefix)).map(name => `${key}.${name.slice(prefix.length)}`);
@@ -1064,7 +1104,7 @@ class Checker {
     }
     // An effect that is a root's own (port.set) belongs to the kinds that read that root.
     const needs = effect === undefined ? null : (vocabulary.functions.get(effect)?.needs ?? null);
-    if (effect !== undefined && needs !== null && !this.kind.roots.includes(needs)) {
+    if (effect !== undefined && needs !== null && !this.reads(needs)) {
       this.notInKind(node.id, effect, needs, prop.key);
     }
     if (prop.key === BIND_PROP) {
@@ -1172,16 +1212,16 @@ class Checker {
         this.notInKind(where.node.id, `self.${action}(...)`, 'self', where.key);
         return;
       }
-    } else if (!this.kind.roots.includes('deps')) {
+    } else if (!this.reads('deps')) {
       this.notInKind(where.node.id, `deps.${call.dependency}.${action}(...)`, 'deps', where.key);
       return;
     }
     if (call.given != null) this.checkWith(call, where);
     const dependency = this.undeclared(call.dependency) ? undefined : this.dependencies.get(call.dependency);
     if (!dependency) {
-      if (call.dependency !== 'self' && (this.kindName === 'agent' ? this.undeclared(call.dependency) : this.mounted)) {
-        // Outside an agent blok a dependency is the mount's, taken as it is keyed.
-        const agent = this.kindName === 'agent';
+      const agent = this.declares(call.dependency);
+      if (call.dependency !== 'self' && (agent ? this.undeclared(call.dependency) : this.mounted)) {
+        // One the blok does not declare itself is the mount's, taken as it is keyed.
         const written = agent ? (splitReference(call.dependency)?.[0] ?? call.dependency) : call.dependency;
         const key = agent ? call.dependency.split(REFERENCE_SEPARATOR).join('.') : call.dependency;
         const keys = agent ? this.dependencyKnown(written) : [...this.dependencies.keys()].sort().join(', ') || 'none';
@@ -1384,7 +1424,8 @@ class Checker {
       report('roots.unknown', {path, root: namespace ? `${root} (a function namespace)` : root});
       return null;
     }
-    if (!this.kind.roots.includes(root)) {
+    // `agents` is how a custom blok writes `deps`: a stored tree never holds it.
+    if (!this.reads(root) || root === AGENTS_ROOT) {
       this.notInKind(nodeId, path, root, propKey);
       return null;
     }
@@ -1402,7 +1443,7 @@ class Checker {
         // An agent blok's dependencies are in its own tree (`cells.microscope`, stored
         // `deps.cells__microscope`): one it does not declare is unknown, mounted or not;
         // one it declares and this side cannot type is open.
-        if (this.kindName === 'agent' && rest[0] !== 'self') {
+        if (this.declares(rest[0]) && rest[0] !== 'self') {
           const split = splitReference(rest[0]);
           const key = split ? split[0] : rest[0];
           if (split && this.declared.has(key) && split[1] === OPTIONS_SEGMENT) return this.options(key, rest.slice(1), path, nodeId, propKey);
@@ -1415,7 +1456,7 @@ class Checker {
         }
         const dependency = this.dependencies.get(rest[0]);
         if (!dependency) {
-          if (!this.mounted || this.kindName === 'agent') return openMatch(path);
+          if (!this.mounted || this.declares(rest[0])) return openMatch(path);
           report('deps.unknown', {path, key: rest[0], keys: [...this.dependencies.keys()].sort().join(', ') || 'none', hint: dependencyHint(rest[0], this.kindName)});
           return null;
         }

@@ -93,11 +93,11 @@ const mounted = mountedBlokScope();
 
 describe('findings', () => {
   it('name the node and prop they are about, with a filled message', () => {
-    const {tree} = parseBsx(blok('custom', '<Card><Text text={deps.nope.x} /></Card>'));
+    const {tree} = parseBsx(blok('custom', '<Card><Text text={agents.nope.x} /></Card>'));
     const [found] = checkBlokTree(tree, mounted);
     expect(found).toMatchObject({code: 'deps.unknown', level: 'error', nodeId: 'Blok[0]/Card[0]/Text[0]', propKey: 'text'});
     expect(found.message).toBe(
-      'deps.nope.x: \'nope\' is not a dependency of the blok (its dependencies: none). Fix: dependencies=[AgentDependencyInput(key="nope")].',
+      'agents.nope.x: \'nope\' is not a dependency of the blok (its dependencies: none). Fix: dependencies=[AgentDependencyInput(key="nope")].',
     );
   });
 
@@ -105,22 +105,22 @@ describe('findings', () => {
     const {tree} = parseBsx(
       blok(
         'custom',
-        '<query name="positions" service="mikro" document="query { positions { id } }"><var key="agent" value={deps.laser.id} /></query><Card><Text text={queries.positions.status} /><Button onClick={deps.stage.move(x: 1)} /></Card>',
+        '<query name="positions" service="mikro" document="query { positions { id } }"><var key="agent" value={agents.laser.id} /></query><Card><Text text={queries.positions.status} /><Button onClick={agents.stage.move(x: 1)} /></Card>',
       ),
     );
     const found = checkBlokTree(tree, mountedBlokScope([], [{key: 'robot'}])).filter(finding => finding.code === 'deps.unknown');
     expect(found.map(finding => finding.message).sort()).toEqual([
       'onClick of <Button> (Blok[0]/Card[0]/Button[0]): \'stage\' is not a dependency of the blok (its dependencies: robot). Fix: dependencies=[AgentDependencyInput(key="stage")].',
-      'deps.laser.id: \'laser\' is not a dependency of the blok (its dependencies: robot). Fix: dependencies=[AgentDependencyInput(key="laser")].',
+      'agents.laser.id: \'laser\' is not a dependency of the blok (its dependencies: robot). Fix: dependencies=[AgentDependencyInput(key="laser")].',
     ].sort());
   });
 
   it('take what the mount provides as written where the blok is mounted nowhere', () => {
-    expect(checkBlokTree(parseBsx(blok('custom', '<Text text={deps.nope.x} /><Button onClick={deps.stage.move(x: 1)} />')).tree)).toEqual([]);
+    expect(checkBlokTree(parseBsx(blok('custom', '<Text text={agents.nope.x} /><Button onClick={agents.stage.move(x: 1)} />')).tree)).toEqual([]);
   });
 
   it('hint per kind what a blok reading an undeclared dependency does about it, as the spec does', () => {
-    const message = (kind: string): string => checkBlokTree(parseBsx(blok(kind, '<Text text={deps.laser.power} />')).tree, mounted)[0]?.message ?? '';
+    const message = (kind: string): string => checkBlokTree(parseBsx(blok(kind, `<Text text={${kind === 'custom' ? 'agents' : 'deps'}.laser.power} />`)).tree, mounted)[0]?.message ?? '';
     expect(message('custom')).toContain('Fix: dependencies=[AgentDependencyInput(key="laser")].');
     expect(message('task')).toContain('Fix: dependencies=[AgentDependencyInput(key="laser")].');
     expect(message('action')).toContain('Fix: add a dependency parameter `laser` to the action.');

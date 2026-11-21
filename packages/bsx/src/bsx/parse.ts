@@ -14,6 +14,7 @@ import {
   dotted,
   isLocalName,
   Locator,
+  AGENTS_ROOT,
   parseAttribute,
   parseExpression,
   PICK_VERB,
@@ -75,6 +76,8 @@ export const FETCH_MORE_FUNCTION = 'query.fetch_more';
 /** What `<key>.pick(<dependency>: <agent id>)` is stored as. */
 export const PICK_FUNCTION = 'deps.pick';
 const DEPENDENCIES_COMPONENT = 'dependencies';
+const BLOK_COMPONENT = 'Blok';
+const LIKE_PROP = 'like';
 export const QUERY_SUGAR: Readonly<Record<string, string>> = {refetch: REFETCH_FUNCTION, fetch_more: FETCH_MORE_FUNCTION};
 
 const isQuerySugar = (call: CallExpr): boolean =>
@@ -187,9 +190,14 @@ class Markup {
 
   /** The keys of the `<dependencies>` read so far: what a later expression may read through. */
   readonly references = new Set<string>();
+  /** Whether the root is a custom blok: its bound agents are written `agents.<key>`. */
+  custom = false;
 
   /** A `<dependencies key="cells" />` is read through from here on (`cells.microscope`). */
   private declares(element: MarkupElement): void {
+    if (element.name === BLOK_COMPONENT) {
+      this.custom = element.attributes.some(attribute => attribute.name === 'kind' && attribute.value === 'custom');
+    }
     if (element.name !== DEPENDENCIES_COMPONENT) return;
     const key = element.attributes.find(attribute => attribute.name === 'key')?.value;
     if (typeof key === 'string' && isLocalName(key)) this.references.add(key);
@@ -264,7 +272,7 @@ class Markup {
       const inner = this.source.slice(start, end);
       this.index = end + 1;
       if (!inner.trim()) throw this.fail('expr.syntax', start, {detail: `the value of ${name} is empty`});
-      const expression = parseAttribute(inner, start, this.locator, new Set(this.references));
+      const expression = parseAttribute(inner, start, this.locator, new Set(this.references), this.custom);
       return {name, value: expression, offset, nameEnd, valueStart: start, end};
     }
     throw this.fail('bsx.syntax', undefined, {detail: `${name}= takes "a string" or {an expression}`});
@@ -324,7 +332,7 @@ class Markup {
         this.index = end + 1;
         const stripped = inner.trim();
         if (!stripped || (stripped.startsWith('/*') && stripped.endsWith('*/'))) continue;
-        element.children.push({kind: 'container', expression: parseExpression(inner, start, this.locator, new Set(this.references)), offset});
+        element.children.push({kind: 'container', expression: parseExpression(inner, start, this.locator, new Set(this.references), this.custom), offset});
         continue;
       }
       if (this.at('}')) throw this.fail('bsx.syntax', undefined, {detail: "unexpected '}' in text; write {'}'}"});
@@ -575,6 +583,9 @@ class Lowering {
     }
     if (value === true) return {key: attribute.name, static_value: true};
     if (typeof value === 'string') {
+      if (attribute.name === LIKE_PROP && (component === LOCAL_COMPONENT || component === DEPENDENCIES_COMPONENT) && this.markup.custom) {
+        return {key: attribute.name, static_value: this.customLike(value, attribute.offset)};
+      }
       if ((attribute.name === FOREACH_LET_PROP || attribute.name === FOREACH_INDEX_PROP) && component === FOREACH_COMPONENT) {
         return {key: attribute.name, static_value: value, declares_value: value};
       }
@@ -583,6 +594,15 @@ class Lowering {
     if (attribute.name === FOREACH_LET_PROP && component === FOREACH_COMPONENT) throw this.fail('bsx.let', attribute.offset, {let: '{...}'});
     if (attribute.name === FOREACH_INDEX_PROP && component === FOREACH_COMPONENT) throw this.fail('bsx.index', attribute.offset, {index: '{...}'});
     return this.value(attribute.name, value, attribute.offset);
+  }
+
+  /** A custom blok's `like="agents.<key>..."` as it is stored: `deps.<key>...`. */
+  private customLike(like: string, offset: number): string {
+    const dot = like.indexOf('.');
+    const root = dot < 0 ? like : like.slice(0, dot);
+    const rest = dot < 0 ? '' : like.slice(dot + 1);
+    if (root === 'deps') throw this.fail('roots.custom_deps', offset, {path: like});
+    return root === AGENTS_ROOT && rest ? `deps.${rest}` : like;
   }
 
   private value(key: string, expression: Expr, offset: number): BlokComponentProp {
@@ -642,7 +662,7 @@ class Lowering {
     return null;
   }
 
-  /** A task call (`self.<action>(...)`, `deps.<key>.<action>(...)`), or null. */
+  /** A task call (`self.<action>(...)`, `deps.<key>.<action>(...)`; a custom blok's `agents.<key>` was read as the latter), or null. */
   private agentCall(call: CallExpr): BlokAgentCall | null {
     const {callee} = call;
     let dependency: string;
@@ -657,7 +677,6 @@ class Lowering {
       if (call.given !== undefined) throw this.fail('callback.with', call.offset);
       return null;
     }
-    if (call.given !== undefined && dependency !== 'self') throw this.fail('callback.with', call.offset);
     const args: BlokActionArgument[] = [];
     const seen = new Set<string>();
     for (const argument of call.arguments) {
