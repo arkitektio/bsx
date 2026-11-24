@@ -1,3 +1,4 @@
+import {CALLBACK, portSummary} from '../spec/ports';
 import {defaultBlokView, innerContext, type BlokView, type SpecComponent, type SpecProp} from '../spec/catalogs';
 import {BLOK_KINDS, kindIn, loadVocabulary, type BlokContextName, type BlokKind, type VocabFunction, type VocabRecordField} from '../spec/vocabulary';
 import {BLOK_COMPONENT, declaredQueries, declaredSubscriptions, LOGO_COMPONENT, QUERY_COMPONENT, SUBSCRIPTION_COMPONENT} from './declared';
@@ -236,10 +237,11 @@ export const scanCursor = (text: string, offset: number): BsxCursor => {
 
 export const describeProp = (prop: SpecProp): string =>
   [
-    `**${prop.key}**: ${prop.kind.toLowerCase()}${prop.required ? ' (required)' : ''}`,
+    `**${prop.key}**: \`${portSummary(prop.port)}\`${prop.required ? ' (required)' : ''}`,
     prop.description ?? '',
-    prop.values ? `one of: ${prop.values.map(value => `\`"${value}"\``).join(', ')}` : '',
-    prop.event && prop.event.length ? `event: ${prop.event.map(field => `\`event.${field.key}\` (${field.kind.toLowerCase()})`).join(', ')}` : '',
+    prop.port.kind === CALLBACK && prop.port.children?.length
+      ? `event: ${prop.port.children.map(field => `\`event.${field.key}\` (${portSummary(field)})`).join(', ')}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -302,9 +304,11 @@ const fitsUnder = (component: SpecComponent, ancestors: readonly string[], conte
 };
 
 const snippetValue = (prop: SpecProp, index: number): string => {
-  if (prop.kind === 'STRING' && prop.values?.length) return `"\${${index}|${prop.values.join(',')}|}"`;
-  if (prop.kind === 'STRING') return `"\${${index}}"`;
-  if (prop.kind === 'BOOL') return `{\${${index}|true,false|}}`;
+  const {port} = prop;
+  if (port.kind === 'STRING' && port.choices?.length) return `"\${${index}|${port.choices.map(choice => String(choice.value)).join(',')}|}"`;
+  // A text prop is a union holding STRING: written as a string.
+  if (port.kind === 'STRING' || (port.kind === 'UNION' && port.children?.some(child => child.kind === 'STRING'))) return `"\${${index}}"`;
+  if (port.kind === 'BOOL') return `{\${${index}|true,false|}}`;
   return `{\${${index}}}`;
 };
 
@@ -362,7 +366,7 @@ const completeAttributeName = (env: BsxEnvironment, cursor: Extract<BsxCursor, {
       insertText: `${prop.key}=${snippetValue(prop, 1)}`,
       snippet: true,
       kind: 'prop' as const,
-      detail: `${prop.kind.toLowerCase()}${prop.required ? ' · required' : ''}`,
+      detail: `${portSummary(prop.port)}${prop.required ? ' · required' : ''}`,
       documentation: describeProp(prop),
       from: cursor.from,
       sortText: `${prop.required ? '0' : '1'}${String(index).padStart(3, '0')}`,
@@ -636,7 +640,7 @@ const completeExpression = (env: BsxEnvironment, text: string, expression: strin
   }
   if (first === 'event') {
     if (!calls || !place.callback) return [];
-    return rest.length === 0 ? (place.callback.event ?? []).map(field => item(field.key, 'path', `event · ${field.kind.toLowerCase()}`, field.description ?? undefined)) : [];
+    return rest.length === 0 ? (place.callback.port.children ?? []).map(field => item(field.key, 'path', `event · ${portSummary(field)}`, field.description ?? undefined)) : [];
   }
   if (first === 'error') return place.inErrorSlot && rest.length === 0 ? fieldItems(recordFields('error'), 'error') : [];
   if (!roots.includes(first)) return [];
@@ -684,7 +688,7 @@ const placeOf = (env: BsxEnvironment, tag: string | null, attr: string | null, s
   const tags = stack.map(element => element.tag);
   const errorAt = tags.lastIndexOf('error');
   return {
-    callback: prop?.kind === 'CALLBACK' ? prop : null,
+    callback: prop?.port.kind === CALLBACK ? prop : null,
     tag,
     stack,
     inErrorSlot: errorAt > 0 && tags[errorAt - 1] === 'suspense',

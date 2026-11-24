@@ -9,6 +9,18 @@ import {blokViewFor, defaultBlokView, type BlokView, type SpecComponent} from '.
 import {PICK_FUNCTION, TEXT_NODE} from './parse';
 import {AGENTS_ROOT, PICK_VERB, REFERENCE_SEPARATOR} from './expr';
 import {valueFitsPort} from '../spec/locals';
+import {bindingFits, fitOk, fits, literalPort} from '../spec/fit';
+import {
+  ASSET,
+  bindingWrites,
+  CALLBACK,
+  CATALOG_ONLY_KINDS,
+  OPEN_PORT,
+  PORT_KINDS,
+  portSummary,
+  pythonRepr,
+  type SpecPort,
+} from '../spec/ports';
 import {LOCAL_ANY, localDeclared, resolveLocals, type ResolvedLocal} from './infer';
 import {
   blokCatalog,
@@ -330,8 +342,6 @@ const SUSPENSE = 'suspense';
 const ERROR_SLOT = 'error';
 const WHEN_PROP = 'when';
 const BIND_PROP = 'bind';
-const CALLBACK_KIND = 'CALLBACK';
-const ASSET_KIND = 'ASSET';
 const REFETCH_FUNCTION = 'query.refetch';
 const FETCH_MORE_FUNCTION = 'query.fetch_more';
 /** Per query effect, the method BSX writes it as. */
@@ -366,6 +376,39 @@ const structureMatch = (structure: BlokPortMatch): BlokPortMatch => ({
   ...recordMatch(structure.key || 'structure', loadVocabulary().records.structure.fields),
   nullable: structure.nullable ?? null,
 });
+
+/** What a resolved path holds, as a catalog port: open where its shape is not known (`match_port`). */
+const matchPort = (match: Match): SpecPort => {
+  if (match === null || isOpen(match) || match.kind == null) return OPEN_PORT;
+  return {
+    kind: match.kind,
+    ...(match.identifier ? {identifier: match.identifier} : {}),
+    ...(match.nullable ? {nullable: true} : {}),
+    ...(match.children?.length ? {children: match.children.map(child => ({key: child.key || ITEM, ...matchPort(child)}))} : {}),
+  };
+};
+
+/** A local's port (or a field's) as a catalog port; open for ANY or none (`arg_port`). */
+const localSpecPort = (port: BlokScopeLocalPort | null): SpecPort => {
+  if (port === null || port.kind === LOCAL_ANY) return OPEN_PORT;
+  return {
+    kind: port.kind,
+    ...(port.identifier ? {identifier: port.identifier} : {}),
+    ...(port.nullable ? {nullable: true} : {}),
+    ...(port.choices?.length ? {choices: port.choices.map(choice => ({value: choice.value}))} : {}),
+    ...(port.children?.length ? {children: port.children.map(child => ({key: child.key, ...localSpecPort(child)}))} : {}),
+  };
+};
+
+/** A catalog port as what a path below it may read: an event's payload field (`catalog_match`). */
+const catalogMatch = (key: string, port: SpecPort): BlokPortMatch => {
+  if (port.kind === null || !PORT_KINDS.includes(port.kind) || CATALOG_ONLY_KINDS.has(port.kind)) return openMatch(key);
+  if (OPAQUE_KINDS.has(port.kind) && port.kind !== 'UNION') {
+    return {key, kind: port.kind, identifier: port.identifier ?? null, nullable: port.nullable || null};
+  }
+  const children = (port.children ?? []).map(child => catalogMatch(child.key, child));
+  return {key, kind: port.kind, nullable: port.nullable || null, children: children.length ? children : null};
+};
 
 const taskRecordMatch = (key: string, returns?: readonly BlokPortMatch[] | null): BlokPortMatch =>
   recordMatch(
@@ -505,14 +548,6 @@ const pythonFloat = (value: number): string => {
 };
 
 const article = (kind: string): string => ('aeiou'.includes(kind[0] ?? '') ? 'n' : '');
-
-const pythonRepr = (value: unknown): string => {
-  if (typeof value === 'string') return `'${value}'`;
-  if (value === null || value === undefined) return 'None';
-  if (value === true) return 'True';
-  if (value === false) return 'False';
-  return JSON.stringify(value);
-};
 
 const what = (prop: BlokComponentProp): string => {
   if (prop.agent_call) return 'a task call';
@@ -983,7 +1018,8 @@ class Checker {
 
   private walkProp(node: BlokComponentNode, prop: BlokComponentProp, scope: Scope, inError: boolean): void {
     const where: Where = {node, key: prop.key, callback: isCallbackValue(prop), inError};
-    if (prop.dynamic_value?.path != null) this.resolve(prop.dynamic_value.path, where, scope, whereText(where));
+    const path = prop.dynamic_value?.path;
+    if (path != null) this.checkValueType(where, path, this.resolve(path, where, scope, whereText(where)));
     if (prop.agent_call) {
       this.visitAgentCall(prop.agent_call, where, scope);
       prop.agent_call.arguments?.forEach(argument => this.walkArgument(argument, scope, where));
@@ -1110,20 +1146,14 @@ class Checker {
     const hasValue =
       prop.static_value != null || prop.dynamic_value != null || prop.util_call != null || prop.agent_call != null;
     if (propSpec) {
-      if (propSpec.kind === CALLBACK_KIND && hasValue && !holds) {
+      const kind = propSpec.port.kind;
+      if (kind === CALLBACK && hasValue && !holds) {
         this.add('callback.unbound', node.id, {key: prop.key, component: node.component}, prop.key);
-      } else if (propSpec.kind !== CALLBACK_KIND && holds) {
+      } else if (kind !== CALLBACK && holds) {
         this.add('callback.not_callback', node.id, {key: prop.key, component: node.component, what: what(prop)}, prop.key);
       }
-      if (LITERAL_KINDS.includes(propSpec.kind) && typeof prop.static_value === 'string' && prop.key !== BIND_PROP) {
-        this.add(
-          'props.literal_type',
-          node.id,
-          {component: node.component, key: prop.key, value: prop.static_value, kind: propSpec.kind, hint: literalHint(prop.key, prop.static_value, propSpec.kind)},
-          prop.key,
-        );
-      }
-      if (propSpec.kind === ASSET_KIND) {
+      if (prop.static_value != null && prop.key !== BIND_PROP && !CATALOG_ONLY_KINDS.has(kind ?? '')) this.checkLiteral(node, prop, propSpec.port);
+      if (kind === ASSET) {
         const parts = (prop.dynamic_value?.path ?? '').split('.');
         const agent = parts[0] === 'self' ? parts.slice(1) : parts[0] === 'deps' ? parts.slice(2) : [];
         if (agent.length !== 2 || agent[0] !== vocabulary.agentSegments.assets) {
@@ -1155,7 +1185,7 @@ class Checker {
         } else if (!isLocalBinding(binding)) this.add('local.unknown', node.id, {path, root}, prop.key);
         else {
           this.boundLocals.add(binding.node);
-          if (propSpec) this.checkBindKind(node, propSpec.kind, binding, path);
+          if (propSpec) this.checkBindKind(node, bindingWrites(propSpec.port), binding, path);
         }
       }
     }
@@ -1177,17 +1207,72 @@ class Checker {
     }
   }
 
-  /** The local a control writes is of a kind the control writes (`Slider`: FLOAT or INT). */
-  private checkBindKind(node: BlokComponentNode, propKind: string, binding: LocalBinding, path: string): void {
-    const allowed = this.vocabulary.locals.bindKinds[propKind];
-    const port = this.localPort(binding, path);
-    if (!allowed || port === null) return;
-    if (!allowed.includes(port.kind)) {
+  /** The local a control writes takes what the control writes (`Slider`: FLOAT or INT). */
+  private checkBindKind(node: BlokComponentNode, writes: SpecPort, binding: LocalBinding, path: string): void {
+    const local = localSpecPort(this.localPort(binding, path));
+    const {bindKinds} = this.vocabulary.locals;
+    if (fitOk(bindingFits(local, writes, bindKinds))) return;
+    const allowed = bindKinds[writes.kind ?? ''];
+    this.add(
+      'local.bind_kind',
+      node.id,
+      {
+        key: BIND_PROP,
+        component: node.component,
+        prop_kind: portSummary(writes),
+        path,
+        kind: portSummary(local),
+        kinds: allowed ? [...allowed].sort().join(', ') : portSummary(writes),
+      },
+      BIND_PROP,
+    );
+  }
+
+  /** A literal fits the prop's port: its kind (`fullWidth="true"` is a string), then its choices. */
+  private checkLiteral(node: BlokComponentNode, prop: BlokComponentProp, target: SpecPort): void {
+    const value = prop.static_value;
+    const literal = literalPort(value);
+    const kindOnly: SpecPort = {kind: literal.kind, ...(literal.nullable ? {nullable: true} : {})};
+    const kindFit = fits(kindOnly, target);
+    if (fitOk(kindFit)) {
+      if (!fitOk(fits(literal, target)) && target.choices) {
+        this.add(
+          'catalog.value',
+          node.id,
+          {component: node.component, key: prop.key, value: value as string, values: target.choices.map(choice => String(choice.value)).join(', ')},
+          prop.key,
+        );
+      }
+      return;
+    }
+    if (typeof value === 'string' && target.kind !== null && LITERAL_KINDS.includes(target.kind)) {
       this.add(
-        'local.bind_kind',
+        'props.literal_type',
         node.id,
-        {key: BIND_PROP, component: node.component, prop_kind: propKind, path, kind: port.kind, kinds: [...allowed].sort().join(', ')},
-        BIND_PROP,
+        {component: node.component, key: prop.key, value, kind: target.kind, hint: literalHint(prop.key, value, target.kind)},
+        prop.key,
+      );
+      return;
+    }
+    this.add(
+      'props.type',
+      node.id,
+      {component: node.component, key: prop.key, value: pythonRepr(value), expected: portSummary(target), reason: kindFit.reason ?? ''},
+      prop.key,
+    );
+  }
+
+  /** A path that is a prop's whole value holds what the prop takes. */
+  private checkValueType(where: Where, path: string, match: Match): void {
+    const propSpec = this.view?.components.get(where.node.component)?.props.find(candidate => candidate.key === where.key);
+    if (!propSpec || match === null || where.key === BIND_PROP || CATALOG_ONLY_KINDS.has(propSpec.port.kind ?? '')) return;
+    const fit = fits(matchPort(match), propSpec.port);
+    if (fit.status === 'mismatch') {
+      this.add(
+        'props.type',
+        where.node.id,
+        {component: where.node.component, key: where.key, value: path, expected: portSummary(propSpec.port), reason: fit.reason ?? ''},
+        where.key,
       );
     }
   }
@@ -1444,7 +1529,7 @@ class Checker {
         report('roots.event_outside_callback', {path});
         return null;
       }
-      return this.eventField(rest, where);
+      return this.eventField(rest, path, where);
     }
     if (root === 'error') {
       if (!where || !where.inError) {
@@ -1562,11 +1647,13 @@ class Checker {
     }
   }
 
-  private eventField(rest: readonly string[], where: Where): Match {
+  private eventField(rest: readonly string[], path: string, where: Where): Match {
     const prop = this.view?.components.get(where.node.component)?.props.find(candidate => candidate.key === where.key);
-    if (!prop || prop.event === null || !rest.length) return openMatch('event');
-    const fields = prop.event.map(field => field.key);
-    if (!fields.includes(rest[0])) {
+    if (!prop || prop.port.kind !== CALLBACK || !rest.length) return openMatch('event');
+    const children = prop.port.children ?? [];
+    const fields = children.map(field => field.key);
+    const field = children.find(candidate => candidate.key === rest[0]);
+    if (!field) {
       this.add(
         'callback.event_field',
         where.node.id,
@@ -1575,7 +1662,7 @@ class Checker {
       );
       return null;
     }
-    return openMatch(rest[0]);
+    return this.descend(catalogMatch(field.key, field), rest.slice(1), path, where.node.id, where.key);
   }
 
   /** What a path below an agent (`self`, `deps.<key>`) holds. */

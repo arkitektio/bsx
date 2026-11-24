@@ -3,4 +3,6 @@ export * from './bsx';
 export * from './spec/vocabulary';
 export * from './spec/catalogs';
 export * from './spec/locals';
+export * from './spec/ports';
+export * from './spec/fit';
 export type * from './renderer/runtime/types';

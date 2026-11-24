@@ -116,7 +116,7 @@ describe('new warnings', () => {
 
 describe('a catalog only adds', () => {
   it('refuses one that redefines a component of the base catalog, the language included', () => {
-    const redefining = (name: string) => parseSpecCatalog({name: 'mine', components: [{name, context: 'PANEL', props: [{key: 'bind', kind: 'STRING'}]}]}, 'mine');
+    const redefining = (name: string) => parseSpecCatalog({name: 'mine', components: [{name, context: 'PANEL', props: [{key: 'bind', port: {kind: 'BINDING', children: [{key: '...', kind: 'STRING'}]}}]}]}, 'mine');
     expect(() => blokView(redefining('Slider'))).toThrow(/redefines <Slider> of base@4: a catalog only adds/);
     expect(() => blokView(redefining('foreach'))).toThrow(/redefines <foreach>/);
   });

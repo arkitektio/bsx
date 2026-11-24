@@ -1,3 +1,4 @@
+import {bindingWrites} from '../spec/ports';
 import type {BlokActionArgument, BlokAgentCall, BlokComponentNode, BlokComponentProp} from '../renderer/runtime/types';
 import type {BlokView} from '../spec/catalogs';
 import {LOCAL_ANY_KIND} from '../spec/vocabulary';
@@ -281,9 +282,10 @@ class Uses {
     for (const prop of node.props ?? []) {
       const path = prop.key === BIND_PROP ? prop.dynamic_value?.path ?? null : null;
       const local = path !== null ? scope.get(path) ?? null : null;
-      if (local !== null) {
+      const writes = bindingWrites(bind.port).kind;
+      if (local !== null && writes !== null) {
         const binds = this.binds.get(local) ?? [];
-        binds.push(bind.kind);
+        binds.push(writes);
         this.binds.set(local, binds);
       }
     }

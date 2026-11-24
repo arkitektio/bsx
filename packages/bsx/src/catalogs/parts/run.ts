@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import type {BlokComponentContracts} from '../../renderer/runtime/catalog';
-import {describedString} from '../props';
+import {describedString, KEYS_PORT, MATRIX_PORT, typedAs} from '../props';
 import {sceneSchema} from './scene';
 
 /**
@@ -35,8 +35,7 @@ export const placedSchema = z
     blok: describedString(
       'The scene blok of that agent to draw it with, by name. Its default scene blok when left out.',
     ),
-    matrix: z
-      .unknown()
+    matrix: typedAs(z.unknown(), MATRIX_PORT)
       .optional()
       .describe(
         'Where it stands until someone moves it: a 4x4 affine matrix as four rows, in meters with Y up. The room\'s origin when left out.',
@@ -48,10 +47,13 @@ export const placedSchema = z
 
 export const routeSchema = z
   .object({
-    through: z
-      .unknown()
-      .refine(value => value !== undefined, 'A Route runs through dependencies.')
-      .describe('The dependency keys the line runs through, in order: `through={["robot", "frame", "robot"]}`.'),
+    through: typedAs(
+      z
+        .unknown()
+        .refine(value => value !== undefined, 'A Route runs through dependencies.')
+        .describe('The dependency keys the line runs through, in order: `through={["robot", "frame", "robot"]}`.'),
+      KEYS_PORT,
+    ),
     progress: z
       .number()
       .nullish()

@@ -1,7 +1,7 @@
 import * as z from 'zod';
 import type {BlokComponentContracts} from '../../renderer/runtime/catalog';
 import {BlokPropSchemas} from '../../renderer/runtime/schemas';
-import {actionProp, bindSchema, boolSchema, classNameSchema, disabledSchema, sizeSchema, structureValueSchema} from '../props';
+import {actionProp, bindSchema, boolSchema, classNameSchema, disabledSchema, sizeSchema, structureValueSchema, typedAs, VARIABLES_PORT} from '../props';
 
 /**
  * the structure family: bloks over other modules' objects, by structure identifier. The
@@ -35,8 +35,7 @@ export const structureContracts = {
           .string()
           .optional()
           .describe('The service that runs `query`, by its key, e.g. "mikro".'),
-        variables: z
-          .record(z.string(), z.unknown())
+        variables: typedAs(z.record(z.string(), z.unknown()), VARIABLES_PORT)
           .nullish()
           .describe('Values for the variables `query` declares beyond the ones the picker supplies.'),
         placeholder: BlokPropSchemas.DynamicString.optional().describe(

@@ -9,5 +9,8 @@ export {
   type BlokCatalogContract,
   type BlokComponentContracts,
 } from './renderer/runtime/catalog';
-export type {BlokComponentContract} from './renderer/runtime/components';
+export type {BlokComponentContract, BlokEventField} from './renderer/runtime/components';
+export {markPortSchema, markStructureSchema, markTextSchema} from './renderer/runtime/schemas';
+export {asPort, zodToPort} from './catalogs/zodToPort';
+export {portJson, portSummary, TEXT_PORT, type SpecChildPort, type SpecPort} from './spec/ports';
 export {describeBlokContract, specJsonText, type SpecCatalogJson} from './renderer/runtime/describe';

@@ -18,8 +18,8 @@ const contract = defineBlokCatalog({
           onTurn: actionProp('Runs when turned.'),
         })
         .describe('A knob.'),
-      bindKinds: {bind: 'FLOAT'},
-      events: {onTurn: [{key: 'value', kind: 'FLOAT', description: 'Where it stands.'}]},
+      bindKinds: {bind: {kind: 'FLOAT'}},
+      events: {onTurn: [{key: 'value', port: z.number(), description: 'Where it stands.'}]},
     },
   },
 });
@@ -56,7 +56,7 @@ describe('implementBlokCatalog', () => {
 });
 
 describe('describeBlokContract', () => {
-  it('writes the spec JSON: kinds, values, the bind kind, event fields and the text prop', () => {
+  it('writes the spec JSON: each prop\'s port (choices, a binding, a callback\'s payload) and the text prop', () => {
     expect(describeBlokContract(contract)).toEqual({
       name: 'demo',
       version: 1,
@@ -73,14 +73,13 @@ describe('describeBlokContract', () => {
           not_downstream_of: [],
           text_prop: null,
           props: [
-            {key: 'bind', kind: 'FLOAT', required: false, description: expect.any(String)},
-            {key: 'level', kind: 'STRING', required: false, description: 'How far.', values: ['low', 'high']},
+            {key: 'bind', port: {kind: 'BINDING', children: [{key: '...', kind: 'FLOAT'}]}, required: false, description: expect.any(String)},
+            {key: 'level', port: {kind: 'STRING', choices: [{value: 'low'}, {value: 'high'}]}, required: false, description: 'How far.'},
             {
               key: 'onTurn',
-              kind: 'CALLBACK',
+              port: {kind: 'CALLBACK', children: [{key: 'value', kind: 'FLOAT', description: 'Where it stands.'}]},
               required: false,
               description: 'Runs when turned.',
-              event: [{key: 'value', kind: 'FLOAT', description: 'Where it stands.'}],
             },
           ],
         },
@@ -94,9 +93,14 @@ describe('describeBlokContract', () => {
           downstream_of: [],
           not_downstream_of: [],
           text_prop: 'text',
-          props: [{key: 'text', kind: 'STRING', required: false, description: 'What it says.'}],
+          props: [{key: 'text', port: {kind: 'STRING'}, required: false, description: 'What it says.'}],
         },
       ],
     });
+  });
+
+  it('refuses a prop no port says', () => {
+    const untyped = defineBlokCatalog({name: 'odd', description: '', components: {Odd: {schema: z.object({any: z.unknown()})}}});
+    expect(() => describeBlokContract(untyped)).toThrow(/<Odd> any/);
   });
 });

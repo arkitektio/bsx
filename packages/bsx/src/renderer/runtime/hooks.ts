@@ -1,3 +1,4 @@
+import {CALLBACK} from '../../spec/ports';
 import * as React from 'react';
 import {z} from 'zod';
 import {useShallow} from 'zustand/react/shallow';
@@ -312,7 +313,8 @@ export const BLOK_EVENT_ROOT = 'event';
  * every other event is handed over as the component built it.
  */
 export const shapeEvent = (component: string, key: string, payload: unknown): unknown => {
-  const fields = defaultBlokView().components.get(component)?.props.find(prop => prop.key === key)?.event;
+  const port = defaultBlokView().components.get(component)?.props.find(prop => prop.key === key)?.port;
+  const fields = port?.kind === CALLBACK ? (port.children ?? []) : null;
   if (fields && fields.length === 1 && fields[0].key === 'value') {
     const wrapped =
       payload !== null && typeof payload === 'object' && !Array.isArray(payload) && Object.keys(payload).length === 1 && 'value' in payload;

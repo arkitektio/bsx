@@ -1,5 +1,7 @@
 import {BASE_CATALOG_REF, defineBlokCatalog} from '../renderer/runtime/catalog';
+import * as z from 'zod';
 import {parts} from './parts';
+import {matrixSchema} from './props';
 
 /** The `scene` family of the base catalog. */
 export const sceneCatalog = defineBlokCatalog({
@@ -13,16 +15,16 @@ export const sceneCatalog = defineBlokCatalog({
     Glow: parts.Glow,
     Model: parts.Model,
     Move: parts.Move,
-    OnClick: {...parts.OnClick, events: {onClick: [{key: "node", kind: "STRING", description: "The node that was clicked."}, {key: "point", kind: "LIST", description: "Where it was hit: [x, y, z] in meters."}]}},
+    OnClick: {...parts.OnClick, events: {onClick: [{key: "node", port: {kind: "STRING"}, description: "The node that was clicked."}, {key: "point", port: z.array(z.number()), description: "Where it was hit: [x, y, z] in meters."}]}},
     Placed: parts.Placed,
     Popout: parts.Popout,
-    Robot: {...parts.Robot, events: {onJointChange: [{key: "name", kind: "STRING", description: "The joint the viewer set."}, {key: "value", kind: "FLOAT", description: "Its new value."}]}},
+    Robot: {...parts.Robot, events: {onJointChange: [{key: "name", port: {kind: "STRING"}, description: "The joint the viewer set."}, {key: "value", port: {kind: "FLOAT"}, description: "Its new value."}]}},
     Rotate: parts.Rotate,
     Route: parts.Route,
     Scene: parts.Scene,
     Space: parts.Space,
     Tint: parts.Tint,
-    Transform: {...parts.Transform, bindKinds: {bind: "ANY"}},
+    Transform: {...parts.Transform, bindKinds: {bind: matrixSchema}},
     Visible: parts.Visible,
   },
 });

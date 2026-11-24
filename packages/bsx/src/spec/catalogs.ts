@@ -1,5 +1,6 @@
 import baseCatalogJson from './catalogs/base@4.json';
 import orkestratorCatalogJson from './catalogs/orkestrator@1.json';
+import {parsePort, type SpecPort} from './ports';
 import {loadVocabulary, type BlokContextName, type VocabFunction} from './vocabulary';
 
 /**
@@ -29,18 +30,12 @@ export const LANGUAGE_GROUP = 'language';
 /** The Orkestrator's catalog: what it draws beyond the base. */
 export const ORKESTRATOR_CATALOG_ID = 'https://arkitekt.live/catalogs/orkestrator/v1';
 
-export type SpecEventField = {key: string; kind: string; description: string | null};
-
 export type SpecProp = {
   key: string;
-  /** `STRING INT FLOAT BOOL LIST DICT ANY CALLBACK ASSET ...` */
-  kind: string;
+  /** What it takes (`spec/ports.ts`): a CALLBACK's children are its payload, a BINDING's one child what it writes; open (kind null) for the language's own. */
+  port: SpecPort;
   required: boolean;
   description: string | null;
-  /** For a `CALLBACK`, the payload it is called with (`[]` when none); null otherwise. */
-  event: readonly SpecEventField[] | null;
-  /** For a `STRING`, the closed set of literals the component draws; null: any string. */
-  values: readonly string[] | null;
   /** The minor of its catalog that added the prop; 0: there from the start. */
   since: number;
 };
@@ -119,17 +114,17 @@ export const parseSpecCatalog = (raw: unknown, file: string): SpecCatalog => {
     downstreamOf: texts(entry.downstream_of),
     notDownstreamOf: texts(entry.not_downstream_of),
     textProp: text(entry.text_prop) || null,
-    props: rawList(entry.props).filter(isRaw).map((prop): SpecProp => ({
-      key: String(prop.key),
-      kind: String(prop.kind),
-      required: prop.required === true,
-      description: text(prop.description),
-      event: Array.isArray(prop.event)
-        ? prop.event.filter(isRaw).map(field => ({key: String(field.key), kind: String(field.kind), description: text(field.description)}))
-        : null,
-      values: Array.isArray(prop.values) ? prop.values.map(String) : null,
-      since: count(prop.since),
-    })),
+    props: rawList(entry.props).filter(isRaw).map((prop): SpecProp => {
+      const where = `${file}: <${String(entry.name)}> ${String(prop.key)}`;
+      if ('kind' in prop && !('port' in prop)) throw new Error(`${where} is typed by a kind, not a port: a catalog written before ports; export it again`);
+      return {
+        key: String(prop.key),
+        port: parsePort(prop.port, where),
+        required: prop.required === true,
+        description: text(prop.description),
+        since: count(prop.since),
+      };
+    }),
     kinds: texts(entry.kinds),
     service: text(entry.service) || null,
     since: count(entry.since),

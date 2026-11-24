@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {TEXT_PORT, type SpecPort} from '../../spec/ports';
 import type {
   BlokActionArgument,
   BlokAgentCall,
@@ -104,15 +105,37 @@ export const markBindSchema = <TSchema extends z.ZodTypeAny>(schema: TSchema): T
 export const isBindSchema = (schema: z.ZodTypeAny | undefined): boolean =>
   schema !== undefined && (bindSchemaRegistry.has(schema) || bindSchemaRegistry.has(unwrapSchema(schema)));
 
+/**
+ * What a schema publishes as its port where its zod shape says less (a pipe, a
+ * reference object). Keyed by the schema object; looked up at every unwrap
+ * step, since `.describe()` clones only the outer wrapper.
+ */
+const portSchemaRegistry = new WeakMap<object, SpecPort>();
+
+/** Publish `schema` as `port` (a recursive or opaque shape the converter cannot read). */
+export const markPortSchema = <TSchema extends z.ZodTypeAny>(schema: TSchema, port: SpecPort): TSchema => {
+  portSchemaRegistry.set(schema, port);
+  return schema;
+};
+
+/** Publish `schema` as a STRUCTURE of `identifier` (`*`: any). */
+export const markStructureSchema = <TSchema extends z.ZodTypeAny>(schema: TSchema, identifier: string): TSchema =>
+  markPortSchema(schema, {kind: 'STRUCTURE', identifier});
+
+/** Publish `schema` as text: `UNION(STRING, INT, FLOAT, BOOL)`. */
+export const markTextSchema = <TSchema extends z.ZodTypeAny>(schema: TSchema): TSchema => markPortSchema(schema, TEXT_PORT);
+
+export const markedPort = (schema: z.ZodTypeAny): SpecPort | undefined => portSchemaRegistry.get(schema);
+
 const actionValueSchema = markActionSchema(
   z.custom<() => void>(value => typeof value === 'function', {
     message: 'Expected action handler',
   }),
 );
 
-const dynamicTextSchema = z
-  .union([z.string(), z.number(), z.boolean()])
-  .transform(value => String(value));
+const dynamicTextSchema = markTextSchema(
+  z.union([z.string(), z.number(), z.boolean()]).transform(value => String(value)),
+);
 
 /**
  * Client-side contract for `checks` — a declarative guard list that disables an
@@ -120,19 +143,30 @@ const dynamicTextSchema = z
  * boolean, a data-model path (truthy test), or an explicit
  * `{path | util_call, operator, value}` predicate.
  */
-const checkOperatorSchema = z.enum([
-  'truthy',
-  'falsy',
-  'equals',
-  'notEquals',
-  'gt',
-  'gte',
-  'lt',
-  'lte',
-  'nonEmpty',
-]);
+const CHECK_OPERATORS = ['truthy', 'falsy', 'equals', 'notEquals', 'gt', 'gte', 'lt', 'lte', 'nonEmpty'] as const;
 
-const checkDescriptorSchema = z.union([
+const checkOperatorSchema = z.enum(CHECK_OPERATORS);
+
+/** A check as an author writes one; a `util_call` inside a literal is the renderer's, not published. */
+const CHECK_PORT: SpecPort = {
+  kind: 'UNION',
+  children: [
+    {key: '0', kind: 'BOOL'},
+    {key: '1', kind: 'STRING'},
+    {
+      key: '2',
+      kind: 'MODEL',
+      children: [
+        {key: 'path', kind: 'STRING', nullable: true},
+        {key: 'operator', kind: 'STRING', nullable: true, choices: CHECK_OPERATORS.map(value => ({value}))},
+        {key: 'value', ...TEXT_PORT, nullable: true},
+        {key: 'message', kind: 'STRING', nullable: true},
+      ],
+    },
+  ],
+};
+
+const checkDescriptorSchema = markPortSchema(z.union([
   z.boolean(),
   z.string(),
   z.object({
@@ -142,7 +176,7 @@ const checkDescriptorSchema = z.union([
     value: z.unknown().optional(),
     message: z.string().optional(),
   }),
-]);
+]), CHECK_PORT);
 
 export type BlokCheckDescriptor = z.infer<typeof checkDescriptorSchema>;
 export type BlokCheckOperator = z.infer<typeof checkOperatorSchema>;

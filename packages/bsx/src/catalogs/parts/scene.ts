@@ -2,7 +2,7 @@ import * as z from 'zod';
 import type {BlokComponentContracts} from '../../renderer/runtime/catalog';
 import type {BlokComponentPlacement} from '../../renderer/runtime/components';
 import {markBindSchema} from '../../renderer/runtime/schemas';
-import {actionProp, bindSchema, describedString} from '../props';
+import {actionProp, AMOUNT_PORT, bindSchema, describedString, JOINTS_PORT, MATRIX_PORT, PER_JOINT_PORT, typedAs} from '../props';
 
 /**
  * The 3D vocabulary: three containers place models, a transform places what
@@ -55,9 +55,7 @@ export const modelSchema = z
     'Places one GLB model in the scene. Its children bind the model\'s named nodes to state. A model that is missing or refused renders a placeholder that says why.',
   );
 
-const jointValues = z
-  .record(z.string(), z.unknown())
-  .optional();
+const jointValues = typedAs(z.record(z.string(), z.unknown()), JOINTS_PORT).optional();
 
 export const robotSchema = z
   .object({
@@ -66,12 +64,10 @@ export const robotSchema = z
       'Where each joint is: a map of joint name to radians (revolute, continuous) or meters (prismatic). A joint left out keeps its last value.',
     ),
     animateTo: jointValues.describe('Where each joint is going. Joints named here move at speed, or over duration.'),
-    speed: z
-      .unknown()
+    speed: typedAs(z.unknown(), PER_JOINT_PORT)
       .optional()
       .describe('How fast joints move to animateTo, in rad/s or m/s: one number for all joints or a map by joint name.'),
-    duration: z
-      .unknown()
+    duration: typedAs(z.unknown(), PER_JOINT_PORT)
       .optional()
       .describe('How long a move to animateTo takes, in seconds: one number or a map by joint name. Ignored where speed is given.'),
     onJointChange: actionProp(
@@ -90,8 +86,7 @@ const MODEL_PROP_KINDS = {src: 'ASSET'} as const;
 
 export const transformSchema = z
   .object({
-    matrix: z
-      .unknown()
+    matrix: typedAs(z.unknown(), MATRIX_PORT)
       .optional()
       .describe(
         'Where the children stand: a 4x4 affine matrix as four rows, in meters with Y up (as a space placement keeps it). The identity when absent or malformed.',
@@ -131,12 +126,10 @@ const motionShape = (unit: string, rate: string) => ({
   axis: z
     .string()
     .describe('The axis in the node\'s own frame: "x", "y", "z" or a vector as "x y z".'),
-  value: z
-    .unknown()
+  value: typedAs(z.unknown(), AMOUNT_PORT)
     .optional()
     .describe(`Where the part is, in ${unit} from the pose the model was authored in. A quantity ({magnitude, unit}) is converted.`),
-  animateTo: z
-    .unknown()
+  animateTo: typedAs(z.unknown(), AMOUNT_PORT)
     .optional()
     .describe('Where the part is going. With it, the view moves there at speed (or over duration) and value corrects it.'),
   speed: z.number().optional().describe(`How fast it moves to animateTo, in ${rate}.`),

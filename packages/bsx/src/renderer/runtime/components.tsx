@@ -7,6 +7,7 @@ import {BlokNodeStateContext, type BlokNodeState} from './nodeState';
 import {readScopedPath, useBlokScope} from './scope';
 import {READY, combineStatus, type BlokSourceStatus} from './status';
 import type {BlokComponentNode, BlokComponentProp, BlokObjectSchema} from './types';
+import type {SpecPort} from '../../spec/ports';
 
 export type BlokRenderArgs<TSchema extends BlokObjectSchema = BlokObjectSchema> = {
   props: ReadonlyArray<BlokComponentProp>;
@@ -43,8 +44,8 @@ export type BlokComponentPlacement = {
 /** Props the server holds to more than their shape: an `ASSET` prop names a file its app registered. */
 export type BlokPropKind = 'ASSET';
 
-/** A field of what a callback is called with (`event.value`), as the spec publishes it. */
-export type BlokEventField = {key: string; kind: string; description: string};
+/** A field of what a callback is called with (`event.value`): its port, or a zod schema of it. */
+export type BlokEventField = {key: string; port: SpecPort | z.ZodTypeAny; description: string};
 
 type BlokComponentApi = {
   /** Set when the component renders declared children its schema has no `children` prop for. */
@@ -61,12 +62,8 @@ type BlokComponentApi = {
   textProp?: string;
   /** Per callback prop, the fields of the event it is called with (`[]`: none). */
   events?: Readonly<Record<string, readonly BlokEventField[]>>;
-  /**
-   * Per `bind` prop, the kind of value the control writes to the path it names
-   * (`Slider.bind` writes a FLOAT): what the spec publishes as the prop's kind,
-   * where the schema itself only says "a path".
-   */
-  bindKinds?: Readonly<Record<string, string>>;
+  /** Per `bind` prop, what the control writes (`Slider.bind`: a FLOAT): its port, or a zod schema of it. */
+  bindKinds?: Readonly<Record<string, SpecPort | z.ZodTypeAny>>;
   /** The blok kinds it may be placed in (`assign`); any kind when left out. */
   kinds?: readonly string[];
   /** The service it needs where it is drawn (`mikro`): without it a notice shows in its place. */

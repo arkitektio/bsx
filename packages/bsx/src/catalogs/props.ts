@@ -1,4 +1,5 @@
-import {BlokPropSchemas, markBindSchema} from '../renderer/runtime/schemas';
+import {BlokPropSchemas, markBindSchema, markPortSchema, markStructureSchema} from '../renderer/runtime/schemas';
+import {ITEM_KEY, TEXT_PORT, type SpecPort} from '../spec/ports';
 import * as z from 'zod';
 
 /**
@@ -166,11 +167,13 @@ export const bindSchema = markBindSchema(
  * A reference to one object of some module, the shape structure ports carry.
  * Nullish: an unset state field or form value is `null`, not absent.
  */
-export const structureValueSchema = z
-  .object({
+export const structureValueSchema = markStructureSchema(
+  z.object({
     object: z.union([z.string(), z.number()]),
     __identifier: z.string(),
-  })
+  }),
+  '*',
+)
   .nullish()
   .describe('A structure reference: {"object": "<id>", "__identifier": "@mikro/arraydataset"}.');
 
@@ -212,3 +215,60 @@ export const textFields = {
   italic: boolSchema.describe('Render italic.'),
   truncate: boolSchema.describe('Truncate to a single line with an ellipsis.'),
 };
+
+/** What an accordion or a toggle group has open or pressed: one value, or a list when multiple. */
+export const openValuesSchema = z.union([z.string(), z.array(z.string())]);
+
+/** A 4x4 affine matrix as four rows. */
+export const matrixSchema = z.array(z.array(z.number()));
+
+const listOf = (item: SpecPort): SpecPort => ({kind: 'LIST', children: [{key: ITEM_KEY, ...item}]});
+const dictOf = (item: SpecPort): SpecPort => ({kind: 'DICT', children: [{key: ITEM_KEY, ...item}]});
+const FLOAT: SpecPort = {kind: 'FLOAT'};
+
+/** A matrix as four rows, read leniently: a malformed one is the identity. */
+export const MATRIX_PORT: SpecPort = listOf(listOf(FLOAT));
+/** Dependency keys, in order. */
+export const KEYS_PORT: SpecPort = listOf({kind: 'STRING'});
+/** A number, or a quantity (`{magnitude, unit}`) that is converted. */
+export const AMOUNT_PORT: SpecPort = {
+  kind: 'UNION',
+  children: [
+    {key: '0', kind: 'FLOAT'},
+    {key: '1', kind: 'DICT', children: [{key: 'magnitude', kind: 'FLOAT'}, {key: 'unit', kind: 'STRING'}]},
+  ],
+};
+/** A value per joint name. */
+export const JOINTS_PORT: SpecPort = dictOf(FLOAT);
+/** One number for all joints, or one per joint name. */
+export const PER_JOINT_PORT: SpecPort = {kind: 'UNION', children: [{key: '0', ...FLOAT}, {key: '1', ...JOINTS_PORT}]};
+/** What a blok reads of a task record: its scalar fields (a DICT, so a record path fits). */
+export const TASK_PORT: SpecPort = {
+  kind: 'DICT',
+  children: [
+    {key: 'id', kind: 'STRING', nullable: true},
+    {key: 'status', kind: 'STRING', choices: ['idle', 'queued', 'running', 'asking', 'paused', 'done', 'failed', 'cancelled'].map(value => ({value}))},
+    {key: 'running', kind: 'BOOL'},
+    {key: 'paused', kind: 'BOOL'},
+    {key: 'done', kind: 'BOOL'},
+    {key: 'failed', kind: 'BOOL'},
+    {key: 'progress', kind: 'INT'},
+    {key: 'message', kind: 'STRING', nullable: true},
+    {key: 'error', kind: 'STRING', nullable: true},
+  ],
+};
+/** Values of GraphQL variables: scalars, ids, lists of ids, structures. */
+export const VARIABLES_PORT: SpecPort = dictOf({
+  kind: 'UNION',
+  nullable: true,
+  children: [
+    ...(TEXT_PORT.children ?? []),
+    {key: '4', ...listOf({kind: 'STRING'})},
+    {key: '5', kind: 'STRUCTURE', identifier: '*'},
+  ],
+});
+/** Chart rows: a category label and numbers by series key. */
+export const CHART_ROWS_PORT: SpecPort = listOf(dictOf({kind: 'UNION', nullable: true, children: [{key: '0', kind: 'STRING'}, {key: '1', ...FLOAT}]}));
+
+/** `schema` as it parses, published as `port`: a value the renderer reads leniently. Mark last: `.refine()`/`.describe()` clone. */
+export const typedAs = <TSchema extends z.ZodTypeAny>(schema: TSchema, port: SpecPort): TSchema => markPortSchema(schema, port);

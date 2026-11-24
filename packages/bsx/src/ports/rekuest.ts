@@ -48,7 +48,13 @@ export type OptionKey = (typeof OptionKey)[keyof typeof OptionKey];
 
 /** The kind of a port: its structural type. Decides which of children, identifier and choices the port must, may or must not carry (see docs/design/ports.md). */
 export const PortKind = {
+  /** Catalog only: a file an app registered. */
+  Asset: 'ASSET',
+  /** Catalog only: the local a control writes; its one child is the value. */
+  Binding: 'BINDING',
   Bool: 'BOOL',
+  /** Catalog only: a callback; its children are the payload. */
+  Callback: 'CALLBACK',
   Date: 'DATE',
   Dict: 'DICT',
   Enum: 'ENUM',

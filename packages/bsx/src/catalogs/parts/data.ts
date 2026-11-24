@@ -13,6 +13,8 @@ import {
   numberSchema,
   spacingSchema,
   textAlignSchema,
+  CHART_ROWS_PORT,
+  typedAs,
 } from '../props';
 import {iconNameSchema} from './icons';
 
@@ -205,8 +207,7 @@ export const dataContracts = {
           .enum(['line', 'bar', 'area', 'pie'])
           .optional()
           .describe('Chart kind. Defaults to "line".'),
-        data: z
-          .array(z.record(z.string(), z.unknown()))
+        data: typedAs(z.array(z.record(z.string(), z.unknown())), CHART_ROWS_PORT)
           .optional()
           .describe('One object per point, keyed by category and series key.'),
         categoryKey: z

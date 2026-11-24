@@ -49,7 +49,7 @@ describe('the synced vocabulary', () => {
     expect(vocabulary.callKinds).not.toContain('query_refetch');
     expect(vocabulary.records.query.fields.map(field => field.key)).toContain('fetching_more');
     expect(Object.keys(vocabulary.theme.dataAttributes).sort()).toEqual(['busy', 'stale']);
-    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 8]);
+    expect([vocabulary.vocab, vocabulary.minor]).toEqual([2, 9]);
     expect(vocabulary.baseCatalog).toBe('https://arkitekt.live/catalogs/base/v4');
     expect(Object.values(vocabulary.bundledCatalogs)).toEqual(['catalogs/base@4.json', 'catalogs/orkestrator@1.json']);
     expect(vocabulary.hostParts).toEqual(['args', 'arg', 'deps', 'dep', 'ask', 'returns', 'status', 'timeline', 'label', 'description', 'message', 'control', 'field']);
@@ -112,9 +112,12 @@ describe('the catalogs', () => {
 
   it('take in what an app registers, and read a blok against the catalog it names', () => {
     const lab = parseSpecCatalog(
-      {id: 'https://acme.example/catalogs/lab/v1', name: 'lab', version: 1, minor: 2, extends: ORKESTRATOR_CATALOG_ID, components: [{name: 'Spectrum', props: [{key: 'bands', kind: 'LIST', since: 2}]}]},
+      {id: 'https://acme.example/catalogs/lab/v1', name: 'lab', version: 1, minor: 2, extends: ORKESTRATOR_CATALOG_ID, components: [{name: 'Spectrum', props: [{key: 'bands', port: {kind: 'LIST', children: [{key: '...', kind: 'FLOAT'}]}, since: 2}]}]},
       'lab',
     );
+    expect(lab.components[0].props[0].port).toEqual({kind: 'LIST', children: [{key: '...', kind: 'FLOAT'}]});
+    expect(() => parseSpecCatalog({name: 'old', components: [{name: 'Dial', props: [{key: 'level', kind: 'FLOAT'}]}]}, 'old')).toThrow(/typed by a kind/);
+    expect(() => parseSpecCatalog({name: 'odd', components: [{name: 'Dial', props: [{key: 'level', port: {kind: 'LIST'}}]}]}, 'odd')).toThrow(/one child/);
     expect(blokViewFor(lab.id).complete).toBe(false);
     registerBlokCatalog(lab);
     const view = blokViewFor(lab.id);
