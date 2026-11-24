@@ -1,3 +1,17 @@
+# [7.0.0](https://github.com/arkitektio/bsx/compare/v6.9.0...v7.0.0) (2026-11-24)
+
+
+* feat(bsx)!: catalog props are typed by ports ([092d6c0](https://github.com/arkitektio/bsx/commit/092d6c09b5eb4e44be1cd796419e8910a3d7f8b7))
+
+
+### BREAKING CHANGES
+
+* catalog JSON props carry `port` instead of `kind`,
+`values` and `event`; SpecProp, BlokEventField and bindKinds change shape;
+PortKind gains CALLBACK, ASSET and BINDING.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [6.9.0](https://github.com/arkitektio/bsx/compare/v6.8.0...v6.9.0) (2026-11-24)
 
 
