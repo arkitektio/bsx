@@ -1,3 +1,10 @@
+# [6.9.0](https://github.com/arkitektio/bsx/compare/v6.8.0...v6.9.0) (2026-11-24)
+
+
+### Features
+
+* **bsx:** a blok's own logo, <logo> ([c7bf191](https://github.com/arkitektio/bsx/commit/c7bf1917be2ac5773346e60f3d05cc74beffc9db))
+
 # [6.8.0](https://github.com/arkitektio/bsx/compare/v6.7.0...v6.8.0) (2026-11-21)
 
 
