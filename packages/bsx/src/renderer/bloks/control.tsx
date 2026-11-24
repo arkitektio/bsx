@@ -284,9 +284,9 @@ export const chromeSchema = z
   );
 
 const BLOK_COMPONENT = 'Blok';
-const DECLARATIONS: ReadonlySet<string> = new Set(['local', 'query', 'subscription', 'var', 'dependencies']);
+const DECLARATIONS: ReadonlySet<string> = new Set(['local', 'query', 'subscription', 'var', 'dependencies', 'logo']);
 
-/** The children of a node that draw: its declarations (`local`, `query`, `subscription`, `var`, `dependencies`) left out. */
+/** The children of a node that draw: its declarations (`local`, `query`, `subscription`, `var`, `dependencies`, `logo`) left out. */
 export const drawnChildren = (component: BlokComponentNode): BlokComponentNode[] =>
   (component.children ?? []).filter(child => !DECLARATIONS.has(child.component));
 
@@ -738,6 +738,29 @@ export const PortField = createBlokComponent({name: 'field', schema: fieldSchema
   return <>{typeof key === 'string' ? parts.renderField(key) : null}</>;
 });
 
+/**
+ * `<logo title viewBox>`: the blok's own logo, what stands for it in lists, pins and tabs. Draws
+ * nothing in the blok; its children are a drawing of the logo catalog, drawn as a logo blok of
+ * its own (`blokLogoTree`).
+ */
+export const LogoDeclaration = createBlokComponent(
+  {
+    name: 'logo',
+    acceptsChildren: true,
+    placement: {childrenContext: 'logo'},
+    since: 4,
+    schema: z
+      .object({
+        title: z.string().optional().describe('What the logo is called: read out in place of the drawing.'),
+        viewBox: z.string().optional().describe("The drawing's grid; 0 0 24 24 when left out."),
+      })
+      .describe(
+        "Declares the blok's own logo: what stands for it in lists, pins and tabs. A drawing of the logo catalog on a 24-unit grid, painted with the logo pens, drawn with the action logos' pen unless a shape says otherwise; literals only. A child of <Blok>, one; draws nothing in the blok.",
+      ),
+  },
+  () => null,
+);
+
 export const controlBlokComponents = [
   TextNode,
   Foreach,
@@ -750,6 +773,7 @@ export const controlBlokComponents = [
   Subscription,
   Var,
   Dependencies,
+  LogoDeclaration,
   Match,
   Case,
   Default,

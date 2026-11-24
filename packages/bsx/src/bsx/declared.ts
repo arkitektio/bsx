@@ -26,6 +26,8 @@ export const QUERY_COMPONENT = 'query';
 export const SUBSCRIPTION_COMPONENT = 'subscription';
 export const VAR_COMPONENT = 'var';
 export const DEPENDENCIES_COMPONENT = 'dependencies';
+/** A blok's own logo: a child of its `<Blok>` holding a drawing of the logo catalog. */
+export const LOGO_COMPONENT = 'logo';
 /** The components that declare what a blok owns and draw nothing. */
 export const DECLARATION_COMPONENTS: ReadonlySet<string> = new Set([
   LOCAL_COMPONENT,
@@ -33,7 +35,22 @@ export const DECLARATION_COMPONENTS: ReadonlySet<string> = new Set([
   SUBSCRIPTION_COMPONENT,
   VAR_COMPONENT,
   DEPENDENCIES_COMPONENT,
+  LOGO_COMPONENT,
 ]);
+const LOGO_TITLE_PROP = 'title';
+const LOGO_VIEW_BOX_PROP = 'viewBox';
+/** A logo's grid when its `<logo>` names none: 24 units, the grid of the action logos. */
+export const LOGO_VIEW_BOX = '0 0 24 24';
+/** The pen a `<logo>` draws with unless a shape says otherwise: the action logos' pen. */
+export const LOGO_PEN: ReadonlyArray<readonly [string, string]> = [
+  ['fill', 'none'],
+  ['stroke', 'ink'],
+  ['strokeWidth', '1.8'],
+  ['strokeLinecap', 'round'],
+  ['strokeLinejoin', 'round'],
+];
+/** The kind a `<logo>` is drawn as (`blokLogoTree`): one drawn in the logo context. */
+export const LOGO_KIND = 'agent';
 /** The name a local, a query or a subscription is read by. */
 export const NAME_PROP = 'name';
 /** A local's borrowed port: `self.<action>.<arg>` or `deps.<key>.<action>.<arg>`. */
@@ -224,6 +241,49 @@ export const declaredLocal = (node: BlokComponentNode): DeclaredLocal | null => 
 };
 
 /** Every node of `tree` with its ancestors, depth first. */
+/**
+ * The blok's own `<logo>`: the first among the children of its `<Blok>`, or
+ * null. A `<logo>` anywhere else, or a second one, stands for nothing (the
+ * checker says so: `logo.misplaced`, `logo.twice`). The port of the spec's
+ * `declared_logo`.
+ */
+export const declaredLogo = (tree: BlokComponentNode | null | undefined): BlokComponentNode | null =>
+  (tree?.children ?? []).find(child => child.component === LOGO_COMPONENT) ?? null;
+
+/**
+ * The blok's `<logo>` as a logo blok of its own, or null when it declares
+ * none: `<Blok kind="agent" context="logo"><Logo viewBox title><G pen>...`.
+ * What is checked (pens, the logo catalog, the logo limits) and drawn for it,
+ * in lists, pins and tabs. Its kind is `agent` whatever the blok's: a `<logo>`
+ * is literals only and reads nothing. The drawing's nodes are the `<logo>`'s
+ * own; the frame takes its id (and two made from it). The port of the spec's
+ * `blok_logo_tree`.
+ */
+export const blokLogoTree = (tree: BlokComponentNode | null | undefined): BlokComponentNode | null => {
+  const logo = declaredLogo(tree);
+  if (logo === null) return null;
+  const props = new Map((logo.props ?? []).map(prop => [prop.key, prop]));
+  const title = props.get(LOGO_TITLE_PROP);
+  const drawingProps = [props.get(LOGO_VIEW_BOX_PROP) ?? {key: LOGO_VIEW_BOX_PROP, static_value: LOGO_VIEW_BOX}];
+  if (title) drawingProps.push(title);
+  const pen: BlokComponentNode = {
+    id: `${logo.id}.pen`,
+    component: 'G',
+    props: LOGO_PEN.map(([key, value]) => ({key, static_value: value})),
+    children: logo.children ?? [],
+  };
+  const drawing: BlokComponentNode = {id: `${logo.id}.drawing`, component: 'Logo', props: drawingProps, children: [pen]};
+  return {
+    id: logo.id,
+    component: BLOK_COMPONENT,
+    props: [
+      {key: KIND_ATTRIBUTE, static_value: LOGO_KIND},
+      {key: CONTEXT_ATTRIBUTE, static_value: 'logo'},
+    ],
+    children: [drawing],
+  };
+};
+
 export const iterWithParents = (tree: BlokComponentNode): Array<[BlokComponentNode, readonly BlokComponentNode[]]> => {
   const found: Array<[BlokComponentNode, readonly BlokComponentNode[]]> = [];
   const visit = (node: BlokComponentNode, ancestors: readonly BlokComponentNode[]) => {

@@ -27,6 +27,8 @@ import {
   iterWithParents,
   LIKE_PROP,
   LOCAL_COMPONENT,
+  LOGO_COMPONENT,
+  blokLogoTree,
   localName,
   localProblem,
   QUERY_COMPONENT,
@@ -616,6 +618,32 @@ class Checker {
 
   /* -- declarations -- */
 
+  /**
+   * The blok's own `<logo>`: a child of its `<Blok>`, one, in a blok that is no logo, and a fixed
+   * drawing. What it draws is checked as a logo blok (`checkBlokTree`). The port of the spec's
+   * `check_logo_declaration`.
+   */
+  checkLogoDeclaration(tree: BlokComponentNode): void {
+    let own = 0;
+    for (const [node, ancestors] of iterWithParents(tree)) {
+      if (node.component !== LOGO_COMPONENT) continue;
+      if (ancestors.length !== 1) {
+        this.add('logo.misplaced', node.id);
+        continue;
+      }
+      own += 1;
+      if (own > 1) this.add('logo.twice', node.id);
+      else if (this.header.context === LOGO) this.add('logo.in_logo', node.id);
+      for (const [drawn] of iterWithParents(node)) {
+        for (const prop of drawn.props ?? []) {
+          if (prop.dynamic_value || prop.agent_call || prop.util_call) {
+            this.add('logo.dynamic', drawn.id, {component: drawn.component, prop: prop.key});
+          }
+        }
+      }
+    }
+  }
+
   checkDeclarations(tree: BlokComponentNode): void {
     const {vocabulary, header} = this;
     const kind = this.kindName;
@@ -640,6 +668,7 @@ class Checker {
     this.checkDependencies(tree);
     this.checkLocalPositions(tree);
     this.checkQueries(tree);
+    this.checkLogoDeclaration(tree);
     for (const [name, sites] of intoSites(tree)) {
       this.into.add(name);
       if (vocabulary.reserved.has(name)) this.add('roots.reserved', sites[0].site, {name});
@@ -944,7 +973,12 @@ class Checker {
       const name = localDeclared(child);
       if (name !== null) inner.set(name, this.bindLocal(name, child, new Map(inner)));
     }
-    for (const child of children) this.walkNode(child, inner, [...ancestors, node], inSlot);
+    for (const child of children) {
+      // A blok's own <logo> draws nothing in it and reads nothing: it is checked as a logo blok
+      // of its own (`blokLogoTree`), never as part of the blok it stands for.
+      if (child.component === LOGO_COMPONENT) continue;
+      this.walkNode(child, inner, [...ancestors, node], inSlot);
+    }
   }
 
   private walkProp(node: BlokComponentNode, prop: BlokComponentProp, scope: Scope, inError: boolean): void {
@@ -1729,6 +1763,16 @@ export const checkBlokTree = (
   checker.checkDeclarations(tree);
   checker.walk(tree);
   if (header.context === LOGO) checker.findings.push(...checkLogo(tree, scope.demo));
+  else {
+    // The blok's own <logo>, drawn and checked as the logo blok it stands for: the pens, the
+    // logo catalog, the logo limits.
+    const logo = blokLogoTree(tree);
+    if (logo !== null) checker.findings.push(...checkBlokTree(logo, unmountedBlokScope(), logoView(view)));
+  }
   checker.finish();
   return checker.findings;
 };
+
+/** The view a `<logo>` is drawn against: the blok's when it draws logos, else the base one. */
+const logoView = (view: BlokView | null): BlokView | null =>
+  view === null || view.components.has('Logo') ? view : defaultBlokView();

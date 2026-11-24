@@ -1,6 +1,6 @@
 import {defaultBlokView, innerContext, type BlokView, type SpecComponent, type SpecProp} from '../spec/catalogs';
 import {BLOK_KINDS, kindIn, loadVocabulary, type BlokContextName, type BlokKind, type VocabFunction, type VocabRecordField} from '../spec/vocabulary';
-import {BLOK_COMPONENT, declaredQueries, declaredSubscriptions, QUERY_COMPONENT, SUBSCRIPTION_COMPONENT} from './declared';
+import {BLOK_COMPONENT, declaredQueries, declaredSubscriptions, LOGO_COMPONENT, QUERY_COMPONENT, SUBSCRIPTION_COMPONENT} from './declared';
 import {resolveLocals} from './infer';
 import {FOREACH_COMPONENT, FOREACH_INDEX_PROP, FOREACH_LET_PROP, INTO_KEYWORD} from './parse';
 import {parseBsxPartial} from './partial';
@@ -333,7 +333,8 @@ const completeTag = (env: BsxEnvironment, cursor: Extract<BsxCursor, {kind: 'tag
   if (stack.length === 0) return [blokCompletion(from)];
   const parent = view.components.get(stack[stack.length - 1].tag);
   if (parent && !parent.acceptsChildren) return [];
-  const ancestors = stack.map(element => element.tag);
+  // A blok's own <logo> is drawn inside a <Logo> (`blokLogoTree`): what may sit in one may sit in it.
+  const ancestors = stack.flatMap(element => (element.tag === LOGO_COMPONENT ? [element.tag, 'Logo'] : [element.tag]));
   const header = headerAt(stack);
   const atRoot = stack.length === 1 && stack[0].tag === BLOK_COMPONENT;
   const declarations = new Set(Object.keys(loadVocabulary().blok.declarations));
