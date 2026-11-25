@@ -24,7 +24,69 @@
       "children": [
        {
         "key": "...",
-        "kind": "STRING"
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "status",
+          "kind": "STRING"
+         },
+         {
+          "key": "loading",
+          "kind": "BOOL"
+         },
+         {
+          "key": "ready",
+          "kind": "BOOL"
+         },
+         {
+          "key": "failed",
+          "kind": "BOOL"
+         },
+         {
+          "key": "empty",
+          "kind": "BOOL"
+         },
+         {
+          "key": "stale",
+          "kind": "BOOL"
+         },
+         {
+          "key": "error",
+          "kind": "STRING",
+          "nullable": true
+         },
+         {
+          "key": "data",
+          "kind": "MODEL",
+          "nullable": true,
+          "children": [
+           {
+            "key": "domain",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "min",
+              "kind": "FLOAT"
+             },
+             {
+              "key": "max",
+              "kind": "FLOAT"
+             }
+            ]
+           },
+           {
+            "key": "bins",
+            "kind": "LIST",
+            "children": [
+             {
+              "key": "...",
+              "kind": "INT"
+             }
+            ]
+           }
+          ]
+         }
+        ]
        }
       ]
      },
@@ -58,7 +120,8 @@
     {
      "key": "column",
      "port": {
-      "kind": "STRING"
+      "kind": "STRING",
+      "nullable": true
      },
      "required": false,
      "description": "The column, by its name. Nothing is read while it is unset."
@@ -74,13 +137,9 @@
     {
      "key": "value",
      "port": {
-      "kind": "DICT",
-      "children": [
-       {
-        "key": "...",
-        "kind": null
-       }
-      ]
+      "kind": "STRUCTURE",
+      "identifier": "*",
+      "nullable": true
      },
      "required": false,
      "description": "The table, a structure reference ({\"object\", \"__identifier\": \"@mikro/tabledataset\"}): typically `{args.table}`."
@@ -106,7 +165,73 @@
       "children": [
        {
         "key": "...",
-        "kind": "STRING"
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "status",
+          "kind": "STRING"
+         },
+         {
+          "key": "loading",
+          "kind": "BOOL"
+         },
+         {
+          "key": "ready",
+          "kind": "BOOL"
+         },
+         {
+          "key": "failed",
+          "kind": "BOOL"
+         },
+         {
+          "key": "empty",
+          "kind": "BOOL"
+         },
+         {
+          "key": "stale",
+          "kind": "BOOL"
+         },
+         {
+          "key": "error",
+          "kind": "STRING",
+          "nullable": true
+         },
+         {
+          "key": "data",
+          "kind": "MODEL",
+          "nullable": true,
+          "children": [
+           {
+            "key": "rows",
+            "kind": "INT"
+           },
+           {
+            "key": "nonNull",
+            "kind": "INT"
+           },
+           {
+            "key": "min",
+            "kind": "FLOAT",
+            "nullable": true
+           },
+           {
+            "key": "max",
+            "kind": "FLOAT",
+            "nullable": true
+           },
+           {
+            "key": "mean",
+            "kind": "FLOAT",
+            "nullable": true
+           },
+           {
+            "key": "distinct",
+            "kind": "INT",
+            "nullable": true
+           }
+          ]
+         }
+        ]
        }
       ]
      },
@@ -124,7 +249,8 @@
     {
      "key": "column",
      "port": {
-      "kind": "STRING"
+      "kind": "STRING",
+      "nullable": true
      },
      "required": false,
      "description": "The column, by its name. Nothing is read while it is unset."
@@ -140,13 +266,9 @@
     {
      "key": "value",
      "port": {
-      "kind": "DICT",
-      "children": [
-       {
-        "key": "...",
-        "kind": null
-       }
-      ]
+      "kind": "STRUCTURE",
+      "identifier": "*",
+      "nullable": true
      },
      "required": false,
      "description": "The table, a structure reference ({\"object\", \"__identifier\": \"@mikro/tabledataset\"}): typically `{args.table}`."
@@ -185,29 +307,1297 @@
     },
     {
      "key": "output",
-     "port": null,
-     "required": false,
-     "description": "The axes the transform lands on: a list of {\"name\", \"type\", \"unit\"} (or bare names). Left out, the steps' own outputs in the units of the input axes of their names."
-    },
-    {
-     "key": "transform",
-     "port": null,
-     "required": false,
-     "description": "How it is placed, as mikro writes a transformation: one step or a list of them, from the stream's calibrated axis onto the output axes. Kinds: IDENTITY; SCALE / TRANSLATION (one number per axis, in order); AFFINE / ROTATION (rows of N+1); MAP_AXIS (inputAxes onto outputAxes); BY_DIMENSION (parts, each a kind on its own inputAxes/outputAxes); SEQUENCE (steps). E.g. [{\"kind\": \"TRANSLATION\", \"translation\": [120, 40]}]. The identity when absent."
-    },
-    {
-     "key": "value",
      "port": {
-      "kind": "DICT",
+      "kind": "LIST",
       "children": [
        {
         "key": "...",
-        "kind": null
+        "kind": "UNION",
+        "children": [
+         {
+          "key": "0",
+          "kind": "STRING"
+         },
+         {
+          "key": "1",
+          "kind": "MODEL",
+          "children": [
+           {
+            "key": "name",
+            "kind": "STRING"
+           },
+           {
+            "key": "type",
+            "kind": "STRING",
+            "nullable": true
+           },
+           {
+            "key": "unit",
+            "kind": "STRING",
+            "nullable": true
+           }
+          ]
+         }
+        ]
        }
       ]
      },
      "required": false,
-     "description": "The data stream, a structure reference: typically `{self.state.spectrum}`."
+     "description": "The axes the transform lands on, as {\"name\", \"type\", \"unit\"} or bare names. Left out, the steps' own outputs in the units of the input axes of their names."
+    },
+    {
+     "key": "transform",
+     "port": {
+      "kind": "UNION",
+      "children": [
+       {
+        "key": "0",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "IDENTITY"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "1",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SCALE"
+           }
+          ]
+         },
+         {
+          "key": "scale",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "2",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "TRANSLATION"
+           }
+          ]
+         },
+         {
+          "key": "translation",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "3",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "AFFINE"
+           },
+           {
+            "value": "ROTATION"
+           }
+          ]
+         },
+         {
+          "key": "affine",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "LIST",
+            "children": [
+             {
+              "key": "...",
+              "kind": "FLOAT"
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "4",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "MAP_AXIS"
+           }
+          ]
+         },
+         {
+          "key": "inputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "outputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "input_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "output_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "5",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "BY_DIMENSION"
+           }
+          ]
+         },
+         {
+          "key": "parts",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               },
+               {
+                "value": "SCALE"
+               },
+               {
+                "value": "TRANSLATION"
+               },
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               },
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "6",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SEQUENCE"
+           }
+          ]
+         },
+         {
+          "key": "steps",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "UNION",
+            "children": [
+             {
+              "key": "0",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "IDENTITY"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "1",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "SCALE"
+                 }
+                ]
+               },
+               {
+                "key": "scale",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "2",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "TRANSLATION"
+                 }
+                ]
+               },
+               {
+                "key": "translation",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "3",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "AFFINE"
+                 },
+                 {
+                  "value": "ROTATION"
+                 }
+                ]
+               },
+               {
+                "key": "affine",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "LIST",
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "4",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "MAP_AXIS"
+                 }
+                ]
+               },
+               {
+                "key": "inputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "outputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "input_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "output_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "5",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "BY_DIMENSION"
+                 }
+                ]
+               },
+               {
+                "key": "parts",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     },
+                     {
+                      "value": "SCALE"
+                     },
+                     {
+                      "value": "TRANSLATION"
+                     },
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     },
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "7",
+        "kind": "LIST",
+        "children": [
+         {
+          "key": "...",
+          "kind": "UNION",
+          "children": [
+           {
+            "key": "0",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "1",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SCALE"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "2",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "TRANSLATION"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "3",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "4",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "5",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "BY_DIMENSION"
+               }
+              ]
+             },
+             {
+              "key": "parts",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "MODEL",
+                "children": [
+                 {
+                  "key": "kind",
+                  "kind": "STRING",
+                  "choices": [
+                   {
+                    "value": "IDENTITY"
+                   },
+                   {
+                    "value": "SCALE"
+                   },
+                   {
+                    "value": "TRANSLATION"
+                   },
+                   {
+                    "value": "AFFINE"
+                   },
+                   {
+                    "value": "ROTATION"
+                   },
+                   {
+                    "value": "MAP_AXIS"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "inputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "outputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "input_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "output_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "scale",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "translation",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "affine",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "6",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SEQUENCE"
+               }
+              ]
+             },
+             {
+              "key": "steps",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "UNION",
+                "children": [
+                 {
+                  "key": "0",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "1",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "SCALE"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "2",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "TRANSLATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "3",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "4",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "5",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "BY_DIMENSION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "parts",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "MODEL",
+                      "children": [
+                       {
+                        "key": "kind",
+                        "kind": "STRING",
+                        "choices": [
+                         {
+                          "value": "IDENTITY"
+                         },
+                         {
+                          "value": "SCALE"
+                         },
+                         {
+                          "value": "TRANSLATION"
+                         },
+                         {
+                          "value": "AFFINE"
+                         },
+                         {
+                          "value": "ROTATION"
+                         },
+                         {
+                          "value": "MAP_AXIS"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "inputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "outputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "input_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "output_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "scale",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "translation",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "affine",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "LIST",
+                          "children": [
+                           {
+                            "key": "...",
+                            "kind": "FLOAT"
+                           }
+                          ]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     "required": false,
+     "description": "How it is placed, as mikro writes a transformation: one step or a list of them, from the mount's own axes onto the output axes. SCALE / TRANSLATION take one number per axis, in order; AFFINE / ROTATION rows of N+1; MAP_AXIS inputAxes onto outputAxes; BY_DIMENSION parts on their own axes. E.g. [{\"kind\": \"TRANSLATION\", \"translation\": [120, 40]}]. The identity when absent."
+    },
+    {
+     "key": "value",
+     "port": {
+      "kind": "STRUCTURE",
+      "identifier": "@lovekit/stream",
+      "nullable": true
+     },
+     "required": false,
+     "description": "The data stream, a structure reference: typically `{self.state.stream}`."
     }
    ],
    "service": "lovekit"
@@ -236,32 +1626,2610 @@
     },
     {
      "key": "output",
-     "port": null,
-     "required": false,
-     "description": "The axes the transform lands on: a list of {\"name\", \"type\", \"unit\"} (or bare names). Left out, the steps' own outputs in the units of the input axes of their names."
-    },
-    {
-     "key": "transform",
-     "port": null,
-     "required": false,
-     "description": "How it is placed, as mikro writes a transformation: one step or a list of them, from the stream's pixel axes (calibrated, e.g. y and x in µm) onto the output axes. Kinds: IDENTITY; SCALE / TRANSLATION (one number per axis, in order); AFFINE / ROTATION (rows of N+1); MAP_AXIS (inputAxes onto outputAxes); BY_DIMENSION (parts, each a kind on its own inputAxes/outputAxes); SEQUENCE (steps). E.g. [{\"kind\": \"TRANSLATION\", \"translation\": [120, 40]}]. The identity when absent."
-    },
-    {
-     "key": "value",
      "port": {
-      "kind": "DICT",
+      "kind": "LIST",
       "children": [
        {
         "key": "...",
-        "kind": null
+        "kind": "UNION",
+        "children": [
+         {
+          "key": "0",
+          "kind": "STRING"
+         },
+         {
+          "key": "1",
+          "kind": "MODEL",
+          "children": [
+           {
+            "key": "name",
+            "kind": "STRING"
+           },
+           {
+            "key": "type",
+            "kind": "STRING",
+            "nullable": true
+           },
+           {
+            "key": "unit",
+            "kind": "STRING",
+            "nullable": true
+           }
+          ]
+         }
+        ]
        }
       ]
      },
      "required": false,
-     "description": "The video stream, a structure reference: typically `{self.state.camera}`."
+     "description": "The axes the transform lands on, as {\"name\", \"type\", \"unit\"} or bare names. Left out, the steps' own outputs in the units of the input axes of their names."
+    },
+    {
+     "key": "transform",
+     "port": {
+      "kind": "UNION",
+      "children": [
+       {
+        "key": "0",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "IDENTITY"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "1",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SCALE"
+           }
+          ]
+         },
+         {
+          "key": "scale",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "2",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "TRANSLATION"
+           }
+          ]
+         },
+         {
+          "key": "translation",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "3",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "AFFINE"
+           },
+           {
+            "value": "ROTATION"
+           }
+          ]
+         },
+         {
+          "key": "affine",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "LIST",
+            "children": [
+             {
+              "key": "...",
+              "kind": "FLOAT"
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "4",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "MAP_AXIS"
+           }
+          ]
+         },
+         {
+          "key": "inputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "outputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "input_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "output_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "5",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "BY_DIMENSION"
+           }
+          ]
+         },
+         {
+          "key": "parts",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               },
+               {
+                "value": "SCALE"
+               },
+               {
+                "value": "TRANSLATION"
+               },
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               },
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "6",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SEQUENCE"
+           }
+          ]
+         },
+         {
+          "key": "steps",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "UNION",
+            "children": [
+             {
+              "key": "0",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "IDENTITY"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "1",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "SCALE"
+                 }
+                ]
+               },
+               {
+                "key": "scale",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "2",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "TRANSLATION"
+                 }
+                ]
+               },
+               {
+                "key": "translation",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "3",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "AFFINE"
+                 },
+                 {
+                  "value": "ROTATION"
+                 }
+                ]
+               },
+               {
+                "key": "affine",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "LIST",
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "4",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "MAP_AXIS"
+                 }
+                ]
+               },
+               {
+                "key": "inputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "outputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "input_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "output_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "5",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "BY_DIMENSION"
+                 }
+                ]
+               },
+               {
+                "key": "parts",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     },
+                     {
+                      "value": "SCALE"
+                     },
+                     {
+                      "value": "TRANSLATION"
+                     },
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     },
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "7",
+        "kind": "LIST",
+        "children": [
+         {
+          "key": "...",
+          "kind": "UNION",
+          "children": [
+           {
+            "key": "0",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "1",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SCALE"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "2",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "TRANSLATION"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "3",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "4",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "5",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "BY_DIMENSION"
+               }
+              ]
+             },
+             {
+              "key": "parts",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "MODEL",
+                "children": [
+                 {
+                  "key": "kind",
+                  "kind": "STRING",
+                  "choices": [
+                   {
+                    "value": "IDENTITY"
+                   },
+                   {
+                    "value": "SCALE"
+                   },
+                   {
+                    "value": "TRANSLATION"
+                   },
+                   {
+                    "value": "AFFINE"
+                   },
+                   {
+                    "value": "ROTATION"
+                   },
+                   {
+                    "value": "MAP_AXIS"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "inputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "outputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "input_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "output_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "scale",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "translation",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "affine",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "6",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SEQUENCE"
+               }
+              ]
+             },
+             {
+              "key": "steps",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "UNION",
+                "children": [
+                 {
+                  "key": "0",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "1",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "SCALE"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "2",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "TRANSLATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "3",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "4",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "5",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "BY_DIMENSION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "parts",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "MODEL",
+                      "children": [
+                       {
+                        "key": "kind",
+                        "kind": "STRING",
+                        "choices": [
+                         {
+                          "value": "IDENTITY"
+                         },
+                         {
+                          "value": "SCALE"
+                         },
+                         {
+                          "value": "TRANSLATION"
+                         },
+                         {
+                          "value": "AFFINE"
+                         },
+                         {
+                          "value": "ROTATION"
+                         },
+                         {
+                          "value": "MAP_AXIS"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "inputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "outputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "input_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "output_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "scale",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "translation",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "affine",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "LIST",
+                          "children": [
+                           {
+                            "key": "...",
+                            "kind": "FLOAT"
+                           }
+                          ]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     "required": false,
+     "description": "How it is placed, as mikro writes a transformation: one step or a list of them, from the mount's own axes onto the output axes. SCALE / TRANSLATION take one number per axis, in order; AFFINE / ROTATION rows of N+1; MAP_AXIS inputAxes onto outputAxes; BY_DIMENSION parts on their own axes. E.g. [{\"kind\": \"TRANSLATION\", \"translation\": [120, 40]}]. The identity when absent."
+    },
+    {
+     "key": "value",
+     "port": {
+      "kind": "STRUCTURE",
+      "identifier": "@lovekit/stream",
+      "nullable": true
+     },
+     "required": false,
+     "description": "The video stream, a structure reference: typically `{self.state.stream}`."
     }
    ],
    "service": "lovekit"
+  },
+  {
+   "name": "MikroChartMount",
+   "description": "A mikro chart's lines in a Plot: its axis converted into the plot's (and moved by mikro-style transform steps), its rows in one row of the plot.",
+   "context": "PANEL",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "downstream_of": [
+    "Plot"
+   ],
+   "not_downstream_of": [],
+   "text_prop": null,
+   "props": [
+    {
+     "key": "output",
+     "port": {
+      "kind": "LIST",
+      "children": [
+       {
+        "key": "...",
+        "kind": "UNION",
+        "children": [
+         {
+          "key": "0",
+          "kind": "STRING"
+         },
+         {
+          "key": "1",
+          "kind": "MODEL",
+          "children": [
+           {
+            "key": "name",
+            "kind": "STRING"
+           },
+           {
+            "key": "type",
+            "kind": "STRING",
+            "nullable": true
+           },
+           {
+            "key": "unit",
+            "kind": "STRING",
+            "nullable": true
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     "required": false,
+     "description": "The axes the transform lands on, as {\"name\", \"type\", \"unit\"} or bare names. Left out, the steps' own outputs in the units of the input axes of their names."
+    },
+    {
+     "key": "transform",
+     "port": {
+      "kind": "UNION",
+      "children": [
+       {
+        "key": "0",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "IDENTITY"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "1",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SCALE"
+           }
+          ]
+         },
+         {
+          "key": "scale",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "2",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "TRANSLATION"
+           }
+          ]
+         },
+         {
+          "key": "translation",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "3",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "AFFINE"
+           },
+           {
+            "value": "ROTATION"
+           }
+          ]
+         },
+         {
+          "key": "affine",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "LIST",
+            "children": [
+             {
+              "key": "...",
+              "kind": "FLOAT"
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "4",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "MAP_AXIS"
+           }
+          ]
+         },
+         {
+          "key": "inputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "outputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "input_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "output_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "5",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "BY_DIMENSION"
+           }
+          ]
+         },
+         {
+          "key": "parts",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               },
+               {
+                "value": "SCALE"
+               },
+               {
+                "value": "TRANSLATION"
+               },
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               },
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "6",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SEQUENCE"
+           }
+          ]
+         },
+         {
+          "key": "steps",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "UNION",
+            "children": [
+             {
+              "key": "0",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "IDENTITY"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "1",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "SCALE"
+                 }
+                ]
+               },
+               {
+                "key": "scale",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "2",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "TRANSLATION"
+                 }
+                ]
+               },
+               {
+                "key": "translation",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "3",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "AFFINE"
+                 },
+                 {
+                  "value": "ROTATION"
+                 }
+                ]
+               },
+               {
+                "key": "affine",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "LIST",
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "4",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "MAP_AXIS"
+                 }
+                ]
+               },
+               {
+                "key": "inputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "outputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "input_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "output_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "5",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "BY_DIMENSION"
+                 }
+                ]
+               },
+               {
+                "key": "parts",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     },
+                     {
+                      "value": "SCALE"
+                     },
+                     {
+                      "value": "TRANSLATION"
+                     },
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     },
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "7",
+        "kind": "LIST",
+        "children": [
+         {
+          "key": "...",
+          "kind": "UNION",
+          "children": [
+           {
+            "key": "0",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "1",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SCALE"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "2",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "TRANSLATION"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "3",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "4",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "5",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "BY_DIMENSION"
+               }
+              ]
+             },
+             {
+              "key": "parts",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "MODEL",
+                "children": [
+                 {
+                  "key": "kind",
+                  "kind": "STRING",
+                  "choices": [
+                   {
+                    "value": "IDENTITY"
+                   },
+                   {
+                    "value": "SCALE"
+                   },
+                   {
+                    "value": "TRANSLATION"
+                   },
+                   {
+                    "value": "AFFINE"
+                   },
+                   {
+                    "value": "ROTATION"
+                   },
+                   {
+                    "value": "MAP_AXIS"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "inputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "outputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "input_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "output_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "scale",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "translation",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "affine",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "6",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SEQUENCE"
+               }
+              ]
+             },
+             {
+              "key": "steps",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "UNION",
+                "children": [
+                 {
+                  "key": "0",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "1",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "SCALE"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "2",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "TRANSLATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "3",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "4",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "5",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "BY_DIMENSION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "parts",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "MODEL",
+                      "children": [
+                       {
+                        "key": "kind",
+                        "kind": "STRING",
+                        "choices": [
+                         {
+                          "value": "IDENTITY"
+                         },
+                         {
+                          "value": "SCALE"
+                         },
+                         {
+                          "value": "TRANSLATION"
+                         },
+                         {
+                          "value": "AFFINE"
+                         },
+                         {
+                          "value": "ROTATION"
+                         },
+                         {
+                          "value": "MAP_AXIS"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "inputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "outputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "input_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "output_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "scale",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "translation",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "affine",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "LIST",
+                          "children": [
+                           {
+                            "key": "...",
+                            "kind": "FLOAT"
+                           }
+                          ]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     "required": false,
+     "description": "How it is placed, as mikro writes a transformation: one step or a list of them, from the mount's own axes onto the output axes. SCALE / TRANSLATION take one number per axis, in order; AFFINE / ROTATION rows of N+1; MAP_AXIS inputAxes onto outputAxes; BY_DIMENSION parts on their own axes. E.g. [{\"kind\": \"TRANSLATION\", \"translation\": [120, 40]}]. The identity when absent."
+    },
+    {
+     "key": "value",
+     "port": {
+      "kind": "STRUCTURE",
+      "identifier": "@mikro/chart",
+      "nullable": true
+     },
+     "required": false,
+     "description": "The chart, a structure reference: typically `{args.chart}`."
+    }
+   ],
+   "service": "mikro"
   },
   {
    "name": "MikroScene",
@@ -283,7 +4251,22 @@
       "children": [
        {
         "key": "...",
-        "kind": null
+        "kind": "MODEL",
+        "nullable": true,
+        "children": [
+         {
+          "key": "annotation",
+          "kind": "STRUCTURE",
+          "identifier": "@mikro/annotation",
+          "nullable": true
+         },
+         {
+          "key": "lens",
+          "kind": "STRUCTURE",
+          "identifier": "*",
+          "nullable": true
+         }
+        ]
        }
       ]
      },
@@ -293,10 +4276,17 @@
     {
      "key": "bindWorld",
      "port": {
-      "kind": "STRING"
+      "kind": "BINDING",
+      "children": [
+       {
+        "key": "...",
+        "kind": "STRUCTURE",
+        "identifier": "@mikro/coordinatesystem"
+       }
+      ]
      },
      "required": false,
-     "description": "Where the scene's world coordinate system is written, a structure reference ({\"object\", \"__identifier\": \"@mikro/coordinatesystem\"}), once the scene has loaded. What a picker of what this scene can show asks the server with: `lenses(filters: {placeableIn: {space: $world}})`, `$world` read from this path. It writes a STRING: the local is a STRING, ENUM or DATE port."
+     "description": "Where the scene's world coordinate system is written, a structure reference ({\"object\", \"__identifier\": \"@mikro/coordinatesystem\"}), once the scene has loaded. What a picker of what this scene can show asks the server with: `lenses(filters: {placeableIn: {space: $world}})`, `$world` read from this path."
     },
     {
      "key": "className",
@@ -321,13 +4311,8 @@
       "children": [
        {
         "key": "annotation",
-        "kind": "DICT",
-        "children": [
-         {
-          "key": "...",
-          "kind": null
-         }
-        ],
+        "kind": "STRUCTURE",
+        "identifier": "@mikro/annotation",
         "description": "The drawn shape, as a structure reference."
        },
        {
@@ -337,18 +4322,35 @@
        },
        {
         "key": "lens",
-        "kind": "DICT",
-        "children": [
-         {
-          "key": "...",
-          "kind": null
-         }
-        ],
+        "kind": "STRUCTURE",
+        "identifier": "*",
+        "nullable": true,
         "description": "The lens under the probe, or null."
        },
        {
         "key": "descriptors",
-        "kind": null,
+        "kind": "DICT",
+        "nullable": true,
+        "children": [
+         {
+          "key": "...",
+          "kind": "UNION",
+          "children": [
+           {
+            "key": "0",
+            "kind": "STRING"
+           },
+           {
+            "key": "1",
+            "kind": "FLOAT"
+           },
+           {
+            "key": "2",
+            "kind": "BOOL"
+           }
+          ]
+         }
+        ],
         "description": "The shape's descriptors, or null."
        }
       ]
@@ -367,7 +4369,8 @@
         "children": [
          {
           "key": "...",
-          "kind": null
+          "kind": "STRUCTURE",
+          "identifier": "*"
          }
         ],
         "description": "The layers now drawn."
@@ -378,7 +4381,8 @@
         "children": [
          {
           "key": "...",
-          "kind": null
+          "kind": "STRUCTURE",
+          "identifier": "*"
          }
         ],
         "description": "The layers that are new."
@@ -401,10 +4405,11 @@
        {
         "key": "world",
         "kind": "LIST",
+        "nullable": true,
         "children": [
          {
           "key": "...",
-          "kind": null
+          "kind": "FLOAT"
          }
         ],
         "description": "The world point, or null."
@@ -415,20 +4420,16 @@
         "children": [
          {
           "key": "...",
-          "kind": null
+          "kind": "INT"
          }
         ],
         "description": "The voxel read."
        },
        {
         "key": "lens",
-        "kind": "DICT",
-        "children": [
-         {
-          "key": "...",
-          "kind": null
-         }
-        ],
+        "kind": "STRUCTURE",
+        "identifier": "*",
+        "nullable": true,
         "description": "The lens, or null."
        }
       ]
@@ -443,13 +4444,8 @@
       "children": [
        {
         "key": "annotation",
-        "kind": "DICT",
-        "children": [
-         {
-          "key": "...",
-          "kind": null
-         }
-        ],
+        "kind": "STRUCTURE",
+        "identifier": "@mikro/annotation",
         "description": "The selected annotation."
        },
        {
@@ -458,20 +4454,17 @@
         "children": [
          {
           "key": "...",
-          "kind": null
+          "kind": "STRUCTURE",
+          "identifier": "@mikro/annotation"
          }
         ],
         "description": "Every selected annotation."
        },
        {
         "key": "lens",
-        "kind": "DICT",
-        "children": [
-         {
-          "key": "...",
-          "kind": null
-         }
-        ],
+        "kind": "STRUCTURE",
+        "identifier": "*",
+        "nullable": true,
         "description": "The lens under the probe, or null."
        }
       ]
@@ -482,13 +4475,9 @@
     {
      "key": "value",
      "port": {
-      "kind": "DICT",
-      "children": [
-       {
-        "key": "...",
-        "kind": null
-       }
-      ]
+      "kind": "STRUCTURE",
+      "identifier": "*",
+      "nullable": true
      },
      "required": false,
      "description": "The scene, a structure reference: typically `{args.scene}`."
@@ -556,6 +4545,1325 @@
      },
      "required": false,
      "description": "CSS height of the panel."
+    }
+   ],
+   "service": "mikro"
+  },
+  {
+   "name": "MikroSceneMount",
+   "description": "A mikro scene's 3D layers in a Scene, placed by its world's axes and reference and moved by mikro-style transform steps. Viewing only; one per Scene.",
+   "context": "SCENE",
+   "children_context": null,
+   "inherits_context": false,
+   "accepts_children": false,
+   "downstream_of": [
+    "Scene",
+    "Space"
+   ],
+   "not_downstream_of": [],
+   "text_prop": null,
+   "props": [
+    {
+     "key": "live",
+     "port": {
+      "kind": "BOOL"
+     },
+     "required": false,
+     "description": "Follow the scene as others change it. Defaults to true."
+    },
+    {
+     "key": "output",
+     "port": {
+      "kind": "LIST",
+      "children": [
+       {
+        "key": "...",
+        "kind": "UNION",
+        "children": [
+         {
+          "key": "0",
+          "kind": "STRING"
+         },
+         {
+          "key": "1",
+          "kind": "MODEL",
+          "children": [
+           {
+            "key": "name",
+            "kind": "STRING"
+           },
+           {
+            "key": "type",
+            "kind": "STRING",
+            "nullable": true
+           },
+           {
+            "key": "unit",
+            "kind": "STRING",
+            "nullable": true
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     "required": false,
+     "description": "The axes the transform lands on, as {\"name\", \"type\", \"unit\"} or bare names. Left out, the steps' own outputs in the units of the input axes of their names."
+    },
+    {
+     "key": "transform",
+     "port": {
+      "kind": "UNION",
+      "children": [
+       {
+        "key": "0",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "IDENTITY"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "1",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SCALE"
+           }
+          ]
+         },
+         {
+          "key": "scale",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "2",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "TRANSLATION"
+           }
+          ]
+         },
+         {
+          "key": "translation",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "FLOAT"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "3",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "AFFINE"
+           },
+           {
+            "value": "ROTATION"
+           }
+          ]
+         },
+         {
+          "key": "affine",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "LIST",
+            "children": [
+             {
+              "key": "...",
+              "kind": "FLOAT"
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "4",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "MAP_AXIS"
+           }
+          ]
+         },
+         {
+          "key": "inputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "outputAxes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "input_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         },
+         {
+          "key": "output_axes",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "STRING"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "5",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "BY_DIMENSION"
+           }
+          ]
+         },
+         {
+          "key": "parts",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               },
+               {
+                "value": "SCALE"
+               },
+               {
+                "value": "TRANSLATION"
+               },
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               },
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "6",
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "kind",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "SEQUENCE"
+           }
+          ]
+         },
+         {
+          "key": "steps",
+          "kind": "LIST",
+          "children": [
+           {
+            "key": "...",
+            "kind": "UNION",
+            "children": [
+             {
+              "key": "0",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "IDENTITY"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "1",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "SCALE"
+                 }
+                ]
+               },
+               {
+                "key": "scale",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "2",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "TRANSLATION"
+                 }
+                ]
+               },
+               {
+                "key": "translation",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "3",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "AFFINE"
+                 },
+                 {
+                  "value": "ROTATION"
+                 }
+                ]
+               },
+               {
+                "key": "affine",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "LIST",
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "4",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "MAP_AXIS"
+                 }
+                ]
+               },
+               {
+                "key": "inputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "outputAxes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "input_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               },
+               {
+                "key": "output_axes",
+                "kind": "LIST",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "STRING"
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "key": "5",
+              "kind": "MODEL",
+              "children": [
+               {
+                "key": "kind",
+                "kind": "STRING",
+                "choices": [
+                 {
+                  "value": "BY_DIMENSION"
+                 }
+                ]
+               },
+               {
+                "key": "parts",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     },
+                     {
+                      "value": "SCALE"
+                     },
+                     {
+                      "value": "TRANSLATION"
+                     },
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     },
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "key": "7",
+        "kind": "LIST",
+        "children": [
+         {
+          "key": "...",
+          "kind": "UNION",
+          "children": [
+           {
+            "key": "0",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "IDENTITY"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "1",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SCALE"
+               }
+              ]
+             },
+             {
+              "key": "scale",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "2",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "TRANSLATION"
+               }
+              ]
+             },
+             {
+              "key": "translation",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "3",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "AFFINE"
+               },
+               {
+                "value": "ROTATION"
+               }
+              ]
+             },
+             {
+              "key": "affine",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "LIST",
+                "children": [
+                 {
+                  "key": "...",
+                  "kind": "FLOAT"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "4",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "MAP_AXIS"
+               }
+              ]
+             },
+             {
+              "key": "inputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "outputAxes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "input_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             },
+             {
+              "key": "output_axes",
+              "kind": "LIST",
+              "nullable": true,
+              "children": [
+               {
+                "key": "...",
+                "kind": "STRING"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "5",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "BY_DIMENSION"
+               }
+              ]
+             },
+             {
+              "key": "parts",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "MODEL",
+                "children": [
+                 {
+                  "key": "kind",
+                  "kind": "STRING",
+                  "choices": [
+                   {
+                    "value": "IDENTITY"
+                   },
+                   {
+                    "value": "SCALE"
+                   },
+                   {
+                    "value": "TRANSLATION"
+                   },
+                   {
+                    "value": "AFFINE"
+                   },
+                   {
+                    "value": "ROTATION"
+                   },
+                   {
+                    "value": "MAP_AXIS"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "inputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "outputAxes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "input_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "output_axes",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "STRING"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "scale",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "translation",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "FLOAT"
+                   }
+                  ]
+                 },
+                 {
+                  "key": "affine",
+                  "kind": "LIST",
+                  "nullable": true,
+                  "children": [
+                   {
+                    "key": "...",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "6",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "kind",
+              "kind": "STRING",
+              "choices": [
+               {
+                "value": "SEQUENCE"
+               }
+              ]
+             },
+             {
+              "key": "steps",
+              "kind": "LIST",
+              "children": [
+               {
+                "key": "...",
+                "kind": "UNION",
+                "children": [
+                 {
+                  "key": "0",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "IDENTITY"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "1",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "SCALE"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "scale",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "2",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "TRANSLATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "translation",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "FLOAT"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "3",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "AFFINE"
+                     },
+                     {
+                      "value": "ROTATION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "affine",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "LIST",
+                      "children": [
+                       {
+                        "key": "...",
+                        "kind": "FLOAT"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "4",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "MAP_AXIS"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "inputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "outputAxes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "input_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "output_axes",
+                    "kind": "LIST",
+                    "nullable": true,
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "STRING"
+                     }
+                    ]
+                   }
+                  ]
+                 },
+                 {
+                  "key": "5",
+                  "kind": "MODEL",
+                  "children": [
+                   {
+                    "key": "kind",
+                    "kind": "STRING",
+                    "choices": [
+                     {
+                      "value": "BY_DIMENSION"
+                     }
+                    ]
+                   },
+                   {
+                    "key": "parts",
+                    "kind": "LIST",
+                    "children": [
+                     {
+                      "key": "...",
+                      "kind": "MODEL",
+                      "children": [
+                       {
+                        "key": "kind",
+                        "kind": "STRING",
+                        "choices": [
+                         {
+                          "value": "IDENTITY"
+                         },
+                         {
+                          "value": "SCALE"
+                         },
+                         {
+                          "value": "TRANSLATION"
+                         },
+                         {
+                          "value": "AFFINE"
+                         },
+                         {
+                          "value": "ROTATION"
+                         },
+                         {
+                          "value": "MAP_AXIS"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "inputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "outputAxes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "input_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "output_axes",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "STRING"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "scale",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "translation",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "FLOAT"
+                         }
+                        ]
+                       },
+                       {
+                        "key": "affine",
+                        "kind": "LIST",
+                        "nullable": true,
+                        "children": [
+                         {
+                          "key": "...",
+                          "kind": "LIST",
+                          "children": [
+                           {
+                            "key": "...",
+                            "kind": "FLOAT"
+                           }
+                          ]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     "required": false,
+     "description": "How it is placed, as mikro writes a transformation: one step or a list of them, from the mount's own axes onto the output axes. SCALE / TRANSLATION take one number per axis, in order; AFFINE / ROTATION rows of N+1; MAP_AXIS inputAxes onto outputAxes; BY_DIMENSION parts on their own axes. E.g. [{\"kind\": \"TRANSLATION\", \"translation\": [120, 40]}]. The identity when absent."
+    },
+    {
+     "key": "value",
+     "port": {
+      "kind": "STRUCTURE",
+      "identifier": "@mikro/scene",
+      "nullable": true
+     },
+     "required": false,
+     "description": "The scene, a structure reference: typically `{args.scene}`."
     }
    ],
    "service": "mikro"
@@ -743,7 +6051,84 @@
       "children": [
        {
         "key": "...",
-        "kind": "STRING"
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "status",
+          "kind": "STRING"
+         },
+         {
+          "key": "loading",
+          "kind": "BOOL"
+         },
+         {
+          "key": "ready",
+          "kind": "BOOL"
+         },
+         {
+          "key": "failed",
+          "kind": "BOOL"
+         },
+         {
+          "key": "empty",
+          "kind": "BOOL"
+         },
+         {
+          "key": "stale",
+          "kind": "BOOL"
+         },
+         {
+          "key": "error",
+          "kind": "STRING",
+          "nullable": true
+         },
+         {
+          "key": "data",
+          "kind": "LIST",
+          "nullable": true,
+          "children": [
+           {
+            "key": "...",
+            "kind": "MODEL",
+            "children": [
+             {
+              "key": "name",
+              "kind": "STRING"
+             },
+             {
+              "key": "longName",
+              "kind": "STRING",
+              "nullable": true
+             },
+             {
+              "key": "description",
+              "kind": "STRING",
+              "nullable": true
+             },
+             {
+              "key": "dtype",
+              "kind": "STRING"
+             },
+             {
+              "key": "role",
+              "kind": "STRING",
+              "nullable": true
+             },
+             {
+              "key": "unit",
+              "kind": "STRING",
+              "nullable": true
+             },
+             {
+              "key": "axisType",
+              "kind": "STRING",
+              "nullable": true
+             }
+            ]
+           }
+          ]
+         }
+        ]
        }
       ]
      },
@@ -760,20 +6145,80 @@
     },
     {
      "key": "role",
-     "port": null,
+     "port": {
+      "kind": "UNION",
+      "children": [
+       {
+        "key": "0",
+        "kind": "STRING",
+        "choices": [
+         {
+          "value": "ATTRIBUTE"
+         },
+         {
+          "value": "COLOR"
+         },
+         {
+          "value": "COORDINATE"
+         },
+         {
+          "value": "GROUP_ID"
+         },
+         {
+          "value": "ID"
+         },
+         {
+          "value": "LABEL"
+         },
+         {
+          "value": "TRACK_ID"
+         }
+        ]
+       },
+       {
+        "key": "1",
+        "kind": "LIST",
+        "children": [
+         {
+          "key": "...",
+          "kind": "STRING",
+          "choices": [
+           {
+            "value": "ATTRIBUTE"
+           },
+           {
+            "value": "COLOR"
+           },
+           {
+            "value": "COORDINATE"
+           },
+           {
+            "value": "GROUP_ID"
+           },
+           {
+            "value": "ID"
+           },
+           {
+            "value": "LABEL"
+           },
+           {
+            "value": "TRACK_ID"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
      "required": false,
      "description": "Only the columns of this role (or of any of these roles)."
     },
     {
      "key": "value",
      "port": {
-      "kind": "DICT",
-      "children": [
-       {
-        "key": "...",
-        "kind": null
-       }
-      ]
+      "kind": "STRUCTURE",
+      "identifier": "*",
+      "nullable": true
      },
      "required": false,
      "description": "The table, a structure reference ({\"object\", \"__identifier\": \"@mikro/tabledataset\"}): typically `{args.table}`."
@@ -799,7 +6244,80 @@
       "children": [
        {
         "key": "...",
-        "kind": "STRING"
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "status",
+          "kind": "STRING"
+         },
+         {
+          "key": "loading",
+          "kind": "BOOL"
+         },
+         {
+          "key": "ready",
+          "kind": "BOOL"
+         },
+         {
+          "key": "failed",
+          "kind": "BOOL"
+         },
+         {
+          "key": "empty",
+          "kind": "BOOL"
+         },
+         {
+          "key": "stale",
+          "kind": "BOOL"
+         },
+         {
+          "key": "error",
+          "kind": "STRING",
+          "nullable": true
+         },
+         {
+          "key": "data",
+          "kind": "MODEL",
+          "nullable": true,
+          "children": [
+           {
+            "key": "rows",
+            "kind": "LIST",
+            "children": [
+             {
+              "key": "...",
+              "kind": "DICT",
+              "children": [
+               {
+                "key": "...",
+                "kind": "UNION",
+                "nullable": true,
+                "children": [
+                 {
+                  "key": "0",
+                  "kind": "STRING"
+                 },
+                 {
+                  "key": "1",
+                  "kind": "FLOAT"
+                 },
+                 {
+                  "key": "2",
+                  "kind": "BOOL"
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "key": "total",
+            "kind": "INT"
+           }
+          ]
+         }
+        ]
        }
       ]
      },
@@ -818,10 +6336,11 @@
      "key": "columns",
      "port": {
       "kind": "LIST",
+      "nullable": true,
       "children": [
        {
         "key": "...",
-        "kind": null
+        "kind": "STRING"
        }
       ]
      },
@@ -855,7 +6374,8 @@
     {
      "key": "orderBy",
      "port": {
-      "kind": "STRING"
+      "kind": "STRING",
+      "nullable": true
      },
      "required": false,
      "description": "The column to sort by."
@@ -863,13 +6383,9 @@
     {
      "key": "value",
      "port": {
-      "kind": "DICT",
-      "children": [
-       {
-        "key": "...",
-        "kind": null
-       }
-      ]
+      "kind": "STRUCTURE",
+      "identifier": "*",
+      "nullable": true
      },
      "required": false,
      "description": "The table, a structure reference ({\"object\", \"__identifier\": \"@mikro/tabledataset\"}): typically `{args.table}`."
@@ -878,10 +6394,93 @@
      "key": "where",
      "port": {
       "kind": "LIST",
+      "nullable": true,
       "children": [
        {
         "key": "...",
-        "kind": null
+        "kind": "MODEL",
+        "children": [
+         {
+          "key": "column",
+          "kind": "STRING"
+         },
+         {
+          "key": "op",
+          "kind": "STRING",
+          "nullable": true,
+          "choices": [
+           {
+            "value": "eq"
+           },
+           {
+            "value": "ne"
+           },
+           {
+            "value": "gt"
+           },
+           {
+            "value": "gte"
+           },
+           {
+            "value": "lt"
+           },
+           {
+            "value": "lte"
+           },
+           {
+            "value": "in"
+           },
+           {
+            "value": "contains"
+           },
+           {
+            "value": "isNull"
+           },
+           {
+            "value": "notNull"
+           }
+          ]
+         },
+         {
+          "key": "value",
+          "kind": "UNION",
+          "nullable": true,
+          "children": [
+           {
+            "key": "0",
+            "kind": "STRING"
+           },
+           {
+            "key": "1",
+            "kind": "FLOAT"
+           },
+           {
+            "key": "2",
+            "kind": "BOOL"
+           },
+           {
+            "key": "3",
+            "kind": "LIST",
+            "children": [
+             {
+              "key": "...",
+              "kind": "UNION",
+              "children": [
+               {
+                "key": "0",
+                "kind": "STRING"
+               },
+               {
+                "key": "1",
+                "kind": "FLOAT"
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
        }
       ]
      },
