@@ -1,3 +1,10 @@
+## [7.0.1](https://github.com/arkitektio/bsx/compare/v7.0.0...v7.0.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **spec:** the Orkestrator's catalog snapshot is the one the spec holds ([5cf460a](https://github.com/arkitektio/bsx/commit/5cf460a295b1cad76867705d0404a9035ff1cd86))
+
 # [7.0.0](https://github.com/arkitektio/bsx/compare/v6.9.0...v7.0.0) (2026-11-24)
 
 
